@@ -19,8 +19,8 @@ Rules
 | --- | --- | --- | --- | --- |
 | 001 | [Solution skeleton and project references](001-solution-skeleton.md) | — |  | todo |
 | 002 | [Database project with DbUp](002-database-project-dbup.md) | 001 |  | todo |
-| 003 | [Shared kernel building blocks](003-shared-kernel.md) | 001 |  | todo |
-| 004 | [API host, unit of work and error handling](004-api-host-pipeline.md) | 002, 003 |  | todo |
+| 001 |  | done |
+| 004
 | 005 | [Authentication: dev login and production OIDC](005-authentication.md) | 004 | yes | todo |
 | 006 | [Identity module: current user and menus](006-identity-me-endpoint.md) | 005 |  | todo |
 | 007 | [Case access service (the single gate to case data)](007-case-access-service.md) | 006 |  | todo |
