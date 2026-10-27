@@ -29,5 +29,5 @@ Before saying a task is finished, go through every item and report the result as
 - [ ] Frontend tasks: `npm run lint` and `npm run build` pass.
 
 ## 4. Hand-off
-- [ ] Set the task's Status to `done` in `docs/tasks/README.md`.
+- [ ] In `docs/tasks/README.md` change ONLY the last cell of this task's row from `todo` to `done` (use a find/replace on that exact row). Never rewrite, move or delete other rows. Show the before/after of that one line.
 - [ ] Propose a commit message: `NNN <task title>` + a 3–5 line summary of what changed.
