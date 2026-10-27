@@ -28,6 +28,7 @@ public sealed class CaseSeed : IAsyncDisposable
     public long OfficeTrId { get; private set; }
     public long OfficeDrId { get; private set; }
     public long ActiveCaseId { get; private set; }
+    public long ActiveDossierId { get; private set; }
     public long RegisteredCaseId { get; private set; }
 
     /// <summary>Keys: admin, protokoll, kryetar, avokat1, avokat2, ndihmes, monitor, institucion, jurist, jurist2, drlawyer.</summary>
@@ -86,6 +87,7 @@ public sealed class CaseSeed : IAsyncDisposable
         var dossierB = await InsertDossierAsync($"T-{suffix}-B", formatId, trId, protokollId);
 
         ActiveCaseId = await InsertCaseAsync(dossierA, $"T-{suffix}-A/1", trId, levelId, courtId, protokollId, "ACTIVE");
+        ActiveDossierId = dossierA;
         RegisteredCaseId = await InsertCaseAsync(dossierB, $"T-{suffix}-B/1", trId, levelId, courtId, protokollId, "REGISTERED");
 
         await AssignAsync("avokat1", "PRIMARY_LAWYER", kryetarId);

@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\Ash.SharedKernel\Ash.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Modules\Cases\Ash.Modules.Cases\Ash.Modules.Cases.csproj" />
   </ItemGroup>
 </Project>

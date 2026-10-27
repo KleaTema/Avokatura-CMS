@@ -8,6 +8,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<Case> Cases => Set<Case>();
     public DbSet<CaseAccessRow> CaseAccess => Set<CaseAccessRow>();
     public DbSet<CasePermissionRow> CasePermissions => Set<CasePermissionRow>();
+    public DbSet<CaseHistoryEvent> CaseHistoryEvents => Set<CaseHistoryEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,11 +42,36 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.AccessProfile).HasColumnName("access_profile");
             b.Property(x => x.PermissionCode).HasColumnName("permission_code");
         });
+            modelBuilder.Entity<CaseHistoryEvent>(b =>
+            {
+                b.ToTable("case_history_events");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("id");
+                b.Property(x => x.DossierId).HasColumnName("dossier_id");
+                b.Property(x => x.CaseId).HasColumnName("case_id");
+                b.Property(x => x.EventType).HasColumnName("event_type");
+                b.Property(x => x.ActorUserId).HasColumnName("actor_user_id");
+                b.Property(x => x.OccurredAt).HasColumnName("occurred_at");
+                b.Property(x => x.Summary).HasColumnName("summary");
+                b.Property(x => x.Details).HasColumnName("details").HasColumnType("json");
+            });
+        }
     }
-}
 
-public sealed class Case
-{
+    public sealed class CaseHistoryEvent
+    {
+        public ulong Id { get; set; }
+        public ulong DossierId { get; set; }
+        public ulong? CaseId { get; set; }
+        public string EventType { get; set; } = string.Empty;
+        public uint? ActorUserId { get; set; }
+        public DateTime OccurredAt { get; set; }
+        public string Summary { get; set; } = string.Empty;
+        public string? Details { get; set; }
+    }
+
+    public sealed class Case
+    {
     public ulong Id { get; set; }
     public Guid PublicId { get; set; }
     public ulong DossierId { get; set; }

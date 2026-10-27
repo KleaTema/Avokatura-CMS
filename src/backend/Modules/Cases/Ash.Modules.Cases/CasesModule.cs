@@ -1,6 +1,7 @@
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
+using Ash.Modules.Cases.Infrastructure.History;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ public static class CasesModule
 	{
 		services.AddScoped<CasesDbContext>();
 		services.AddScoped<CaseAccessService>();
+		services.AddScoped<IHistoryWriter, HistoryWriter>();
 		services.AddScoped<ICaseAccessService>(sp => sp.GetRequiredService<CaseAccessService>());
 		return services;
 	}
