@@ -152,8 +152,9 @@ CREATE TABLE case_reminders (
   CONSTRAINT fk_cr_assignment FOREIGN KEY (assignment_id) REFERENCES case_assignments (id)
 ) ENGINE=InnoDB COMMENT='Kujtesat e dërguara';
 
+DELIMITER $$
 -- ---------------------------------------------------------------------
--- create_dossier: issues the unique code AND inserts the dossier in one
+-- create_dossier: issues
 -- step, so no two requests can ever end with the same code.
 --   * code built from the ACTIVE row of dossier_code_formats
 --   * random digits from RANDOM_BYTES (cryptographic): codes reveal
@@ -165,7 +166,6 @@ CREATE TABLE case_reminders (
 -- API usage: CALL create_dossier(@office, @user, @id, @code) inside the
 -- same transaction that inserts the case X/1.
 -- ---------------------------------------------------------------------
-DELIMITER $$
 CREATE PROCEDURE create_dossier(
   IN  p_office_id  SMALLINT UNSIGNED,
   IN  p_user_id    INT UNSIGNED,

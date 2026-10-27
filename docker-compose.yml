@@ -1,6 +1,6 @@
 # =====================================================================
 # ASH — local development environment (your PC only, NOT production)
-#   mysql      MySQL 8.0, builds the database from scripts 01–08 on first start
+#   mysql      MySQL 8.0 (schema is applied by the DbUp project, see README)
 #   minio      S3-compatible object storage for files (stands in for AKSHI's)
 #   minio-init creates the buckets once, then exits
 #
@@ -29,17 +29,6 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      # Run ONLY when mysql-data is empty (first start), in name order.
-      # 10_example_statistics.sql and tests/ are deliberately not mounted.
-      - ./01_databases_and_users.sql:/docker-entrypoint-initdb.d/01_databases_and_users.sql:ro
-      - ./02_core_reference.sql:/docker-entrypoint-initdb.d/02_core_reference.sql:ro
-      - ./03_core_cases.sql:/docker-entrypoint-initdb.d/03_core_cases.sql:ro
-      - ./04_core_documents_history.sql:/docker-entrypoint-initdb.d/04_core_documents_history.sql:ro
-      - ./05_chat.sql:/docker-entrypoint-initdb.d/05_chat.sql:ro
-      - ./06_audit_and_ops.sql:/docker-entrypoint-initdb.d/06_audit_and_ops.sql:ro
-      - ./07_seed_reference_data.sql:/docker-entrypoint-initdb.d/07_seed_reference_data.sql:ro
-      - ./08_views_and_grants.sql:/docker-entrypoint-initdb.d/08_views_and_grants.sql:ro
-      - ./local/99_local_dev_user.sql:/docker-entrypoint-initdb.d/99_local_dev_user.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-ash_local_root}"]
       interval: 10s

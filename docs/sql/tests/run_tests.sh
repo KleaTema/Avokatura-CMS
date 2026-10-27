@@ -1,6 +1,6 @@
 #!/bin/bash
 # Negative tests: each statement MUST be rejected by the database.
-# Usage: ./run_tests.sh   (after 01..08 and tests/test_scenario.sql)
+(after the DbUp project ran and tests/test_scenario.sql)
 M="mysql --default-character-set=utf8mb4 -N ash_core"
 pass=0; fail=0
 expect_fail () {
