@@ -27,7 +27,7 @@ Rules
 | 008 | [Audit module: append-only audit log](008-audit-log.md) | 005 |  | done |
 | 009 | [Case history writer](009-history-writer.md) | 004 |  | done |
 | 010 | [Integration test harness](010-integration-test-harness.md) | 002, 004 |  | todo |
-| 011 | [Frontend skeleton](011-frontend-skeleton.md) | 006 |  | todo |
+| 011 | [Frontend skeleton](011-frontend-skeleton.md) | 006 |  | done |
 
 ### Phase 1 — Reference data & administration
 
