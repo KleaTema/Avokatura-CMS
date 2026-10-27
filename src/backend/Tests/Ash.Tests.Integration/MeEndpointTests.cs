@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Ash.Api.Auth;
+using Ash.Tests.Integration.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -12,27 +13,14 @@ using Shouldly;
 
 namespace Ash.Tests.Integration;
 
-/// <summary>Needs the local MySQL (docker) migrated with --local. Override with env var ASH_TEST_CONNECTION.</summary>
-public class MeEndpointTests
+/// <summary>Runs against the test container (seeded @ash.local users).</summary>
+public class MeEndpointTests(MySqlFixture db) : IntegrationTest(db)
 {
     private const string AdminOnlyPath = "/api/test/admin-only";
     private const string EndpointBuilderKey = "__EndpointRouteBuilder";
 
-    private static readonly string ConnectionString =
-        Environment.GetEnvironmentVariable("ASH_TEST_CONNECTION")
-        ?? "Server=localhost;Port=3306;User=ash_dev;Password=ash_dev_local;Database=ash_core;";
-
-    private static WebApplicationFactory<Program> CreateFactory()
-    {
-        Environment.SetEnvironmentVariable("ConnectionStrings__App", ConnectionString);
-        Environment.SetEnvironmentVariable("Auth__Authority", "https://idp.example.test");
-        Environment.SetEnvironmentVariable("Auth__Audience", "ash-api");
-        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Development");
-            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter, AdminOnlyStartupFilter>());
-        });
-    }
+    private AshApiFactory CreateFactory() =>
+        new(Db, configureServices: services => services.AddSingleton<IStartupFilter, AdminOnlyStartupFilter>());
 
     private static HttpRequestMessage Request(string path, string? devUser)
     {
@@ -90,6 +78,17 @@ public class MeEndpointTests
         var inst = await GetMe(client, "institucion@ash.local");
         inst.GetProperty("institution").GetProperty("publicId").GetGuid().ShouldNotBe(Guid.Empty);
         inst.GetProperty("office").ValueKind.ShouldBe(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Seeded_kryetar_gets_200_from_identity_me()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("kryetar@ash.local");
+
+        var response = await client.GetAsync("/api/identity/me", TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]

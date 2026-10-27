@@ -17,18 +17,19 @@ namespace Ash.Tests.Integration;
 
 /// <summary>
 /// case_history_events is append-only (triggers), so these tests NEVER commit: every test begins the unit of work,
-/// writes and reads inside the transaction, then rolls back. Needs the local MySQL migrated with --local.
+/// writes and reads inside the transaction, then rolls back. Runs against the test container.
 /// </summary>
-public sealed class HistoryWriterFixture : IAsyncLifetime
+public sealed class HistoryWriterFixture(string connectionString) : IAsyncLifetime
 {
+    public string ConnectionString { get; } = connectionString;
     public CaseSeed Seed { get; private set; } = null!;
     public ServiceProvider Provider { get; private set; } = null!;
 
     public async ValueTask InitializeAsync()
     {
-        Seed = await CaseSeed.CreateAsync();
+        Seed = await CaseSeed.CreateAsync(ConnectionString);
         var services = new ServiceCollection();
-        services.AddAshInfrastructure(CaseSeed.ConnectionString);
+        services.AddAshInfrastructure(ConnectionString);
         services.AddSingleton<IClock, SystemClock>();
         services.AddCasesModule(new ConfigurationBuilder().Build());
         services.AddScoped<CaseAccessFixture.TestCurrentUser>();
@@ -43,8 +44,23 @@ public sealed class HistoryWriterFixture : IAsyncLifetime
     }
 }
 
-public class HistoryWriterTests(HistoryWriterFixture fixture) : IClassFixture<HistoryWriterFixture>
+public class HistoryWriterTests(MySqlFixture db) : IntegrationTest(db)
 {
+    private HistoryWriterFixture fixture = null!;
+
+    public override async ValueTask InitializeAsync()
+    {
+        await base.InitializeAsync();
+        fixture = new HistoryWriterFixture(Db.AppConnectionString);
+        await fixture.InitializeAsync();
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await fixture.DisposeAsync();
+        await base.DisposeAsync();
+    }
+
     private long DossierId => fixture.Seed.ActiveDossierId;
     private long CaseId => fixture.Seed.ActiveCaseId;
 
@@ -112,7 +128,7 @@ public class HistoryWriterTests(HistoryWriterFixture fixture) : IClassFixture<Hi
             await uow.RollbackAsync(CancellationToken.None);
         }
 
-        await using var connection = new MySqlConnection(CaseSeed.ConnectionString);
+        await using var connection = new MySqlConnection(fixture.ConnectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         await using var count = new MySqlCommand("SELECT COUNT(*) FROM case_history_events WHERE case_id = @c", connection);
         count.Parameters.AddWithValue("@c", CaseId);

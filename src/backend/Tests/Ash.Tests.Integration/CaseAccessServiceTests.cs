@@ -13,17 +13,17 @@ using Shouldly;
 
 namespace Ash.Tests.Integration;
 
-/// <summary>Needs the local MySQL (docker) migrated with --local. Override with env var ASH_TEST_CONNECTION.</summary>
-public sealed class CaseAccessFixture : IAsyncLifetime
+/// <summary>Per-test seed + service provider against the test container.</summary>
+public sealed class CaseAccessFixture(string connectionString) : IAsyncLifetime
 {
     public CaseSeed Seed { get; private set; } = null!;
     public ServiceProvider Provider { get; private set; } = null!;
 
     public async ValueTask InitializeAsync()
     {
-        Seed = await CaseSeed.CreateAsync();
+        Seed = await CaseSeed.CreateAsync(connectionString);
         var services = new ServiceCollection();
-        services.AddAshInfrastructure(CaseSeed.ConnectionString);
+        services.AddAshInfrastructure(connectionString);
         services.AddCasesModule(new ConfigurationBuilder().Build());
         services.AddScoped<TestCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<TestCurrentUser>());
@@ -60,8 +60,23 @@ public sealed class CaseAccessFixture : IAsyncLifetime
     }
 }
 
-public class CaseAccessServiceTests(CaseAccessFixture fixture) : IClassFixture<CaseAccessFixture>
+public class CaseAccessServiceTests(MySqlFixture db) : IntegrationTest(db)
 {
+    private CaseAccessFixture fixture = null!;
+
+    public override async ValueTask InitializeAsync()
+    {
+        await base.InitializeAsync();
+        fixture = new CaseAccessFixture(Db.AppConnectionString);
+        await fixture.InitializeAsync();
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await fixture.DisposeAsync();
+        await base.DisposeAsync();
+    }
+
     private long Active => fixture.Seed.ActiveCaseId;
     private long Registered => fixture.Seed.RegisteredCaseId;
 

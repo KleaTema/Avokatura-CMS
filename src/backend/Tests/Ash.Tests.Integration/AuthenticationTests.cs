@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Identity;
+using Ash.Tests.Integration.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -15,32 +16,16 @@ using Shouldly;
 
 namespace Ash.Tests.Integration;
 
-/// <summary>
-/// Needs the local MySQL (docker) migrated with --local so the seeded users exist.
-/// Override the connection with env var ASH_TEST_CONNECTION.
-/// </summary>
-public class AuthenticationTests
+/// <summary>Runs against the test container, where the migrator seeded the @ash.local users.</summary>
+public class AuthenticationTests(MySqlFixture db) : IntegrationTest(db)
 {
     private const string WhoAmIPath = "/api/test/whoami";
     private const string EndpointBuilderKey = "__EndpointRouteBuilder";
 
-    private static readonly string ConnectionString =
-        Environment.GetEnvironmentVariable("ASH_TEST_CONNECTION")
-        ?? "Server=localhost;Port=3306;User=ash_dev;Password=ash_dev_local;Database=ash_core;";
-
-    // Environment variables are read by the host before test overrides apply, so use them for configuration.
-    private static WebApplicationFactory<Program> CreateFactory(
-        string environment, string authority = "https://idp.example.test", string audience = "ash-api")
-    {
-        Environment.SetEnvironmentVariable("ConnectionStrings__App", ConnectionString);
-        Environment.SetEnvironmentVariable("Auth__Authority", authority);
-        Environment.SetEnvironmentVariable("Auth__Audience", audience);
-        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment(environment);
-            builder.ConfigureServices(services => services.AddSingleton<IStartupFilter, WhoAmIStartupFilter>());
-        });
-    }
+    private AshApiFactory CreateFactory(
+        string environment, string authority = "https://idp.example.test", string audience = "ash-api") =>
+        new(Db, environment, services => services.AddSingleton<IStartupFilter, WhoAmIStartupFilter>(),
+            authority: authority, audience: audience);
 
     private static HttpRequestMessage Request(string? devUser)
     {
@@ -130,9 +115,9 @@ public class AuthenticationTests
         Should.Throw<InvalidOperationException>(() => factory.CreateClient());
     }
 
-    private static async Task ExecuteAsync(string sql)
+    private async Task ExecuteAsync(string sql)
     {
-        await using var connection = new MySqlConnection(ConnectionString);
+        await using var connection = new MySqlConnection(Db.AppConnectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         await using var command = new MySqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);

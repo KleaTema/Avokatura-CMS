@@ -10,9 +10,11 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.MySql" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Host\Ash.Api\Ash.Api.csproj" />
+    <ProjectReference Include="..\..\Database\Ash.Database\Ash.Database.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

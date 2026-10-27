@@ -5,6 +5,7 @@ using Ash.Api.Middleware;
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Audit.Infrastructure;
 using Ash.SharedKernel.Ids;
+using Ash.Tests.Integration.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -19,44 +20,29 @@ using Shouldly;
 namespace Ash.Tests.Integration;
 
 /// <summary>
-/// Needs the local MySQL (docker) migrated with --local (users + ash_audit_local account).
-/// Override connections with env vars ASH_TEST_CONNECTION and ASH_TEST_AUDIT_CONNECTION.
+/// Runs against the test container (users + ash_audit_local account from the local scripts).
 /// Rows are always filtered by correlation id.
 /// </summary>
-public class AuditLogTests
+public class AuditLogTests(MySqlFixture db) : IntegrationTest(db)
 {
     private const string CaseViewPath = "/api/test/audit/case-view/";
     private const string ForbiddenPath = "/api/test/audit/forbidden";
     private const string EndpointBuilderKey = "__EndpointRouteBuilder";
     private const string TestIp = "203.0.113.7";
 
-    private static readonly string AppConnection =
-        Environment.GetEnvironmentVariable("ASH_TEST_CONNECTION")
-        ?? "Server=localhost;Port=3306;User=ash_dev;Password=ash_dev_local;Database=ash_core;";
+    private string AppConnection => Db.AppConnectionString;
 
-    private static readonly string AuditConnection =
-        Environment.GetEnvironmentVariable("ASH_TEST_AUDIT_CONNECTION")
-        ?? "Server=localhost;Port=3306;User=ash_audit_local;Password=ash_audit_local_pw;";
+    private string AuditConnection => Db.AuditConnectionString;
 
-    private static WebApplicationFactory<Program> CreateFactory(
-        string auditConnection, ILogger<AuditWriter>? writerLogger = null)
-    {
-        Environment.SetEnvironmentVariable("ConnectionStrings__App", AppConnection);
-        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+    private AshApiFactory CreateFactory(string auditConnection, ILogger<AuditWriter>? writerLogger = null) =>
+        new(Db, auditConnection: auditConnection, configureServices: services =>
         {
-            builder.UseEnvironment("Development");
-            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["ConnectionStrings:Audit"] = auditConnection }));
-            builder.ConfigureServices(services =>
+            services.AddSingleton<IStartupFilter, AuditTestStartupFilter>();
+            if (writerLogger is not null)
             {
-                services.AddSingleton<IStartupFilter, AuditTestStartupFilter>();
-                if (writerLogger is not null)
-                {
-                    services.AddSingleton(writerLogger);
-                }
-            });
+                services.AddSingleton(writerLogger);
+            }
         });
-    }
 
     private static HttpRequestMessage Get(string path, string? devUser)
     {
@@ -181,7 +167,7 @@ public class AuditLogTests
 
     private sealed record AuditRow(string Action, string Outcome, long? UserId, long? CaseId, string? Ip);
 
-    private static async Task<List<AuditRow>> WaitForRowsAsync(Guid correlationId)
+    private async Task<List<AuditRow>> WaitForRowsAsync(Guid correlationId)
     {
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (true)
@@ -196,7 +182,7 @@ public class AuditLogTests
         }
     }
 
-    private static async Task<List<AuditRow>> ReadRowsAsync(Guid correlationId)
+    private async Task<List<AuditRow>> ReadRowsAsync(Guid correlationId)
     {
         await using var connection = new MySqlConnection(AuditConnection);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -219,7 +205,7 @@ public class AuditLogTests
         return rows;
     }
 
-    private static async Task<long> QueryAppScalarAsync(string sql)
+    private async Task<long> QueryAppScalarAsync(string sql)
     {
         await using var connection = new MySqlConnection(AppConnection);
         await connection.OpenAsync(TestContext.Current.CancellationToken);

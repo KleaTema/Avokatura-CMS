@@ -39,7 +39,7 @@ Modules: Identity, Reference, Cases, Documents, Notifications, Audit, Reports, C
 11. Errors are RFC 7807 ProblemDetails. User-facing text is Albanian; code, identifiers and comments are English.
 12. No secrets in code or appsettings committed to git; use user-secrets locally.
 13. Entities use `DateTime` (UTC) for DATETIME columns, never `DateTimeOffset`.
-
+14. Edit files ONLY with the file edit tool, never with PowerShell (Set-Content, .Replace, here-strings). Never pipe test or build output through Select-Object; show it directly.
 ## Conventions
 - Endpoint per feature: `Endpoints/<Feature>Endpoints.cs` with `Map<Feature>(this IEndpointRouteBuilder)`; routes `/api/<module>/...`.
 - Handler per use case: `Application/<UseCase>/<UseCase>Handler.cs` + `<UseCase>Request` + `<UseCase>Validator`.

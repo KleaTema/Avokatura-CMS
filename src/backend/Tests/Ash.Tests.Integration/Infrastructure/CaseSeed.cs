@@ -4,14 +4,12 @@ namespace Ash.Tests.Integration.Infrastructure;
 
 /// <summary>
 /// Reusable scenario data for case access tests (raw SQL, unique codes, removed again on dispose).
-/// Needs the local MySQL migrated with --local (users admin/protokoll/kryetar/avokat1/avokat2/ndihmes/monitor/institucion/jurist).
+/// Needs the test container migrated with local=true (users admin/protokoll/kryetar/avokat1/avokat2/ndihmes/monitor/institucion/jurist).
 /// Creates: dossier + ACTIVE case (office TR) with a full team and a MONITORING institution link, a REGISTERED case
 /// registered by protokoll, office DR with its own lawyer, and a second jurist of the same ministry who is NOT assigned.
 /// </summary>
 public sealed class CaseSeed : IAsyncDisposable
 {
-    public const string DefaultConnectionString = "Server=localhost;Port=3306;User=ash_dev;Password=ash_dev_local;Database=ash_core;";
-
     private static readonly string[] SeededUserKeys =
         ["admin", "protokoll", "kryetar", "avokat1", "avokat2", "ndihmes", "monitor", "institucion", "jurist"];
 
@@ -22,9 +20,6 @@ public sealed class CaseSeed : IAsyncDisposable
 
     private CaseSeed(MySqlConnection connection) => _connection = connection;
 
-    public static string ConnectionString { get; } =
-        Environment.GetEnvironmentVariable("ASH_TEST_CONNECTION") ?? DefaultConnectionString;
-
     public long OfficeTrId { get; private set; }
     public long OfficeDrId { get; private set; }
     public long ActiveCaseId { get; private set; }
@@ -34,9 +29,9 @@ public sealed class CaseSeed : IAsyncDisposable
     /// <summary>Keys: admin, protokoll, kryetar, avokat1, avokat2, ndihmes, monitor, institucion, jurist, jurist2, drlawyer.</summary>
     public SeedUser User(string key) => _users[key];
 
-    public static async Task<CaseSeed> CreateAsync()
+    public static async Task<CaseSeed> CreateAsync(string connectionString)
     {
-        var connection = new MySqlConnection(ConnectionString);
+        var connection = new MySqlConnection(connectionString);
         await connection.OpenAsync();
         var seed = new CaseSeed(connection);
         try
