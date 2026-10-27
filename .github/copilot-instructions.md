@@ -38,6 +38,7 @@ Modules: Identity, Reference, Cases, Documents, Notifications, Audit, Reports, C
 10. Lists use keyset paging (`?after=<cursor>&limit=50`), never OFFSET.
 11. Errors are RFC 7807 ProblemDetails. User-facing text is Albanian; code, identifiers and comments are English.
 12. No secrets in code or appsettings committed to git; use user-secrets locally.
+13. Entities use `DateTime` (UTC) for DATETIME columns, never `DateTimeOffset`.
 
 ## Conventions
 - Endpoint per feature: `Endpoints/<Feature>Endpoints.cs` with `Map<Feature>(this IEndpointRouteBuilder)`; routes `/api/<module>/...`.

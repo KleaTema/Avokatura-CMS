@@ -22,6 +22,7 @@ Make writing an integration test a few lines: real MySQL in a container, schema 
 ## Acceptance criteria
 - [ ] A sample test registers nothing, calls `/api/identity/me` as a seeded Kryetar and gets 200.
 - [ ] Full test suite runs in under 2 minutes on a laptop.
+- [ ] Integration test: a write through two module DbContexts that throws leaves no rows (unit of work rollback, from task 004).
 
 ## Out of scope
 - Anything not listed above.
