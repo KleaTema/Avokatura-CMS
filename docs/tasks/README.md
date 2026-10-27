@@ -23,7 +23,7 @@ Rules
 | 004 | [API host, unit of work and error handling](004-api-host-pipeline.md) | 002, 003 |  | done |
 | 005 | [Authentication: dev login and production OIDC](005-authentication.md) | 004 | yes | done |
 | 006 | [Identity module: current user and menus](006-identity-me-endpoint.md) | 005 |  | done |
-| 007 | [Case access service (the single gate to case data)](007-case-access-service.md) | 006 |  | todo |
+| 007 | [Case access service (the single gate to case data)](007-case-access-service.md) | 006 |  | done |
 | 008 | [Audit module: append-only audit log](008-audit-log.md) | 005 |  | todo |
 | 009 | [Case history writer](009-history-writer.md) | 004 |  | todo |
 | 010 | [Integration test harness](010-integration-test-harness.md) | 002, 004 |  | todo |

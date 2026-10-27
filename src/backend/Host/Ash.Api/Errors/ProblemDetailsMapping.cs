@@ -1,3 +1,4 @@
+using Ash.Modules.Cases.Contracts;
 using Ash.SharedKernel.Concurrency;
 using Ash.SharedKernel.Results;
 using Microsoft.AspNetCore.Diagnostics;
@@ -35,6 +36,11 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "Regjistrimi u ndryshua nga dikush tjetër. Rifreskoni dhe provoni përsëri."
+            },
+            CaseAccessException ex => new ProblemDetails
+            {
+                Status = ex.Error.Type.ToStatusCode(),
+                Title = ex.Error.Message
             },
             _ => null
         };
