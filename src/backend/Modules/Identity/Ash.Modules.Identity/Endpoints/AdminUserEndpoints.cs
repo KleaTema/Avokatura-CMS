@@ -1,8 +1,12 @@
+using Ash.Modules.Identity.Application.GetMe;
 using Ash.Modules.Identity.Application.Users;
+using Ash.Modules.Identity.Infrastructure;
+using Ash.SharedKernel.Paging;
 using Ash.SharedKernel.Results;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Ash.Modules.Identity.Contracts;
 
@@ -44,6 +48,7 @@ public static class AdminUserEndpoints
                 ListUsersHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new ListUsersQuery(q, role, officeId, institutionId, active, after, limit), ct)))
             .RequirePermissionFilter(Permission)
+            .Produces<KeysetPage<UserResponse>>()
             .WithName("ListAdminUsers");
 
         group.MapPost("", async (CreateUserRequest req, CreateUserHandler handler, CancellationToken ct) =>
@@ -54,32 +59,59 @@ public static class AdminUserEndpoints
                     : Problem(result.Error!);
             })
             .RequirePermissionFilter(Permission)
+            .Produces<UserResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("CreateAdminUser");
 
         group.MapPut("/{id:guid}", async (Guid id, UpdateUserRequest req, UpdateUserHandler handler, CancellationToken ct) =>
                 ToResult(await handler.Handle(id, req, ct)))
             .RequirePermissionFilter(Permission)
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("UpdateAdminUser");
 
         group.MapPost("/{id:guid}/deactivate", async (Guid id, SetUserActiveHandler handler, CancellationToken ct) =>
                 ToResult(await handler.Handle(id, false, ct)))
             .RequirePermissionFilter(Permission)
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("DeactivateAdminUser");
 
         group.MapPost("/{id:guid}/activate", async (Guid id, SetUserActiveHandler handler, CancellationToken ct) =>
                 ToResult(await handler.Handle(id, true, ct)))
             .RequirePermissionFilter(Permission)
+            .Produces<UserResponse>()
             .WithName("ActivateAdminUser");
 
         group.MapPost("/{id:guid}/roles", async (Guid id, RoleRequest req, GrantRoleHandler handler, CancellationToken ct) =>
                 ToResult(await handler.Handle(id, req.Role, ct)))
             .RequirePermissionFilter(Permission)
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("GrantAdminUserRole");
 
         group.MapDelete("/{id:guid}/roles/{role}", async (Guid id, string role, RevokeRoleHandler handler, CancellationToken ct) =>
                 ToResult(await handler.Handle(id, role, ct)))
             .RequirePermissionFilter(Permission)
+            .Produces<UserResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("RevokeAdminUserRole");
+
+        endpoints.MapGet("/api/identity/admin/offices", async (IdentityDbContext db, CancellationToken ct) =>
+                Results.Ok(await db.Offices.AsNoTracking().OrderBy(o => o.Name)
+                    .Select(o => new NamedRef(o.PublicId, o.Name)).ToListAsync(ct)))
+            .RequirePermissionFilter(Permission)
+            .Produces<IReadOnlyList<NamedRef>>()
+            .WithName("ListAdminOffices");
+
+        endpoints.MapGet("/api/identity/admin/institutions", async (IdentityDbContext db, CancellationToken ct) =>
+                Results.Ok(await db.Institutions.AsNoTracking().OrderBy(i => i.Name)
+                    .Select(i => new NamedRef(i.PublicId, i.Name)).ToListAsync(ct)))
+            .RequirePermissionFilter(Permission)
+            .Produces<IReadOnlyList<NamedRef>>()
+            .WithName("ListAdminInstitutions");
 
         return endpoints;
     }
