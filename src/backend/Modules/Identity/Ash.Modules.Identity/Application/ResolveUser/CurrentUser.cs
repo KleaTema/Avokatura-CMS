@@ -14,6 +14,7 @@ public sealed class CurrentUser : ICurrentUser
 
     public long UserId => User.UserId;
     public Guid PublicId => User.PublicId;
+    public string DisplayName => User.DisplayName;
     public long? OfficeId => User.OfficeId;
     public long? InstitutionId => User.InstitutionId;
     public IReadOnlyCollection<string> Roles => User.Roles;

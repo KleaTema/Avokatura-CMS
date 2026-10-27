@@ -1,6 +1,7 @@
 using Ash.Api.Auth;
 using Ash.Api.Errors;
 using Ash.Api.Health;
+using Ash.Api.Middleware;
 using Ash.Api.Persistence;
 using Ash.Infrastructure;
 using Ash.Modules.Audit;
@@ -48,6 +49,7 @@ builder.Services.AddChatModule(builder.Configuration);
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+app.UseMiddleware<AuditMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseMiddleware<UnitOfWorkMiddleware>();

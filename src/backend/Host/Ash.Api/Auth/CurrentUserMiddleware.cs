@@ -1,3 +1,5 @@
+using Ash.Modules.Audit.Contracts;
+using Ash.Modules.Audit.Infrastructure;
 using Ash.Modules.Identity.Application.ResolveUser;
 
 namespace Ash.Api.Auth;
@@ -5,7 +7,7 @@ namespace Ash.Api.Auth;
 /// <summary>Maps the authenticated principal to a users row and fills ICurrentUser; unknown or inactive user gives 401.</summary>
 public sealed class CurrentUserMiddleware(RequestDelegate next)
 {
-    public async Task InvokeAsync(HttpContext context, ResolveUserHandler handler, CurrentUser currentUser)
+    public async Task InvokeAsync(HttpContext context, ResolveUserHandler handler, CurrentUser currentUser, AuditRequestContext audit)
     {
         if (context.User.Identity?.IsAuthenticated != true)
         {
@@ -25,6 +27,7 @@ public sealed class CurrentUserMiddleware(RequestDelegate next)
         }
 
         currentUser.Set(result.Value);
+        audit.Actor = new AuditActor(result.Value.UserId, result.Value.DisplayName, string.Join(',', result.Value.Roles));
         await next(context);
     }
 }
