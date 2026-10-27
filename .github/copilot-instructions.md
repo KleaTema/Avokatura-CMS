@@ -2,6 +2,7 @@
 
 Electronic case management for the State Advocacy Office of Albania. Modular monolith: .NET backend + React frontend in one repo.
 Full module map: `docs/architecture.md`. Work comes as task files in `docs/tasks/` — implement ONLY what the task file asks.
+Repo skills in `.github/skills/`: ash-backend-feature, ash-sql-migration, ash-frontend-feature, ash-task-done-check (always run this last).
 
 ## Stack
 - Backend: .NET 10, C# latest, nullable enabled, Minimal APIs, EF Core 10 (MySQL provider chosen in task 001), FluentValidation, Serilog, SignalR.
