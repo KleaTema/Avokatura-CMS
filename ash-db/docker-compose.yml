@@ -1,0 +1,99 @@
+# =====================================================================
+# ASH — local development environment (your PC only, NOT production)
+#   mysql      MySQL 8.0, builds the database from scripts 01–08 on first start
+#   minio      S3-compatible object storage for files (stands in for AKSHI's)
+#   minio-init creates the buckets once, then exits
+#
+# Start:            docker compose up -d
+# Stop (keep data): docker compose down
+# Rebuild from zero (DELETES all local data): docker compose down -v
+#                                             docker compose up -d
+# =====================================================================
+name: ash
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ash-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ash_local_root}
+      TZ: UTC
+    command:
+      - --default-time-zone=+00:00
+      - --event-scheduler=ON
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --transaction-isolation=READ-COMMITTED
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # Run ONLY when mysql-data is empty (first start), in name order.
+      # 10_example_statistics.sql and tests/ are deliberately not mounted.
+      - ./01_databases_and_users.sql:/docker-entrypoint-initdb.d/01_databases_and_users.sql:ro
+      - ./02_core_reference.sql:/docker-entrypoint-initdb.d/02_core_reference.sql:ro
+      - ./03_core_cases.sql:/docker-entrypoint-initdb.d/03_core_cases.sql:ro
+      - ./04_core_documents_history.sql:/docker-entrypoint-initdb.d/04_core_documents_history.sql:ro
+      - ./05_chat.sql:/docker-entrypoint-initdb.d/05_chat.sql:ro
+      - ./06_audit_and_ops.sql:/docker-entrypoint-initdb.d/06_audit_and_ops.sql:ro
+      - ./07_seed_reference_data.sql:/docker-entrypoint-initdb.d/07_seed_reference_data.sql:ro
+      - ./08_views_and_grants.sql:/docker-entrypoint-initdb.d/08_views_and_grants.sql:ro
+      - ./local/99_local_dev_user.sql:/docker-entrypoint-initdb.d/99_local_dev_user.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-ash_local_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    # Docker Hub deleted minio/minio and minio/mc in Sept 2026. Chainguard
+    # still publishes a free MinIO build (only the "latest" tag is free).
+    # LOCAL development only — production uses AKSHI's S3-compatible storage.
+    image: cgr.dev/chainguard/minio:latest
+    container_name: ash-minio
+    restart: unless-stopped
+    user: "0:0"            # image runs as UID 65532 by default; root avoids volume permission errors locally
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-ash_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-ash_minio_local_pw}
+    ports:
+      - "9000:9000"   # S3 API  -> use http://localhost:9000 in the .NET config
+      - "9001:9001"   # web console -> http://localhost:9001
+    volumes:
+      - minio-data:/data
+
+  # Creates the buckets from the design doc with the official AWS CLI (it
+  # speaks S3, which is exactly what the .NET app will use). Waits until
+  # MinIO answers, creates what is missing, then exits. Safe to run again.
+  minio-init:
+    image: amazon/aws-cli:latest
+    container_name: ash-minio-init
+    depends_on:
+      - minio
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-ash_minio}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-ash_minio_local_pw}
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        S3="aws --endpoint-url http://minio:9000 s3api"
+        echo "Waiting for MinIO..."
+        until $$S3 list-buckets >/dev/null 2>&1; do sleep 2; done
+
+        $$S3 head-bucket --bucket ash-uploads-quarantine 2>/dev/null || $$S3 create-bucket --bucket ash-uploads-quarantine
+        $$S3 put-bucket-lifecycle-configuration --bucket ash-uploads-quarantine --lifecycle-configuration '{"Rules":[{"ID":"expire-1-day","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":1}}]}'
+
+        $$S3 head-bucket --bucket ash-documents 2>/dev/null || $$S3 create-bucket --bucket ash-documents --object-lock-enabled-for-bucket
+
+        $$S3 head-bucket --bucket ash-chat-files 2>/dev/null || $$S3 create-bucket --bucket ash-chat-files
+        $$S3 put-bucket-versioning --bucket ash-chat-files --versioning-configuration Status=Enabled
+
+        echo "Buckets ready:"; $$S3 list-buckets --query "Buckets[].Name" --output text
+    restart: "no"
+
+volumes:
+  mysql-data:
+  minio-data:
