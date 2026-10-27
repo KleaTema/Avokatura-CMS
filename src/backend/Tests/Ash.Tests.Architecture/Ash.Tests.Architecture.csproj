@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Identity\Ash.Modules.Identity\Ash.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Reference\Ash.Modules.Reference\Ash.Modules.Reference.csproj" />
+    <ProjectReference Include="..\..\Modules\Cases\Ash.Modules.Cases\Ash.Modules.Cases.csproj" />
+    <ProjectReference Include="..\..\Modules\Documents\Ash.Modules.Documents\Ash.Modules.Documents.csproj" />
+    <ProjectReference Include="..\..\Modules\Notifications\Ash.Modules.Notifications\Ash.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\Modules\Audit\Ash.Modules.Audit\Ash.Modules.Audit.csproj" />
+    <ProjectReference Include="..\..\Modules\Reports\Ash.Modules.Reports\Ash.Modules.Reports.csproj" />
+    <ProjectReference Include="..\..\Modules\Chat\Ash.Modules.Chat\Ash.Modules.Chat.csproj" />
+  </ItemGroup>
+</Project>

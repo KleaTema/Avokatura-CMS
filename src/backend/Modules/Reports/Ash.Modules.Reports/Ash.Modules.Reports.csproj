@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Ash.SharedKernel\Ash.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Ash.Infrastructure\Ash.Infrastructure.csproj" />
+    <ProjectReference Include="..\Ash.Modules.Reports.Contracts\Ash.Modules.Reports.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\Ash.Modules.Identity.Contracts\Ash.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Reference\Ash.Modules.Reference.Contracts\Ash.Modules.Reference.Contracts.csproj" />
+    <ProjectReference Include="..\..\Cases\Ash.Modules.Cases.Contracts\Ash.Modules.Cases.Contracts.csproj" />
+    <ProjectReference Include="..\..\Documents\Ash.Modules.Documents.Contracts\Ash.Modules.Documents.Contracts.csproj" />
+    <ProjectReference Include="..\..\Notifications\Ash.Modules.Notifications.Contracts\Ash.Modules.Notifications.Contracts.csproj" />
+    <ProjectReference Include="..\..\Audit\Ash.Modules.Audit.Contracts\Ash.Modules.Audit.Contracts.csproj" />
+    <ProjectReference Include="..\..\Chat\Ash.Modules.Chat.Contracts\Ash.Modules.Chat.Contracts.csproj" />
+  </ItemGroup>
+</Project>
