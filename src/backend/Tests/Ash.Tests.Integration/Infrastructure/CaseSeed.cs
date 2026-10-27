@@ -69,9 +69,7 @@ public sealed class CaseSeed : IAsyncDisposable
         _users["drlawyer"] = await LoadUserAsync(drLawyerId);
         _users["jurist2"] = await LoadUserAsync(jurist2Id);
 
-        var courtId = await InsertAsync("courts",
-            "INSERT INTO courts (name, court_level_id, city) SELECT @n, id, 'Tiranë' FROM court_levels WHERE code = 'FIRST_INSTANCE'",
-            ("@n", $"Gjykata test {suffix}"));
+        var courtId = await ScalarAsync("SELECT id FROM courts WHERE name = @n", ("@n", "Gjykata e Shkallës së Parë Tiranë"));
         var levelId = await ScalarAsync("SELECT id FROM court_levels WHERE code = 'FIRST_INSTANCE'");
         var formatId = await ScalarAsync("SELECT id FROM dossier_code_formats WHERE is_active = 1");
 

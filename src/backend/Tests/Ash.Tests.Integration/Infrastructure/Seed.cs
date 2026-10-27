@@ -20,7 +20,7 @@ public sealed record LifeCycle(
 
 /// <summary>
 /// Builder for test data (raw SQL, unique codes per instance). Port of docs/sql/tests/test_scenario.sql.
-/// Business tables are emptied by <see cref="MySqlFixture.ResetAsync"/>; offices, users and courts created here are harmless leftovers.
+/// Business tables are emptied by <see cref="MySqlFixture.ResetAsync"/>; offices and users created here are harmless leftovers. Courts and judges come from LocalScripts/903.
 /// </summary>
 public sealed class Seed : IAsyncDisposable
 {
@@ -61,13 +61,13 @@ public sealed class Seed : IAsyncDisposable
         return id;
     }
 
-    public Task<long> CourtAsync(string name, string levelCode) =>
-        InsertAsync("INSERT INTO courts (name, court_level_id, city) SELECT @n, id, 'Tiranë' FROM court_levels WHERE code = @l",
-            ("@n", name), ("@l", levelCode));
+    /// <summary>Court seeded by LocalScripts/903_local_seed_courts.sql.</summary>
+    public Task<long> CourtAsync(string name) =>
+        ScalarAsync("SELECT id FROM courts WHERE name = @n", ("@n", name));
 
-    public Task<long> JudgeAsync(string first, string last, long courtId) =>
-        InsertAsync("INSERT INTO judges (first_name, last_name, court_id) VALUES (@f, @l, @c)",
-            ("@f", first), ("@l", last), ("@c", courtId));
+    /// <summary>Judge seeded by LocalScripts/903_local_seed_courts.sql.</summary>
+    public Task<long> JudgeAsync(string first, string last) =>
+        ScalarAsync("SELECT id FROM judges WHERE first_name = @f AND last_name = @l", ("@f", first), ("@l", last));
 
     /// <summary>Calls create_dossier (as the API does inside the registration transaction).</summary>
     public async Task<(long Id, string Code)> DossierAsync(long officeId, long userId)
@@ -117,10 +117,10 @@ public sealed class Seed : IAsyncDisposable
         var jur = await UserAsync("jur", "Gent", "Juristi", null, inst, "INSTITUTION_JURIST");
         await ExecuteAsync("UPDATE offices SET head_user_id = @h WHERE id = @o", ("@h", head), ("@o", office));
 
-        var court1 = await CourtAsync($"Gjykata e Shkallës së Parë Tiranë (test) {Suffix}", "FIRST_INSTANCE");
-        var court2 = await CourtAsync($"Gjykata e Apelit Tiranë (test) {Suffix}", "APPEAL");
-        var judge1 = await JudgeAsync("Ilir", "Gjyqtari", court1);
-        var judge2 = await JudgeAsync("Klodiana", "Gjyqtarja", court2);
+        var court1 = await CourtAsync("Gjykata e Shkallës së Parë Tiranë");
+        var court2 = await CourtAsync("Gjykata e Apelit Tiranë");
+        var judge1 = await JudgeAsync("Ilir", "Gjyqtari");
+        var judge2 = await JudgeAsync("Genc", "Muçaj");
 
         // 1. Fletëthirrja arrives: new dossier + X/1
         var (dossier, code) = await DossierAsync(office, prot);
@@ -228,6 +228,12 @@ public sealed class Seed : IAsyncDisposable
         await using var cmd = Command(sql, parameters);
         await cmd.ExecuteNonQueryAsync();
         return cmd.LastInsertedId;
+    }
+
+    private async Task<long> ScalarAsync(string sql, params (string Name, object? Value)[] parameters)
+    {
+        await using var cmd = Command(sql, parameters);
+        return Convert.ToInt64(await cmd.ExecuteScalarAsync() ?? throw new InvalidOperationException($"No row for: {sql}"));
     }
 
     private async Task ExecuteAsync(string sql, params (string Name, object? Value)[] parameters)
