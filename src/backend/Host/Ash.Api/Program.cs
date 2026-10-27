@@ -1,3 +1,4 @@
+using Ash.Api.Auth;
 using Ash.Api.Errors;
 using Ash.Api.Health;
 using Ash.Api.Persistence;
@@ -7,9 +8,11 @@ using Ash.Modules.Cases;
 using Ash.Modules.Chat;
 using Ash.Modules.Documents;
 using Ash.Modules.Identity;
+using Ash.SharedKernel.Time;
 using Ash.Modules.Notifications;
 using Ash.Modules.Reference;
 using Ash.Modules.Reports;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -30,6 +33,8 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddAshInfrastructure(connectionString);
 builder.Services.AddHealthChecks().AddCheck<MySqlHealthCheck>("mysql");
+builder.Services.TryAddSingleton<IClock, SystemClock>();
+builder.Services.AddAshAuthentication(builder.Configuration, builder.Environment);
 
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddReferenceModule(builder.Configuration);
@@ -46,14 +51,17 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseMiddleware<UnitOfWorkMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseMiddleware<CurrentUserMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.MapIdentityEndpoints();
 app.MapReferenceEndpoints();
@@ -65,3 +73,5 @@ app.MapReportsEndpoints();
 app.MapChatEndpoints();
 
 app.Run();
+
+public partial class Program;

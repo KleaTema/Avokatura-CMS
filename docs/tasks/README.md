@@ -21,7 +21,7 @@ Rules
 | 002 | [Database project with DbUp](002-database-project-dbup.md) | 001 |  | done |
 | 003 | [Shared kernel building blocks](003-shared-kernel.md) | 001 |  | done |
 | 004 | [API host, unit of work and error handling](004-api-host-pipeline.md) | 002, 003 |  | done |
-| 005 | [Authentication: dev login and production OIDC](005-authentication.md) | 004 | yes | todo |
+| 005 | [Authentication: dev login and production OIDC](005-authentication.md) | 004 | yes | done |
 | 006 | [Identity module: current user and menus](006-identity-me-endpoint.md) | 005 |  | todo |
 | 007 | [Case access service (the single gate to case data)](007-case-access-service.md) | 006 |  | todo |
 | 008 | [Audit module: append-only audit log](008-audit-log.md) | 005 |  | todo |

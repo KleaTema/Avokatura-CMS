@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup>  <UserSecretsId>509cbfb2-f300-4eac-8628-d7fe83b0852e</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="Serilog.AspNetCore" />
