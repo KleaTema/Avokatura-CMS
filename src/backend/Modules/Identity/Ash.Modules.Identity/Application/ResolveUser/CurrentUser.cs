@@ -17,5 +17,6 @@ public sealed class CurrentUser : ICurrentUser
     public long? OfficeId => User.OfficeId;
     public long? InstitutionId => User.InstitutionId;
     public IReadOnlyCollection<string> Roles => User.Roles;
+    public IReadOnlyCollection<string> Permissions => User.Permissions;
     public bool HasPermission(string permission) => User.Permissions.Contains(permission);
 }

@@ -20,6 +20,7 @@ The schema is owned by DbUp scripts in `src/backend/Database/Ash.Database/Script
 10. Partitioned tables (`ash_chat.messages`, `ash_audit.audit_log`): no foreign keys, every unique key must contain the partition column.
 11. Grants: if a new table must be read by `ash_chat_app` or `ash_reporting`, add the GRANT in the same script.
 12. Routines/triggers use `DELIMITER $$ … $$ DELIMITER ;` exactly like scripts 004 and 006.
+13. Adding a NOT NULL column whose default is non-deterministic (UUID(), NOW()) to a table that may have rows: ADD it NULL → UPDATE existing rows → MODIFY to NOT NULL DEFAULT (...). A one-step ALTER fails with error 1674 when binary logging is on (MySQL 8 default).
 
 ## After writing the script
 - Run `dotnet run --project src/backend/Database/Ash.Database -- --local` against the local Docker MySQL; it must apply only the new script and exit 0.

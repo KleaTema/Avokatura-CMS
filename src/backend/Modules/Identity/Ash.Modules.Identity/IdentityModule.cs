@@ -1,4 +1,8 @@
+using Ash.Modules.Identity.Application;
+using Ash.Modules.Identity.Application.GetMe;
 using Ash.Modules.Identity.Application.ResolveUser;
+using Ash.Modules.Identity.Contracts;
+using Ash.Modules.Identity.Endpoints;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Identity;
 using Microsoft.AspNetCore.Routing;
@@ -14,6 +18,9 @@ public static class IdentityModule
 		services.AddMemoryCache();
 		services.AddScoped<IdentityDbContext>();
 		services.AddScoped<ResolveUserHandler>();
+		services.AddScoped<GetMeHandler>();
+		services.AddScoped<IPermissionService, PermissionService>();
+		services.AddScoped<IUserDirectory, UserDirectory>();
 		services.AddScoped<CurrentUser>();
 		services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 		return services;
@@ -21,6 +28,6 @@ public static class IdentityModule
 
 	public static IEndpointRouteBuilder MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints;
+		return endpoints.MapMe();
 	}
 }
