@@ -1,6 +1,7 @@
 using Ash.Modules.Identity.Application;
 using Ash.Modules.Identity.Application.GetMe;
 using Ash.Modules.Identity.Application.ResolveUser;
+using Ash.Modules.Identity.Application.Users;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Identity.Endpoints;
 using Ash.Modules.Identity.Infrastructure;
@@ -19,6 +20,13 @@ public static class IdentityModule
 		services.AddScoped<IdentityDbContext>();
 		services.AddScoped<ResolveUserHandler>();
 		services.AddScoped<GetMeHandler>();
+		services.AddScoped<UserAdminSupport>();
+		services.AddScoped<ListUsersHandler>();
+		services.AddScoped<CreateUserHandler>();
+		services.AddScoped<UpdateUserHandler>();
+		services.AddScoped<SetUserActiveHandler>();
+		services.AddScoped<GrantRoleHandler>();
+		services.AddScoped<RevokeRoleHandler>();
 		services.AddScoped<IPermissionService, PermissionService>();
 		services.AddScoped<IUserDirectory, UserDirectory>();
 		services.AddScoped<CurrentUser>();
@@ -28,6 +36,6 @@ public static class IdentityModule
 
 	public static IEndpointRouteBuilder MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapMe();
+		return endpoints.MapMe().MapAdminUsers();
 	}
 }

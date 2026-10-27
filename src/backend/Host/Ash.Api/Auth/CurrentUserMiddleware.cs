@@ -17,9 +17,9 @@ public sealed class CurrentUserMiddleware(RequestDelegate next)
 
         // TODO(client-q1): confirm
         var subject = context.User.FindFirst("sub")?.Value;
-        var devEmail = context.User.FindFirst(DevAuthHandler.EmailClaim)?.Value;
+        var email = context.User.FindFirst(DevAuthHandler.EmailClaim)?.Value ?? context.User.FindFirst("email")?.Value;
 
-        var result = await handler.Handle(new ResolveUserRequest(subject, subject is null ? devEmail : null), context.RequestAborted);
+        var result = await handler.Handle(new ResolveUserRequest(subject, email), context.RequestAborted);
         if (result.IsFailure)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;

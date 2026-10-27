@@ -14,6 +14,7 @@ public static class CasesModule
 	{
 		services.AddScoped<CasesDbContext>();
 		services.AddScoped<CaseAccessService>();
+		services.AddScoped<ICaseAssignmentCounts, CaseAssignmentCounts>();
 		services.AddScoped<IHistoryWriter, HistoryWriter>();
 		services.AddScoped<ICaseAccessService>(sp => sp.GetRequiredService<CaseAccessService>());
 		return services;

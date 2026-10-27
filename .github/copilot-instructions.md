@@ -28,7 +28,7 @@ Modules: Identity, Reference, Cases, Documents, Notifications, Audit, Reports, C
 ## Hard rules (never break)
 1. A module never references another module's internals or tables — only its `.Contracts` project.
 2. All `DateTime` values are UTC. Convert to Europe/Tirane only in the frontend.
-3. The API exposes `public_id` (Guid) only. Internal BIGINT ids never leave the server.
+3. The API exposes `public_id` (Guid) only. Internal BIGINT ids never leave the server. Exception: reference data (courts, judges) may expose their numeric id; lookup lists use code.
 4. Every read or write of a case goes through `ICaseAccessService` (Cases.Contracts). No access → return **404**, not 403.
 5. Every change to a case writes a `case_history_events` row in the SAME transaction (`IHistoryWriter`).
 6. Never hard-delete legal records: set `deleted_at` / `ended_at` / `archived_at`.

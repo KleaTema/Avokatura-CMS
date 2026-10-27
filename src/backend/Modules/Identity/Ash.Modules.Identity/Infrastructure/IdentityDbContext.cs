@@ -8,6 +8,8 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
     public DbSet<UserRecord> Users => Set<UserRecord>();
     public DbSet<OfficeRecord> Offices => Set<OfficeRecord>();
     public DbSet<InstitutionRecord> Institutions => Set<InstitutionRecord>();
+    public DbSet<RoleRecord> Roles => Set<RoleRecord>();
+    public DbSet<UserRoleRecord> UserRoles => Set<UserRoleRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +27,24 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.InstitutionId).HasColumnName("institution_id");
             b.Property(x => x.IsActive).HasColumnName("is_active");
             b.Property(x => x.LastLoginAt).HasColumnName("last_login_at");
+        });
+
+        modelBuilder.Entity<RoleRecord>(b =>
+        {
+            b.ToTable("roles");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Code).HasColumnName("code");
+            b.Property(x => x.Name).HasColumnName("name");
+        });
+
+        modelBuilder.Entity<UserRoleRecord>(b =>
+        {
+            b.ToTable("user_roles");
+            b.HasKey(x => new { x.UserId, x.RoleId });
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.RoleId).HasColumnName("role_id");
+            b.Property(x => x.GrantedBy).HasColumnName("granted_by");
         });
 
         modelBuilder.Entity<OfficeRecord>(b =>
@@ -51,7 +71,7 @@ public sealed class UserRecord
 {
     public uint Id { get; set; }
     public Guid PublicId { get; set; }
-    public string ExternalSubject { get; set; } = string.Empty;
+    public string? ExternalSubject { get; set; }
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
@@ -59,6 +79,20 @@ public sealed class UserRecord
     public uint? InstitutionId { get; set; }
     public bool IsActive { get; set; }
     public DateTime? LastLoginAt { get; set; }
+}
+
+public sealed class RoleRecord
+{
+    public byte Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+}
+
+public sealed class UserRoleRecord
+{
+    public uint UserId { get; set; }
+    public byte RoleId { get; set; }
+    public uint? GrantedBy { get; set; }
 }
 
 public sealed class OfficeRecord

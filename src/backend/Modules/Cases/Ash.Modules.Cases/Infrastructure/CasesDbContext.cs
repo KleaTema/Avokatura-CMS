@@ -9,6 +9,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CaseAccessRow> CaseAccess => Set<CaseAccessRow>();
     public DbSet<CasePermissionRow> CasePermissions => Set<CasePermissionRow>();
     public DbSet<CaseHistoryEvent> CaseHistoryEvents => Set<CaseHistoryEvent>();
+    public DbSet<CaseAssignmentRow> CaseAssignments => Set<CaseAssignmentRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,6 +23,15 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.OfficeId).HasColumnName("office_id");
             b.Property(x => x.LifecycleStatus).HasColumnName("lifecycle_status");
             b.Property(x => x.RegisteredBy).HasColumnName("registered_by");
+        });
+
+        modelBuilder.Entity<CaseAssignmentRow>(b =>
+        {
+            b.ToTable("case_assignments");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.EndedAt).HasColumnName("ended_at");
         });
 
         modelBuilder.Entity<CaseAccessRow>(b =>
@@ -78,6 +88,13 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public ushort OfficeId { get; set; }
     public string LifecycleStatus { get; set; } = string.Empty;
     public uint RegisteredBy { get; set; }
+}
+
+public sealed class CaseAssignmentRow
+{
+    public ulong Id { get; set; }
+    public uint UserId { get; set; }
+    public DateTime? EndedAt { get; set; }
 }
 
 public sealed class CaseAccessRow

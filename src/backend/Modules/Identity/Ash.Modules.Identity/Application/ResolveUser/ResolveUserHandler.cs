@@ -14,23 +14,38 @@ public sealed class ResolveUserHandler(IdentityDbContext db, IMemoryCache cache,
 
     public async Task<Result<ResolveUserResponse>> Handle(ResolveUserRequest req, CancellationToken ct)
     {
-        var query = db.Users.AsNoTracking();
+        UserRecord? user;
+        var email = req.Email?.Trim().ToLowerInvariant();
         if (!string.IsNullOrEmpty(req.Subject))
         {
             var subject = req.Subject;
-            query = query.Where(u => u.ExternalSubject == subject);
+            user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.ExternalSubject == subject, ct);
+            if (user is null && !string.IsNullOrEmpty(email))
+            {
+                // First login: the admin created the user without a subject; link it by email.
+                var candidate = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == email, ct);
+                if (candidate is { IsActive: true, ExternalSubject: null })
+                {
+                    var linked = await db.Users
+                        .Where(u => u.Id == candidate.Id && u.ExternalSubject == null)
+                        .ExecuteUpdateAsync(s => s.SetProperty(u => u.ExternalSubject, subject), ct);
+                    if (linked == 1)
+                    {
+                        candidate.ExternalSubject = subject;
+                        user = candidate;
+                    }
+                }
+            }
         }
-        else if (!string.IsNullOrEmpty(req.Email))
+        else if (!string.IsNullOrEmpty(email))
         {
-            var email = req.Email;
-            query = query.Where(u => u.Email == email);
+            user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == email, ct);
         }
         else
         {
             return Error.NotFound("user.unknown", "Përdoruesi nuk u identifikua.");
         }
 
-        var user = await query.SingleOrDefaultAsync(ct);
         if (user is null || !user.IsActive)
         {
             return Error.NotFound("user.unknown", "Përdoruesi nuk është i autorizuar.");
