@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Ash.Tests.Integration.Infrastructure;
 
@@ -25,6 +26,9 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Auth__Authority", authority);
         Environment.SetEnvironmentVariable("Auth__Audience", audience);
     }
+
+    protected override IHost CreateHost(IHostBuilder builder) =>
+        Timing.Measure("WebApplicationFactory host creation", () => base.CreateHost(builder));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

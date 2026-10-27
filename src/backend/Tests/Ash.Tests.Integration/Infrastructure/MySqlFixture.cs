@@ -55,7 +55,11 @@ public sealed class MySqlFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        await _container.StartAsync();
+        await Timing.MeasureAsync("container start", async () =>
+        {
+            await _container.StartAsync();
+            return 0;
+        });
 
         var host = _container.Hostname;
         var port = _container.GetMappedPublicPort(3306);
@@ -63,7 +67,7 @@ public sealed class MySqlFixture : IAsyncLifetime
         AppConnectionString = $"Server={host};Port={port};User=ash_dev;Password=ash_dev_local;Database=ash_core;AllowUserVariables=true;";
         AuditConnectionString = $"Server={host};Port={port};User=ash_audit_local;Password=ash_audit_local_pw;";
 
-        var result = DatabaseUpgrader.Upgrade(RootConnectionString, local: true, quiet: true);
+        var result = Timing.Measure("migration", () => DatabaseUpgrader.Upgrade(RootConnectionString, local: true, quiet: true));
         if (!result.Successful)
         {
             throw new InvalidOperationException(result.Error);
@@ -75,16 +79,37 @@ public sealed class MySqlFixture : IAsyncLifetime
     /// <summary>Empties the business tables; users, roles, offices, institutions, courts and lists stay.</summary>
     public async Task ResetAsync()
     {
-        await using var connection = new MySqlConnection(RootConnectionString);
-        await connection.OpenAsync();
-        await ExecuteAsync(connection, "SET FOREIGN_KEY_CHECKS=0");
-        foreach (var table in BusinessTables)
+        await Timing.MeasureAsync("database reset", async () =>
         {
-            await ExecuteAsync(connection, $"TRUNCATE TABLE {table}");
-        }
+            await using var connection = new MySqlConnection(RootConnectionString);
+            await connection.OpenAsync();
 
-        await ExecuteAsync(connection, "SET FOREIGN_KEY_CHECKS=1");
+            // TRUNCATE is slow (drops/recreates tablespaces), so only touch tables that actually have rows.
+            var dirty = new List<string>();
+            await using (var probe = new MySqlCommand(ProbeSql, connection))
+            await using (var reader = await probe.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    dirty.Add(reader.GetString(0));
+                }
+            }
+
+            if (dirty.Count > 0)
+            {
+                var sql = "SET FOREIGN_KEY_CHECKS=0; "
+                    + string.Join(" ", dirty.Select(t => $"TRUNCATE TABLE {t};"))
+                    + " SET FOREIGN_KEY_CHECKS=1;";
+                await ExecuteAsync(connection, sql);
+            }
+
+            return 0;
+        });
     }
+
+    private static readonly string ProbeSql = string.Join(
+        " UNION ALL ",
+        BusinessTables.Select(t => $"SELECT '{t}' AS table_name WHERE EXISTS (SELECT 1 FROM {t})"));
 
     private static async Task ExecuteAsync(MySqlConnection connection, string sql)
     {
