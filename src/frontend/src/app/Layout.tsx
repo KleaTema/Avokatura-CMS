@@ -15,6 +15,7 @@ import { useMe } from '../features/identity/api'
 import { sq } from '../i18n/sq'
 import { ForbiddenPage, GenericErrorPage } from '../pages/ErrorPages'
 import { useAuth } from './authContext'
+import { menuPath } from './menu'
 
 const DRAWER_WIDTH = 220
 
@@ -58,7 +59,7 @@ export function Layout() {
         <Toolbar />
         <List component="nav">
           {me.data?.menus.map((code) => (
-            <ListItemButton key={code} component={NavLink} to={`/${code}`}>
+            <ListItemButton key={code} component={NavLink} to={menuPath(code)}>
               <ListItemText primary={sq.menu[code] ?? code} />
             </ListItemButton>
           ))}

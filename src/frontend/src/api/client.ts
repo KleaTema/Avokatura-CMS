@@ -1,15 +1,25 @@
 import createClient from 'openapi-fetch'
-import type { paths } from './schema'
+import type { components, paths } from './schema'
 import { authMode, getDevUser, userManager } from '../app/authConfig'
+
+export type ProblemDetails = components['schemas']['ProblemDetails'] & {
+  code?: string
+  errors?: Record<string, string[]>
+}
 
 export class ApiError extends Error {
   readonly status: number
+  readonly problem: ProblemDetails | null
 
-  constructor(status: number) {
+  constructor(status: number, problem: ProblemDetails | null = null) {
     super(`API error ${status}`)
     this.status = status
+    this.problem = problem
   }
 }
+
+const asProblem = (error: unknown): ProblemDetails | null =>
+  typeof error === 'object' && error !== null ? (error as ProblemDetails) : null
 
 let unauthorizedHandler: (() => void) | null = null
 export const setUnauthorizedHandler = (handler: (() => void) | null) => {
@@ -35,7 +45,7 @@ api.use({
   },
 })
 
-export function unwrap<T>(result: { data?: T; response: Response }): T {
-  if (result.data === undefined) throw new ApiError(result.response.status)
+export function unwrap<T>(result: { data?: T; error?: unknown; response: Response }): T {
+  if (result.data === undefined) throw new ApiError(result.response.status, asProblem(result.error))
   return result.data
 }

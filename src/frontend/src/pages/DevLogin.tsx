@@ -1,17 +1,44 @@
-import { Alert, Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Paper, Select, Typography } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { Alert, Autocomplete, Box, Button, CircularProgress, Paper, FormControl, TextField, Typography } from '@mui/material'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { api } from '../api/client'
 import { useAuth } from '../app/authContext'
 import { authMode, devUsers, oidcConfigured, userManager } from '../app/authConfig'
 import { sq } from '../i18n/sq'
+
+const normalizeEmail = (value: string) => value.trim().toLowerCase()
 
 export function DevLogin() {
   const { isAuthenticated, isLoading, loginDev, loginOidc } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState(devUsers[0])
+  const [error, setError] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
 
   if (isLoading) return <CircularProgress />
   if (isAuthenticated) return <Navigate to="/" replace />
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    const normalized = normalizeEmail(email)
+    if (!normalized) return
+    setError(null)
+    setChecking(true)
+    try {
+      // Check the user before storing it, so an unknown or deactivated user stays on this page with a message.
+      const { response } = await api.GET('/api/identity/me', { headers: { 'X-Dev-User': normalized } })
+      if (response.ok) {
+        loginDev(normalized)
+        void navigate('/', { replace: true })
+        return
+      }
+      setError(response.status === 401 ? sq.login.unknownUser : sq.errors.generic)
+    } catch {
+      setError(sq.errors.network)
+    } finally {
+      setChecking(false)
+    }
+  }
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
@@ -20,36 +47,29 @@ export function DevLogin() {
           {sq.login.title}
         </Typography>
         {authMode === 'dev' ? (
-          <>
+          <form onSubmit={(e) => void onSubmit(e)} noValidate>
             <Typography variant="body2" sx={{ mb: 2 }}>
               {sq.login.devHint}
             </Typography>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="dev-user-label">{sq.login.user}</InputLabel>
-              <Select
-                labelId="dev-user-label"
-                label={sq.login.user}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              >
-                {devUsers.map((u) => (
-                  <MenuItem key={u} value={u}>
-                    {u}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              fullWidth
-              onClick={() => {
-                loginDev(email)
-                void navigate('/', { replace: true })
-              }}
-            >
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            <Autocomplete
+              freeSolo
+              options={devUsers}
+              inputValue={email}
+              onInputChange={(_, value) => setEmail(value)}
+              renderInput={(params) => (
+                <TextField {...params} label={sq.login.user} type="email" autoComplete="off" autoFocus />
+              )}
+              sx={{ mb: 2 }}
+            />
+            <Button type="submit" variant="contained" fullWidth disabled={checking || !normalizeEmail(email)}>
               {sq.login.submit}
             </Button>
-          </>
+          </form>
         ) : oidcConfigured ? (
           <Button variant="contained" fullWidth onClick={() => void loginOidc()}>
             {sq.login.oidcSubmit}
