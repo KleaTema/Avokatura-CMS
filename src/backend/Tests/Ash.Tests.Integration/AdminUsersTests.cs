@@ -316,7 +316,7 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
 
         (await ScalarAsync(subjectSql, Db.AppConnectionString)).ShouldBe(DBNull.Value);
 
-        using (var scope = factory.Services.CreateScope())
+        await using (var scope = factory.Services.CreateAsyncScope())
         {
             var handler = scope.ServiceProvider.GetRequiredService<ResolveUserHandler>();
             (await handler.Handle(new ResolveUserRequest(subject, email.ToUpperInvariant()), Ct)).IsSuccess.ShouldBeTrue();
@@ -324,7 +324,7 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
 
         (await ScalarAsync(subjectSql, Db.AppConnectionString)).ShouldBe(subject);
 
-        using (var scope = factory.Services.CreateScope())
+        await using (var scope = factory.Services.CreateAsyncScope())
         {
             var handler = scope.ServiceProvider.GetRequiredService<ResolveUserHandler>();
             (await handler.Handle(new ResolveUserRequest(subject, null), Ct)).IsSuccess.ShouldBeTrue();
