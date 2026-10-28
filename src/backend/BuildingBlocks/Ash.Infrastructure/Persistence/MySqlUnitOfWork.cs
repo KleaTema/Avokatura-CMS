@@ -6,6 +6,7 @@ namespace Ash.Infrastructure.Persistence;
 public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
 {
     private readonly List<DbContext> _contexts = [];
+    private readonly List<Action> _afterCommit = [];
     private MySqlTransaction? _transaction;
 
     public MySqlUnitOfWork(PersistenceOptions options)
@@ -61,6 +62,20 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
         }
     }
 
+    public void OnCommitted(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (_transaction is null)
+        {
+            // Nothing to wait for: the change is already durable.
+            action();
+            return;
+        }
+
+        _afterCommit.Add(action);
+    }
+
     public async Task CommitAsync(CancellationToken cancellationToken = default)
     {
         if (_transaction is null)
@@ -70,10 +85,13 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
 
         await _transaction.CommitAsync(cancellationToken);
         await ReleaseTransactionAsync();
+        RunAfterCommitActions();
     }
 
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
     {
+        _afterCommit.Clear();
+
         if (_transaction is null)
         {
             return;
@@ -85,6 +103,8 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _afterCommit.Clear();
+
         if (_transaction is not null)
         {
             await _transaction.DisposeAsync();
@@ -92,6 +112,26 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
         }
 
         await Connection.DisposeAsync();
+    }
+
+    private void RunAfterCommitActions()
+    {
+        var actions = _afterCommit.ToArray();
+        _afterCommit.Clear();
+
+        foreach (var action in actions)
+        {
+            try
+            {
+                action();
+            }
+            catch
+            {
+                // The data is already committed; a failing side effect (e.g. cache eviction)
+                // must not turn a successful request into a 500. Worst case the cache
+                // expires on its own (10 min).
+            }
+        }
     }
 
     private async Task ReleaseTransactionAsync()
