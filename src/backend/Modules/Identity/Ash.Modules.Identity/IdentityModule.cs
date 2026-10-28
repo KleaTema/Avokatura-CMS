@@ -27,6 +27,7 @@ public static class IdentityModule
 		services.AddScoped<SetUserActiveHandler>();
 		services.AddScoped<GrantRoleHandler>();
 		services.AddScoped<RevokeRoleHandler>();
+		services.AddScoped<ListRolesHandler>();
 		services.AddScoped<IPermissionService, PermissionService>();
 		services.AddScoped<IUserDirectory, UserDirectory>();
 		services.AddScoped<CurrentUser>();

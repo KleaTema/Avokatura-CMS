@@ -85,6 +85,25 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
+    public async Task Roles_list_returns_all_roles_with_scope_and_requires_admin_permission()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient();
+
+        (await Send(client, HttpMethod.Get, "/api/identity/admin/roles", "avokat1@ash.local"))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var roles = (await Get(client, "/api/identity/admin/roles", Admin)).EnumerateArray().ToList();
+        roles.Count.ShouldBe(8);
+        var scopes = roles.ToDictionary(r => r.GetProperty("code").GetString()!, r => r.GetProperty("scope").GetString());
+        scopes["STATE_LAWYER"].ShouldBe("OFFICE");
+        scopes["ADMIN"].ShouldBe("OFFICE");
+        scopes["INSTITUTION_USER"].ShouldBe("INSTITUTION");
+        scopes["INSTITUTION_JURIST"].ShouldBe("INSTITUTION");
+        roles.ShouldAllBe(r => !string.IsNullOrWhiteSpace(r.GetProperty("name").GetString()));
+    }
+
+    [Fact]
     public async Task Create_stores_lower_case_email_and_rejects_duplicates()
     {
         await using var factory = new AshApiFactory(Db);

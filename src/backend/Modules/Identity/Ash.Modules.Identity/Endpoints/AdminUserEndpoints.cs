@@ -99,6 +99,12 @@ public static class AdminUserEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("RevokeAdminUserRole");
 
+        endpoints.MapGet("/api/identity/admin/roles", async (ListRolesHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(ct)))
+            .RequirePermissionFilter(Permission)
+            .Produces<IReadOnlyList<RoleResponse>>()
+            .WithName("ListAdminRoles");
+
         endpoints.MapGet("/api/identity/admin/offices", async (IdentityDbContext db, CancellationToken ct) =>
                 Results.Ok(await db.Offices.AsNoTracking().OrderBy(o => o.Name)
                     .Select(o => new NamedRef(o.PublicId, o.Name)).ToListAsync(ct)))

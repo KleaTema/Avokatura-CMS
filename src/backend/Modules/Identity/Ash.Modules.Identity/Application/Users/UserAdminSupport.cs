@@ -34,15 +34,25 @@ public sealed class UserAdminSupport(
 
     public static string NormalizeEmail(string? email) => (email ?? string.Empty).Trim().ToLowerInvariant();
 
+    public const string OfficeScope = "OFFICE";
+    public const string InstitutionScope = "INSTITUTION";
+
+    /// <summary>The single rule deciding which kind of user a role may be granted to; null = grantable to nobody.</summary>
+    public static string? ScopeOf(string role) =>
+        InstitutionRoles.Contains(role) ? InstitutionScope
+        : OfficeRoles.Contains(role) ? OfficeScope
+        : null;
+
     public static Error? ValidateRole(string role, bool isInstitutionUser)
     {
-        if (isInstitutionUser && !InstitutionRoles.Contains(role))
+        var scope = ScopeOf(role);
+        if (isInstitutionUser && scope != InstitutionScope)
         {
             return Error.Validation("user.role_not_allowed",
                 $"Roli {role} nuk lejohet për përdorues të institucionit.");
         }
 
-        if (!isInstitutionUser && !OfficeRoles.Contains(role))
+        if (!isInstitutionUser && scope != OfficeScope)
         {
             return Error.Validation("user.role_not_allowed",
                 $"Roli {role} nuk lejohet për përdorues të zyrës.");
