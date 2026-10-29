@@ -1,6 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { DevLogin, OidcCallback } from '../pages/DevLogin'
 import { ForbiddenPage, NotFoundPage } from '../pages/ErrorPages'
+import { AdminIndex, AdminLayout } from '../pages/admin/AdminLayout'
+import { CodeFormatPage } from '../pages/admin/CodeFormat'
+import { FileTypesPage } from '../pages/admin/FileTypes'
+import { ListsPage } from '../pages/admin/Lists'
 import { UsersPage } from '../pages/admin/UsersPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { Layout } from './Layout'
@@ -18,14 +22,44 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       ...placeholderMenuCodes.map((code) => ({ path: code, element: <PlaceholderPage menu={code} /> })),
-      { path: 'admin', element: <Navigate to="/admin/users" replace /> },
       {
-        path: 'admin/users',
-        element: (
-          <RequirePermission code="admin.users">
-            <UsersPage />
-          </RequirePermission>
-        ),
+        path: 'admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <AdminIndex /> },
+          {
+            path: 'users',
+            element: (
+              <RequirePermission code="admin.users">
+                <UsersPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'lists',
+            element: (
+              <RequirePermission code="admin.lookups">
+                <ListsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'file-types',
+            element: (
+              <RequirePermission code="admin.lookups">
+                <FileTypesPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'code-format',
+            element: (
+              <RequirePermission code="admin.lookups">
+                <CodeFormatPage />
+              </RequirePermission>
+            ),
+          },
+        ],
       },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },

@@ -15,25 +15,17 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useActivateUser, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
+import { useDebounced } from '../../lib/useDebounced'
 import { UsersCreateDialog } from './UsersCreateDialog'
 import { UsersDeactivateDialog } from './UsersDeactivateDialog'
 import { UsersRolesDialog } from './UsersRolesDialog'
 
 const t = sq.adminUsers
-
-function useDebounced(value: string, delayMs: number) {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delayMs)
-    return () => clearTimeout(id)
-  }, [value, delayMs])
-  return debounced
-}
 
 export function UsersPage() {
   const [search, setSearch] = useState('')

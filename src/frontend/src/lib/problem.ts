@@ -22,6 +22,8 @@ export function problemMessage(error: unknown): string {
   }
 }
 
+export const isForbidden = (error: unknown): boolean => error instanceof ApiError && error.status === 403
+
 /** The machine-readable `code` extension of a ProblemDetails, if any. */
 export const problemCode = (error: unknown): string | undefined =>
   error instanceof ApiError ? error.problem?.code : undefined
