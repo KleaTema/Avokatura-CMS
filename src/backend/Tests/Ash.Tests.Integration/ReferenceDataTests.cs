@@ -400,7 +400,7 @@ public class ReferenceDataTests(MySqlFixture db) : IntegrationTest(db)
 
             var formatCreate = await client.PostAsJsonAsync("/api/reference/admin/dossier-code-formats", new
             {
-                template = "{YYYY}-{OFFICE}-{RAND}",
+                template = "ASH-{YYYY}-{RAND}",
                 randomDigits = 6,
                 note = "test"
             }, TestContext.Current.CancellationToken);
@@ -428,7 +428,7 @@ public class ReferenceDataTests(MySqlFixture db) : IntegrationTest(db)
             await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
             var newCode = (string?)codeParam.Value;
             newCode.ShouldNotBeNullOrWhiteSpace();
-            newCode.ShouldMatch(@"^\d{4}-[A-Z0-9_]+-\d{6}$");
+            newCode.ShouldMatch(@"^ASH-\d{4}-\d{6}$");
         }
         finally
         {
@@ -446,13 +446,9 @@ public class ReferenceDataTests(MySqlFixture db) : IntegrationTest(db)
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient().AsUser("admin@ash.local");
-        var longestOffice = Convert.ToInt32(await ScalarAsync(
-            "SELECT MAX(CHAR_LENGTH(code)) FROM offices", Db.AppConnectionString));
 
-        // {YYYY}-{OFFICE}-{RAND} with 12 digits expands to 18 + longest office code; pad to exactly 31
-        var prefix = new string('A', Math.Max(0, 13 - longestOffice));
-        var template = prefix + "{YYYY}-{OFFICE}-{RAND}";
-        template.Length.ShouldBeLessThanOrEqualTo(40);
+        // 14-char prefix + {YYYY} (4) + "-" + {RAND} (12) = 31 characters; the template itself is only 27
+        var template = "ASH-ABCDEFGHI-{YYYY}-{RAND}";
 
         var response = await client.PostAsJsonAsync("/api/reference/admin/dossier-code-formats", new
         {
@@ -464,6 +460,53 @@ public class ReferenceDataTests(MySqlFixture db) : IntegrationTest(db)
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         body.GetProperty("title").GetString().ShouldBe("Kodi do të ishte më i gjatë se 30 karaktere.");
+    }
+
+    [Fact]
+    public async Task Office_token_in_dossier_code_template_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+
+        var response = await client.PostAsJsonAsync("/api/reference/admin/dossier-code-formats", new
+        {
+            template = "{YYYY}-{OFFICE}-{RAND}",
+            randomDigits = 6,
+            note = "office"
+        }, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        body.GetProperty("title").GetString().ShouldBe("Lejohen vetëm {YYYY} dhe {RAND}.");
+    }
+
+    [Fact]
+    public async Task Activating_an_existing_format_with_office_token_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var originalId = Convert.ToByte(await ScalarAsync(
+            "SELECT id FROM dossier_code_formats WHERE is_active = 1", Db.AppConnectionString));
+        const string legacyNote = "legacy office format (test)";
+
+        try
+        {
+            // a row from before the requirement change, inserted directly as the API no longer accepts it
+            await Execute($"INSERT INTO dossier_code_formats (template, random_digits, is_active, note) VALUES ('{{YYYY}}-{{OFFICE}}-{{RAND}}', 6, 0, '{legacyNote}')");
+            var legacyId = Convert.ToByte(await ScalarAsync(
+                $"SELECT id FROM dossier_code_formats WHERE note = '{legacyNote}'", Db.AppConnectionString));
+
+            var activate = await client.PostAsync($"/api/reference/admin/dossier-code-formats/{legacyId}/activate", null, TestContext.Current.CancellationToken);
+
+            activate.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+            var activeIds = await ScalarAsync(
+                "SELECT GROUP_CONCAT(id) FROM dossier_code_formats WHERE is_active = 1", Db.AppConnectionString);
+            activeIds.ShouldBe(originalId.ToString());
+        }
+        finally
+        {
+            await Execute($"DELETE FROM dossier_code_formats WHERE note = '{legacyNote}'");
+        }
     }
 
     [Fact]

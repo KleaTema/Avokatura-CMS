@@ -65,15 +65,15 @@ export const sq = {
     activeChip: 'Aktiv',
     inactive: 'Joaktiv',
     activate: 'Aktivizo',
-    tokensHelp: 'Token-at e lejuar: {YYYY} viti, {OFFICE} kodi i zyrës, {RAND} shifrat e rastësishme (detyrimisht një herë).',
+    tokensHelp: 'Token-at e lejuar: {YYYY} viti, {RAND} shifrat e rastësishme (detyrimisht një herë).',
     example: (code: string) => `Shembull: ${code}`,
-    exampleOffice: 'TR',
     activateTitle: 'Aktivizo formatin e kodit',
     activateQuestion: (template: string) => `Të aktivizohet formati ${template}?`,
     activateNote: 'Kodet ekzistuese nuk ndryshojnë. Vetëm dosjet e reja do të marrin këtë format.',
     validation: {
       templateInvalid:
-        'Template-i është i detyrueshëm (deri në 40 karaktere), lejon vetëm {YYYY}, {OFFICE} dhe {RAND}, me {RAND} saktësisht një herë.',
+        'Template-i është i detyrueshëm (deri në 40 karaktere), lejon vetëm {YYYY} dhe {RAND}, me {RAND} saktësisht një herë.',
+      codeTooLong: 'Kodi do të ishte më i gjatë se 30 karaktere.',
       digitsInvalid: 'Numri i shifrave duhet të jetë nga 4 deri në 12.',
       noteTooLong: 'Shënimi mund të ketë deri në 300 karaktere.',
     },

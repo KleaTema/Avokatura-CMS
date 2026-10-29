@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Reference.Infrastructure;
 using Ash.SharedKernel.Results;
-using Microsoft.EntityFrameworkCore;
 
 namespace Ash.Modules.Reference.Application.Admin;
 
@@ -12,11 +11,13 @@ public sealed record DossierCodeFormatAdminResponse(byte Id, string Template, by
 
 public static partial class DossierCodeFormatAdminSupport
 {
-    private static readonly string[] AllowedTokens = ["{YYYY}", "{OFFICE}", "{RAND}"];
+    // The office is not part of the dossier code; {OFFICE} is rejected, also on older rows when they are activated.
+    private static readonly string[] AllowedTokens = ["{YYYY}", "{RAND}"];
     private const int MaxExpandedLength = 30;
     private const int MaxTemplateLength = 40;
 
-    public static async Task<Error?> ValidateCreate(ReferenceDbContext db, string? template, int? randomDigits, CancellationToken ct)
+    /// <summary>Used on create and again on activate, so an older row with retired tokens cannot become active.</summary>
+    public static Error? Validate(string? template, int? randomDigits)
     {
         if (string.IsNullOrWhiteSpace(template))
         {
@@ -26,8 +27,7 @@ public static partial class DossierCodeFormatAdminSupport
         var trimmed = template.Trim();
         if (!IsValidTemplate(trimmed))
         {
-            return Error.Validation("dossier_code_format.template_invalid",
-                "Template-i përmban token të pavlefshëm. Lejohen vetëm {YYYY}, {OFFICE} dhe {RAND}.");
+            return Error.Validation("dossier_code_format.template_invalid", "Lejohen vetëm {YYYY} dhe {RAND}.");
         }
 
         if (randomDigits is null || randomDigits < 4 || randomDigits > 12)
@@ -42,36 +42,10 @@ public static partial class DossierCodeFormatAdminSupport
                 "Template-i nuk mund të ketë më shumë se 40 karaktere.");
         }
 
-        var longestOfficeCode = await db.Database
-            .SqlQuery<long>($"SELECT COALESCE(MAX(CHAR_LENGTH(code)), 0) AS Value FROM offices")
-            .SingleAsync(ct);
-        var expanded = ExpandTemplate(trimmed, new string('X', (int)longestOfficeCode), randomDigits.Value);
-        if (expanded.Length > MaxExpandedLength)
+        if (ExpandTemplate(trimmed, randomDigits.Value).Length > MaxExpandedLength)
         {
             return Error.Validation("dossier_code_format.code_too_long",
                 "Kodi do të ishte më i gjatë se 30 karaktere.");
-        }
-
-        return null;
-    }
-
-    public static Error? ValidateActivate(string? template, int? randomDigits)
-    {
-        if (string.IsNullOrWhiteSpace(template))
-        {
-            return Error.Validation("dossier_code_format.template_required", "Template-i është i detyrueshëm.");
-        }
-
-        if (!IsValidTemplate(template.Trim()))
-        {
-            return Error.Validation("dossier_code_format.template_invalid",
-                "Template-i përmban token të pavlefshëm. Lejohen vetëm {YYYY}, {OFFICE} dhe {RAND}.");
-        }
-
-        if (randomDigits is null || randomDigits < 4 || randomDigits > 12)
-        {
-            return Error.Validation("dossier_code_format.random_digits_invalid",
-                "Vlera e random_digits duhet të jetë ndërmjet 4 dhe 12.");
         }
 
         return null;
@@ -135,10 +109,9 @@ public static partial class DossierCodeFormatAdminSupport
         return true;
     }
 
-    public static string ExpandTemplate(string template, string officeCode, int randomDigits)
+    public static string ExpandTemplate(string template, int randomDigits)
     {
         var result = template.Replace("{YYYY}", "2024", StringComparison.Ordinal);
-        result = result.Replace("{OFFICE}", officeCode, StringComparison.Ordinal);
         result = result.Replace("{RAND}", new string('9', randomDigits), StringComparison.Ordinal);
         return result;
     }

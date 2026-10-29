@@ -24,7 +24,7 @@ Let the Administrator add, rename and deactivate lookup values, allowed file typ
 
 ## Acceptance criteria
 - [ ] Deactivated hearing type disappears from pickers but old hearings still show its name.
-- [ ] Switching code format to `{YYYY}-{OFFICE}-{RAND}` makes the next dossier use it.
+- [ ] Switching code format to `ASH-{YYYY}-{RAND}` makes the next dossier use it.
 
 ## Out of scope
 - Anything not listed above.

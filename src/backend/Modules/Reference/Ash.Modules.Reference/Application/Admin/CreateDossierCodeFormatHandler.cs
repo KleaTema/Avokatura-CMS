@@ -13,7 +13,7 @@ public sealed class CreateDossierCodeFormatHandler(
 {
     public async Task<Result<DossierCodeFormatAdminResponse>> Handle(CreateDossierCodeFormatRequest req, CancellationToken ct)
     {
-        var invalid = await DossierCodeFormatAdminSupport.ValidateCreate(db, req.Template, req.RandomDigits, ct);
+        var invalid = DossierCodeFormatAdminSupport.Validate(req.Template, req.RandomDigits);
         if (invalid is not null)
         {
             return invalid;

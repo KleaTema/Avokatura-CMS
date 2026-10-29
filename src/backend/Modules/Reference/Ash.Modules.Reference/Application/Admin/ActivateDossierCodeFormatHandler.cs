@@ -17,6 +17,12 @@ public sealed class ActivateDossierCodeFormatHandler(ReferenceDbContext db, IAud
             return Error.NotFound("dossier_code_format.not_found", "Formati i kodit nuk u gjet.");
         }
 
+        var invalid = DossierCodeFormatAdminSupport.Validate(row.Template, row.RandomDigits);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
         var old = DossierCodeFormatAdminSupport.Snapshot(row);
         var activeIds = await db.DossierCodeFormats
             .Where(x => x.IsActive && x.Id != id)

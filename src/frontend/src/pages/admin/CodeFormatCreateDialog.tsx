@@ -20,31 +20,41 @@ import { useForbiddenRedirect } from './lists/helpers'
 
 const t = sq.adminCodeFormat
 
-const ALLOWED_TOKENS = ['{YYYY}', '{OFFICE}', '{RAND}']
+const ALLOWED_TOKENS = ['{YYYY}', '{RAND}']
+const MAX_CODE_LENGTH = 30
 
-// Same rules as the backend except the "expanded code ≤ 30 characters" check, which needs the longest office code.
+// Same rules as the backend; the server stays the real check.
 const isValidTemplate = (template: string) => {
   if (!template || template.length > 40) return false
   const tokens = template.match(/\{[^}]*\}/g) ?? []
   return tokens.every((x) => ALLOWED_TOKENS.includes(x)) && tokens.filter((x) => x === '{RAND}').length === 1
 }
 
-const schema = z.object({
-  template: z.string().trim().refine(isValidTemplate, t.validation.templateInvalid),
-  randomDigits: z
-    .string()
-    .trim()
-    .regex(/^\d{1,2}$/, t.validation.digitsInvalid)
-    .refine((v) => Number(v) >= 4 && Number(v) <= 12, t.validation.digitsInvalid),
-  note: z.string().trim().max(300, t.validation.noteTooLong),
-})
+/** Length of a generated code: {YYYY} is 4 characters, {RAND} is the chosen number of digits. */
+const expandedLength = (template: string, digits: number) =>
+  template.replaceAll('{YYYY}', '0000').replaceAll('{RAND}', '0'.repeat(digits)).length
+
+const schema = z
+  .object({
+    template: z.string().trim().refine(isValidTemplate, t.validation.templateInvalid),
+    randomDigits: z
+      .string()
+      .trim()
+      .regex(/^\d{1,2}$/, t.validation.digitsInvalid)
+      .refine((v) => Number(v) >= 4 && Number(v) <= 12, t.validation.digitsInvalid),
+    note: z.string().trim().max(300, t.validation.noteTooLong),
+  })
+  .superRefine((v, ctx) => {
+    if (expandedLength(v.template, Number(v.randomDigits)) > MAX_CODE_LENGTH)
+      ctx.addIssue({ code: 'custom', path: ['template'], message: t.validation.codeTooLong })
+  })
 
 type FormValues = z.infer<typeof schema>
 
 const randomDigitString = (length: number) =>
   Array.from({ length }, () => Math.floor(Math.random() * 10)).join('')
 
-/** What a new dossier code would look like: current year, office "TR", random digits of the chosen length. */
+/** What a new dossier code would look like: current year and random digits of the chosen length, e.g. ASH-2026-483915. */
 function useExample(template: string, digitsText: string) {
   const digits = Number(digitsText)
   const validDigits = Number.isInteger(digits) && digits >= 4 && digits <= 12 ? digits : null
@@ -54,7 +64,6 @@ function useExample(template: string, digitsText: string) {
   return template
     .trim()
     .replaceAll('{YYYY}', year)
-    .replaceAll('{OFFICE}', t.exampleOffice)
     .replaceAll('{RAND}', random)
 }
 
@@ -68,7 +77,7 @@ export function CodeFormatCreateDialog({ onClose }: { onClose: () => void }) {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { template: '{YYYY}-{OFFICE}-{RAND}', randomDigits: '6', note: '' },
+    defaultValues: { template: 'ASH-{YYYY}-{RAND}', randomDigits: '6', note: '' },
   })
   const [template, randomDigits] = useWatch({ control, name: ['template', 'randomDigits'] })
   const example = useExample(template, randomDigits)
