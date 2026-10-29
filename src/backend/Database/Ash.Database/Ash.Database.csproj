@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <PackageReference Include="dbup-mysql" />
+    <!-- direct reference only to lift dbup-mysql's transitive MySqlConnector to the patched version -->
+    <PackageReference Include="MySqlConnector" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
   </ItemGroup>

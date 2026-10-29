@@ -11,6 +11,8 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.MySql" />
+    <!-- direct reference only to lift the transitive MySqlConnector (via Ash.Database → dbup-mysql) to the patched version -->
+    <PackageReference Include="MySqlConnector" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Host\Ash.Api\Ash.Api.csproj" />
