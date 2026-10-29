@@ -29,6 +29,22 @@ public static class ReferenceModule
 		services.AddScoped<ListDossierCodeFormatsAdminHandler>();
 		services.AddScoped<CreateDossierCodeFormatHandler>();
 		services.AddScoped<ActivateDossierCodeFormatHandler>();
+		services.AddScoped<ListPartyRolesAdminHandler>();
+		services.AddScoped<CreatePartyRoleHandler>();
+		services.AddScoped<UpdatePartyRoleHandler>();
+		services.AddScoped<SetPartyRoleActiveHandler>();
+		services.AddScoped<ListSummonsTypesAdminHandler>();
+		services.AddScoped<CreateSummonsTypeHandler>();
+		services.AddScoped<UpdateSummonsTypeHandler>();
+		services.AddScoped<SetSummonsTypeActiveHandler>();
+		services.AddScoped<ListDocumentTypesAdminHandler>();
+		services.AddScoped<CreateDocumentTypeHandler>();
+		services.AddScoped<UpdateDocumentTypeHandler>();
+		services.AddScoped<SetDocumentTypeActiveHandler>();
+		services.AddScoped<ListDecisionResultsAdminHandler>();
+		services.AddScoped<CreateDecisionResultHandler>();
+		services.AddScoped<UpdateDecisionResultHandler>();
+		services.AddScoped<SetDecisionResultActiveHandler>();
 		return services;
 	}
 

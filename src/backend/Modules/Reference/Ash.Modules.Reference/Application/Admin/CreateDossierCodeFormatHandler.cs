@@ -13,12 +13,13 @@ public sealed class CreateDossierCodeFormatHandler(
 {
     public async Task<Result<DossierCodeFormatAdminResponse>> Handle(CreateDossierCodeFormatRequest req, CancellationToken ct)
     {
-        var template = req.Template.Trim();
-        var invalid = await DossierCodeFormatAdminSupport.ValidateCreate(db, template, req.RandomDigits, ct);
+        var invalid = await DossierCodeFormatAdminSupport.ValidateCreate(db, req.Template, req.RandomDigits, ct);
         if (invalid is not null)
         {
             return invalid;
         }
+
+        var template = req.Template.Trim();
 
         if (await db.DossierCodeFormats.AnyAsync(x => x.Template == template, ct))
         {

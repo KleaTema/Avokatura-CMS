@@ -476,6 +476,362 @@ public class ReferenceDataTests(MySqlFixture db) : IntegrationTest(db)
         (await client.GetAsync("/api/reference/admin/dossier-code-formats", TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
+    private static async Task CreateAndRename(HttpClient client, string list, string code, object create, object rename, string newName)
+    {
+        var path = $"/api/reference/admin/{list}";
+        var created = await client.PostAsJsonAsync(path, create, TestContext.Current.CancellationToken);
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, list);
+
+        var adminList = await GetJson(client, path);
+        adminList.EnumerateArray().ShouldContain(x => x.GetProperty("code").GetString() == code);
+
+        var renamed = await client.PutAsJsonAsync($"{path}/{code}", rename, TestContext.Current.CancellationToken);
+        renamed.StatusCode.ShouldBe(HttpStatusCode.OK, list);
+
+        var after = await GetJson(client, path);
+        after.EnumerateArray().Single(x => x.GetProperty("code").GetString() == code)
+            .GetProperty("name").GetString().ShouldBe(newName);
+    }
+
+    private static async Task<HttpStatusCode> PostStatus(HttpClient client, string list, object body) =>
+        (await client.PostAsJsonAsync($"/api/reference/admin/{list}", body, TestContext.Current.CancellationToken)).StatusCode;
+
+    [Fact]
+    public async Task Admin_can_create_and_rename_party_role()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_PARTY_TEST";
+
+        try
+        {
+            await CreateAndRename(client, "party-roles", code,
+                new { code, name = "Ndërhyrës", reportGroup = "DEFENDANT_OR_THIRD", sortOrder = 90 },
+                new { name = "Ndërhyrës i riemërtuar", sortOrder = 91 },
+                "Ndërhyrës i riemërtuar");
+
+            var row = (await GetJson(client, "/api/reference/admin/party-roles")).EnumerateArray()
+                .Single(x => x.GetProperty("code").GetString() == code);
+            row.GetProperty("reportGroup").GetString().ShouldBe("DEFENDANT_OR_THIRD");
+        }
+        finally
+        {
+            await Execute($"DELETE FROM party_roles WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Duplicate_party_role_code_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_PARTY_DUP";
+
+        try
+        {
+            await Execute($"INSERT INTO party_roles (code, name, report_group, sort_order, is_active) VALUES ('{code}', 'Origjinal', 'PLAINTIFF', 1, 1)");
+
+            (await PostStatus(client, "party-roles", new { code, name = "Duble", reportGroup = "PLAINTIFF", sortOrder = 2 }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM party_roles WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Invalid_party_role_report_group_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_PARTY_BAD_GROUP";
+
+        try
+        {
+            (await PostStatus(client, "party-roles", new { code, name = "Grup i gabuar", reportGroup = "WITNESS", sortOrder = 1 }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM party_roles WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Admin_can_create_and_rename_summons_type()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_SUMMONS_TEST";
+
+        try
+        {
+            await CreateAndRename(client, "summons-types", code,
+                new { code, name = "Fletëthirrje test" },
+                new { name = "Fletëthirrje e riemërtuar" },
+                "Fletëthirrje e riemërtuar");
+        }
+        finally
+        {
+            await Execute($"DELETE FROM summons_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Duplicate_summons_type_code_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_SUMMONS_DUP";
+
+        try
+        {
+            await Execute($"INSERT INTO summons_types (code, name, is_active) VALUES ('{code}', 'Origjinal', 1)");
+
+            (await PostStatus(client, "summons-types", new { code, name = "Duble" }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM summons_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Admin_can_create_and_rename_document_type()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DOCUMENT_TEST";
+
+        try
+        {
+            await CreateAndRename(client, "document-types", code,
+                new { code, name = "Dokument test", sortOrder = 90, isOther = false },
+                new { name = "Dokument i riemërtuar", sortOrder = 91, isOther = true },
+                "Dokument i riemërtuar");
+        }
+        finally
+        {
+            await Execute($"DELETE FROM document_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Duplicate_document_type_code_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DOCUMENT_DUP";
+
+        try
+        {
+            await Execute($"INSERT INTO document_types (code, name, is_other, sort_order, is_active) VALUES ('{code}', 'Origjinal', 0, 1, 1)");
+
+            (await PostStatus(client, "document-types", new { code, name = "Duble", sortOrder = 2, isOther = false }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM document_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Admin_can_create_and_rename_decision_result()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DECISION_RESULT_TEST";
+
+        try
+        {
+            await CreateAndRename(client, "decision-results", code,
+                new { code, name = "Rezultat test", outcomeGroup = "PARTIAL", sendsBackForRetrial = true, sortOrder = 90, isOther = false },
+                new { name = "Rezultat i riemërtuar", sortOrder = 91, isOther = true },
+                "Rezultat i riemërtuar");
+
+            var row = (await GetJson(client, "/api/reference/admin/decision-results")).EnumerateArray()
+                .Single(x => x.GetProperty("code").GetString() == code);
+            row.GetProperty("outcomeGroup").GetString().ShouldBe("PARTIAL");
+            row.GetProperty("sendsBackForRetrial").GetBoolean().ShouldBeTrue();
+        }
+        finally
+        {
+            await Execute($"DELETE FROM decision_results WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Duplicate_decision_result_code_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DECISION_RESULT_DUP";
+
+        try
+        {
+            await Execute($"INSERT INTO decision_results (code, name, outcome_group, sends_back_for_retrial, is_other, sort_order, is_active) VALUES ('{code}', 'Origjinal', 'WIN', 0, 0, 1, 1)");
+
+            (await PostStatus(client, "decision-results",
+                    new { code, name = "Duble", outcomeGroup = "WIN", sendsBackForRetrial = false, sortOrder = 2, isOther = false }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM decision_results WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Invalid_decision_result_outcome_group_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DECISION_RESULT_BAD_GROUP";
+
+        try
+        {
+            (await PostStatus(client, "decision-results",
+                    new { code, name = "Grup i gabuar", outcomeGroup = "DRAW", sendsBackForRetrial = false, sortOrder = 1, isOther = false }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM decision_results WHERE code = '{code}'");
+        }
+    }
+
+    private static async Task NullCodeAndNameReturn400(HttpClient client, string list, string existingCode, object createWithNullCode, object updateWithNullName)
+    {
+        var create = await client.PostAsJsonAsync($"/api/reference/admin/{list}", createWithNullCode, TestContext.Current.CancellationToken);
+        create.StatusCode.ShouldBe(HttpStatusCode.BadRequest, $"{list} POST code = null");
+
+        var update = await client.PutAsJsonAsync($"/api/reference/admin/{list}/{existingCode}", updateWithNullName, TestContext.Current.CancellationToken);
+        update.StatusCode.ShouldBe(HttpStatusCode.BadRequest, $"{list} PUT name = null");
+    }
+
+    [Fact]
+    public async Task Hearing_type_null_code_or_name_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_HEARING_NULLS";
+
+        try
+        {
+            await Execute($"INSERT INTO hearing_types (code, name, is_other, sort_order, is_active) VALUES ('{code}', 'Origjinal', 0, 1, 1)");
+            await NullCodeAndNameReturn400(client, "hearing-types", code,
+                new { code = (string?)null, name = "Pa kod", sortOrder = 1, isOther = false },
+                new { name = (string?)null, sortOrder = 1, isOther = false });
+        }
+        finally
+        {
+            await Execute($"DELETE FROM hearing_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Party_role_null_code_or_name_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_PARTY_NULLS";
+
+        try
+        {
+            await Execute($"INSERT INTO party_roles (code, name, report_group, sort_order, is_active) VALUES ('{code}', 'Origjinal', 'PLAINTIFF', 1, 1)");
+            await NullCodeAndNameReturn400(client, "party-roles", code,
+                new { code = (string?)null, name = "Pa kod", reportGroup = "PLAINTIFF", sortOrder = 1 },
+                new { name = (string?)null, sortOrder = 1 });
+        }
+        finally
+        {
+            await Execute($"DELETE FROM party_roles WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Summons_type_null_code_or_name_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_SUMMONS_NULLS";
+
+        try
+        {
+            await Execute($"INSERT INTO summons_types (code, name, is_active) VALUES ('{code}', 'Origjinal', 1)");
+            await NullCodeAndNameReturn400(client, "summons-types", code,
+                new { code = (string?)null, name = "Pa kod" },
+                new { name = (string?)null });
+        }
+        finally
+        {
+            await Execute($"DELETE FROM summons_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Document_type_null_code_or_name_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DOCUMENT_NULLS";
+
+        try
+        {
+            await Execute($"INSERT INTO document_types (code, name, is_other, sort_order, is_active) VALUES ('{code}', 'Origjinal', 0, 1, 1)");
+            await NullCodeAndNameReturn400(client, "document-types", code,
+                new { code = (string?)null, name = "Pa kod", sortOrder = 1, isOther = false },
+                new { name = (string?)null, sortOrder = 1, isOther = false });
+        }
+        finally
+        {
+            await Execute($"DELETE FROM document_types WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task Decision_result_null_code_or_name_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var code = "ADMIN_DECISION_RESULT_NULLS";
+
+        try
+        {
+            await Execute($"INSERT INTO decision_results (code, name, outcome_group, sends_back_for_retrial, is_other, sort_order, is_active) VALUES ('{code}', 'Origjinal', 'WIN', 0, 0, 1, 1)");
+            await NullCodeAndNameReturn400(client, "decision-results", code,
+                new { code = (string?)null, name = "Pa kod", outcomeGroup = "WIN", sendsBackForRetrial = false, sortOrder = 1, isOther = false },
+                new { name = (string?)null, sortOrder = 1, isOther = false });
+        }
+        finally
+        {
+            await Execute($"DELETE FROM decision_results WHERE code = '{code}'");
+        }
+    }
+
+    [Fact]
+    public async Task File_type_and_code_format_null_fields_are_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+
+        (await PostStatus(client, "file-types", new
+        {
+            extension = (string?)null,
+            contentType = (string?)null,
+            magicHex = (string?)null,
+            maxSizeBytes = 1024,
+            isActive = true,
+            appliesTo = (string?)null
+        })).ShouldBe(HttpStatusCode.BadRequest);
+
+        (await PostStatus(client, "dossier-code-formats", new { template = (string?)null, randomDigits = 6, note = (string?)null }))
+            .ShouldBe(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task Invalidate_forces_a_reload()
     {

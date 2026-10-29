@@ -11,13 +11,14 @@ public sealed class CreateHearingTypeHandler(ReferenceDbContext db, IAuditLog au
 {
     public async Task<Result<HearingTypeAdminResponse>> Handle(CreateHearingTypeRequest req, CancellationToken ct)
     {
-        var code = req.Code.Trim();
-        var name = req.Name.Trim();
-        var invalid = HearingTypeAdminSupport.ValidateCreate(code, name, req.SortOrder);
+        var invalid = HearingTypeAdminSupport.ValidateCreate(req.Code, req.Name, req.SortOrder);
         if (invalid is not null)
         {
             return invalid;
         }
+
+        var code = req.Code.Trim();
+        var name = req.Name.Trim();
 
         var sortOrder = HearingTypeAdminSupport.ToDbSortOrder(req.SortOrder);
 

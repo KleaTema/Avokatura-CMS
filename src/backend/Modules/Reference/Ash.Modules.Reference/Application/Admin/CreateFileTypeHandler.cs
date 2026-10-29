@@ -11,16 +11,16 @@ public sealed class CreateFileTypeHandler(ReferenceDbContext db, IAuditLog audit
 {
     public async Task<Result<FileTypeAdminResponse>> Handle(CreateFileTypeRequest req, CancellationToken ct)
     {
-        var extension = req.Extension.Trim();
-        var contentType = req.ContentType.Trim();
-        var magicHex = req.MagicHex.Trim();
-        var appliesTo = req.AppliesTo.Trim();
-
-        var invalid = FileTypeAdminSupport.ValidateCreate(extension, contentType, magicHex, req.MaxSizeBytes, appliesTo);
+        var invalid = FileTypeAdminSupport.ValidateCreate(req.Extension, req.ContentType, req.MagicHex, req.MaxSizeBytes, req.AppliesTo);
         if (invalid is not null)
         {
             return invalid;
         }
+
+        var extension = req.Extension.Trim();
+        var contentType = req.ContentType.Trim();
+        var magicHex = req.MagicHex.Trim();
+        var appliesTo = req.AppliesTo.Trim();
 
         if (await db.AllowedFileTypes.AnyAsync(x => x.Extension == extension && x.AppliesTo == appliesTo, ct))
         {
