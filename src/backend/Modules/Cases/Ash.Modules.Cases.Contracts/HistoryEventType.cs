@@ -1,6 +1,9 @@
 namespace Ash.Modules.Cases.Contracts;
 
-/// <summary>Mirrors the event_type list in 004_core_documents_history.sql.</summary>
+/// <summary>
+/// The list of record of case_history_events.event_type (stored codes: HistoryEventCodes). 004_core_documents_history.sql
+/// lists the original codes and says to keep the list here; codes are only ever added, never removed or renamed.
+/// </summary>
 public enum HistoryEventType
 {
     DossierCreated,
@@ -17,10 +20,14 @@ public enum HistoryEventType
     CategoryChanged,
     Delegated,
     InstitutionLinked,
+    /// <summary>INSTITUTION_UNLINKED (task 017): a MONITORING link ended when the institution's last party was removed.</summary>
+    InstitutionUnlinked,
     JuristAssigned,
     JudgeChanged,
     ObjectChanged,
     PartyAdded,
+    /// <summary>PARTY_UPDATED (task 017): role, name or identifier of a party changed.</summary>
+    PartyUpdated,
     PartyRemoved,
     HearingAdded,
     HearingUpdated,

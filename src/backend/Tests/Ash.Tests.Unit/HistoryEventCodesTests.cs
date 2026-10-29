@@ -7,15 +7,25 @@ namespace Ash.Tests.Unit;
 
 public class HistoryEventCodesTests
 {
+    /// <summary>
+    /// The enum is the list of record. Backward compatibility: every code 004 lists still exists (codes already
+    /// stored are never removed or renamed). New codes may be added in the code without touching the SQL.
+    /// </summary>
     [Fact]
-    public void Every_enum_value_maps_to_a_distinct_code_from_the_sql_list()
+    public void Every_code_listed_in_the_sql_still_exists_and_codes_are_distinct()
     {
         var sqlCodes = ReadCodesFromSql();
         var mapped = Enum.GetValues<HistoryEventType>().Select(HistoryEventCodes.ToCode).ToList();
 
-        mapped.ShouldBeSubsetOf(sqlCodes);
+        sqlCodes.ShouldBeSubsetOf(mapped);
         mapped.Distinct().Count().ShouldBe(mapped.Count);
-        mapped.Count.ShouldBe(sqlCodes.Count);
+    }
+
+    [Fact]
+    public void Every_code_fits_the_event_type_column()
+    {
+        // case_history_events.event_type is VARCHAR(40)
+        Enum.GetValues<HistoryEventType>().Select(HistoryEventCodes.ToCode).ShouldAllBe(code => code.Length <= 40);
     }
 
     [Fact]

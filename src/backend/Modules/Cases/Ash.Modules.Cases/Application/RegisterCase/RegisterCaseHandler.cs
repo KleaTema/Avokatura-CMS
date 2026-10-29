@@ -26,9 +26,9 @@ internal sealed class RegisterCaseHandler(
     IUnitOfWork unitOfWork,
     IReferenceData reference,
     IOfficeDirectory offices,
-    IInstitutionDirectory institutions,
     ICaseAccessService access,
     IHistoryWriter history,
+    PartyResolver partyResolver,
     PartyWriter parties,
     IAuditLog audit,
     IEventPublisher events,
@@ -40,7 +40,7 @@ internal sealed class RegisterCaseHandler(
     public async Task<Result<RegisterCaseResponse>> Handle(RegisterCaseRequest req, CancellationToken ct)
     {
         // 1. Fields and dates
-        var errors = new RegisterCaseValidator.FieldErrors();
+        var errors = new FieldErrors();
         var hearingUtc = RegisterCaseValidator.Validate(req, TiraneTime.Today(clock), errors);
         var warnings = new List<RegistrationWarning>();
 
@@ -171,48 +171,23 @@ internal sealed class RegisterCaseHandler(
 
     /// <summary>Roles and institutions must exist and be active; returns the parties ready for <see cref="PartyWriter"/>.</summary>
     private async Task<List<NewParty>> ResolvePartiesAsync(
-        IReadOnlyList<PartyRequest>? requested, RegisterCaseValidator.FieldErrors errors, CancellationToken ct)
+        IReadOnlyList<PartyRequest>? requested, FieldErrors errors, CancellationToken ct)
     {
         var result = new List<NewParty>();
-        if (requested is null)
+        for (var i = 0; i < (requested?.Count ?? 0); i++)
         {
-            return result;
-        }
-
-        var institutionIds = requested.Where(p => p?.InstitutionPublicId is not null)
-            .Select(p => p!.InstitutionPublicId!.Value).Distinct().ToList();
-        var known = (await institutions.GetByPublicIdsAsync(institutionIds, ct)).ToDictionary(i => i.PublicId);
-
-        for (var i = 0; i < requested.Count; i++)
-        {
-            var p = requested[i];
-            var key = $"parties[{i}]";
-            if (p is null || string.IsNullOrWhiteSpace(p.PartyRoleCode))
+            var p = requested![i];
+            var prefix = $"parties[{i}].";
+            var kind = p?.Kind?.Trim();
+            if (p is null || kind is null || errors.Has($"{prefix}kind"))
             {
                 continue; // reported by the validator
             }
 
-            var role = await reference.GetPartyRole(p.PartyRoleCode.Trim(), ct);
-            if (role is null || !role.IsActive)
+            if (await partyResolver.ResolveAsync(p, kind, prefix, errors, ct) is { } party)
             {
-                errors.Add($"{key}.partyRoleCode", "Roli i palës nuk ekziston ose nuk është aktiv.");
-                continue;
+                result.Add(party);
             }
-
-            var kind = p.Kind?.Trim();
-            InstitutionInfo? institution = null;
-            if (kind == CaseParty.Institution && p.InstitutionPublicId is { } institutionId
-                && !errors.Has($"{key}.institutionPublicId"))
-            {
-                if (!known.TryGetValue(institutionId, out institution) || !institution.IsActive)
-                {
-                    errors.Add($"{key}.institutionPublicId", "Institucioni nuk ekziston ose nuk është aktiv.");
-                    continue;
-                }
-            }
-
-            result.Add(new NewParty(role, kind ?? string.Empty, institution, p.DisplayName?.Trim() ?? string.Empty,
-                RegisterCaseValidator.CleanIdentifier(kind, p.Identifier)));
         }
 
         return result;
@@ -222,7 +197,7 @@ internal sealed class RegisterCaseHandler(
         CourtLevelDto CourtLevel, CourtDto Court, JudgeDto Judge, SummonsTypeDto? SummonsType, HearingTypeDto HearingType);
 
     private async Task<Lookups> ResolveLookupsAsync(
-        RegisterCaseRequest req, RegisterCaseValidator.FieldErrors errors, List<RegistrationWarning> warnings, CancellationToken ct)
+        RegisterCaseRequest req, FieldErrors errors, List<RegistrationWarning> warnings, CancellationToken ct)
     {
         CourtLevelDto? level = null;
         if (!string.IsNullOrWhiteSpace(req.CourtLevelCode))

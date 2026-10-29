@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Ash.Modules.Cases.Application.Parties;
+using Ash.Modules.Cases.Infrastructure;
 using Ash.SharedKernel.Time;
 
 namespace Ash.Modules.Cases.Application.RegisterCase;
@@ -8,34 +10,13 @@ namespace Ash.Modules.Cases.Application.RegisterCase;
 /// Checks that need no database: required fields, lengths and dates. Keys are the camelCase request paths
 /// ("firstHearing.at") so the UI can show each message next to its field.
 /// </summary>
-public static partial class RegisterCaseValidator
+internal static partial class RegisterCaseValidator
 {
     public const int MaxNumberLength = 50;
     public const int MaxObjectLength = 4000;
     public const int MaxOtherTypeLength = 200;
 
     public const string JudgeMissingHint = "Nëse gjyqtari mungon në listë, kërkoni administratorit ta shtojë.";
-
-    public sealed class FieldErrors
-    {
-        private readonly Dictionary<string, List<string>> _errors = [];
-
-        public bool Any => _errors.Count > 0;
-
-        public bool Has(string field) => _errors.ContainsKey(field);
-
-        public void Add(string field, string message)
-        {
-            if (!_errors.TryGetValue(field, out var list))
-            {
-                _errors[field] = list = [];
-            }
-
-            list.Add(message);
-        }
-
-        public IReadOnlyDictionary<string, string[]> ToDictionary() => _errors.ToDictionary(x => x.Key, x => x.Value.ToArray());
-    }
 
     /// <summary>Validates the request; returns the hearing time in UTC when it could be read.</summary>
     public static DateTime? Validate(RegisterCaseRequest req, DateOnly todayInTirane, FieldErrors errors)
@@ -110,24 +91,7 @@ public static partial class RegisterCaseValidator
         return hearingUtc;
     }
 
-    public const int MaxPartyNameLength = 300;
-    public const int MaxIdentifierLength = 30;
-
-    private static readonly string[] PartyKinds = ["NATURAL", "LEGAL", "INSTITUTION"];
-
-    /// <summary>The identifier as stored: trimmed; for a legal entity also upper-case (NIPT). Blank = none.</summary>
-    public static string? CleanIdentifier(string? kind, string? identifier)
-    {
-        if (string.IsNullOrWhiteSpace(identifier))
-        {
-            return null;
-        }
-
-        var trimmed = identifier.Trim();
-        return kind?.Trim() == "LEGAL" ? trimmed.ToUpperInvariant() : trimmed;
-    }
-
-    /// <summary>Format rules of the parties; roles and institutions are checked against the lookups by the handler.</summary>
+    /// <summary>Each party's format, plus duplicates inside the request; roles and institutions are checked by the handler.</summary>
     private static void ValidateParties(IReadOnlyList<PartyRequest>? parties, FieldErrors errors)
     {
         // TODO(client-q-min-parties): at least one party required at registration (default).
@@ -141,74 +105,27 @@ public static partial class RegisterCaseValidator
         var seenNames = new HashSet<(string Role, string Name)>();
         for (var i = 0; i < parties.Count; i++)
         {
+            var prefix = $"parties[{i}].";
+            var kind = PartyValidator.ValidateFormat(parties[i], prefix, errors);
             var p = parties[i];
-            var key = $"parties[{i}]";
-            if (p is null)
+            if (kind is null || p is null)
             {
-                errors.Add(key, "Pala nuk është e vlefshme.");
                 continue;
             }
 
-            if (string.IsNullOrWhiteSpace(p.PartyRoleCode))
+            if (kind == CaseParty.Institution)
             {
-                errors.Add($"{key}.partyRoleCode", "Roli i palës është i detyrueshëm.");
-            }
-
-            var kind = p.Kind?.Trim();
-            if (kind is null || !PartyKinds.Contains(kind))
-            {
-                errors.Add($"{key}.kind", "Lloji i palës duhet të jetë NATURAL, LEGAL ose INSTITUTION.");
-                continue;
-            }
-
-            if (kind == "INSTITUTION")
-            {
-                if (p.InstitutionPublicId is not { } institutionId)
+                if (p.InstitutionPublicId is { } institutionId && !seenInstitutions.Add(institutionId))
                 {
-                    errors.Add($"{key}.institutionPublicId", "Zgjidhni institucionin nga lista.");
-                }
-                else if (!seenInstitutions.Add(institutionId))
-                {
-                    errors.Add($"{key}.institutionPublicId", "I njëjti institucion është shtuar dy herë.");
+                    errors.Add($"{prefix}institutionPublicId", PartyValidator.DuplicateInstitutionMessage);
                 }
             }
-            else
+            else if (!errors.Has($"{prefix}displayName") && !string.IsNullOrWhiteSpace(p.PartyRoleCode)
+                     && !seenNames.Add((p.PartyRoleCode.Trim(), PartyValidator.NormalizeName(p.DisplayName!))))
             {
-                if (p.InstitutionPublicId is not null)
-                {
-                    errors.Add($"{key}.institutionPublicId", "Institucioni zgjidhet vetëm për palë të llojit institucion.");
-                }
-
-                if (string.IsNullOrWhiteSpace(p.DisplayName) || p.DisplayName.Trim().Length > MaxPartyNameLength)
-                {
-                    errors.Add($"{key}.displayName", $"Emri i palës është i detyrueshëm (deri në {MaxPartyNameLength} karaktere).");
-                }
-                else if (!string.IsNullOrWhiteSpace(p.PartyRoleCode)
-                         && !seenNames.Add((p.PartyRoleCode.Trim(), NormalizeName(p.DisplayName))))
-                {
-                    errors.Add($"{key}.displayName", "E njëjta palë me të njëjtin rol është shtuar dy herë.");
-                }
-            }
-
-            var identifier = CleanIdentifier(kind, p.Identifier);
-            if (identifier is { Length: > MaxIdentifierLength })
-            {
-                errors.Add($"{key}.identifier", $"Identifikuesi mund të ketë deri në {MaxIdentifierLength} karaktere.");
-            }
-            else if (kind == "LEGAL" && identifier is not null && !NiptRegex().IsMatch(identifier))
-            {
-                errors.Add($"{key}.identifier", "NIPT-i duhet të ketë formatin: një shkronjë, 8 shifra, një shkronjë (p.sh. K12345678A).");
+                errors.Add($"{prefix}displayName", PartyValidator.DuplicateNameMessage);
             }
         }
-    }
-
-    /// <summary>Case- and accent-insensitive, single spaces: "Agim  Hoxha" = "agim hoxha" = "Agïm Hoxha".</summary>
-    private static string NormalizeName(string name)
-    {
-        var decomposed = name.Trim().Normalize(System.Text.NormalizationForm.FormD);
-        var letters = decomposed.Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark);
-        return string.Join(' ', new string(letters.ToArray()).ToLowerInvariant()
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static void Required(FieldErrors errors, string field, string? value, int max, string label)
@@ -222,8 +139,4 @@ public static partial class RegisterCaseValidator
     // the value must state its offset: "Z" or "+01:00"; a bare local time would be ambiguous
     [GeneratedRegex(@"(Z|[+-]\d{2}:\d{2})$", RegexOptions.IgnoreCase)]
     private static partial Regex OffsetRegex();
-
-    // [0-9], not \d: \d also matches non-ASCII digits
-    [GeneratedRegex("^[A-Z][0-9]{8}[A-Z]$")]
-    private static partial Regex NiptRegex();
 }

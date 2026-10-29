@@ -21,12 +21,19 @@ public static class CasesModule
 		services.AddScoped<IHistoryWriter, HistoryWriter>();
 		services.AddScoped<ICaseAccessService>(sp => sp.GetRequiredService<CaseAccessService>());
 		services.AddScoped<PartyWriter>();
+		services.AddScoped<PartyResolver>();
+		services.AddScoped<PartyCaseGate>();
+		services.AddScoped<PartyViews>();
 		services.AddScoped<RegisterCaseHandler>();
+		services.AddScoped<ListPartiesHandler>();
+		services.AddScoped<AddPartyHandler>();
+		services.AddScoped<UpdatePartyHandler>();
+		services.AddScoped<RemovePartyHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapCaseRegistration();
+		return endpoints.MapCaseRegistration().MapCaseParties();
 	}
 }

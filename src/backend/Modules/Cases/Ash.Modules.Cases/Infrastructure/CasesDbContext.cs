@@ -75,6 +75,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.ToTable("case_parties");
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
             b.Property(x => x.CaseId).HasColumnName("case_id");
             b.Property(x => x.PartyRoleId).HasColumnName("party_role_id");
             b.Property(x => x.PartyKind).HasColumnName("party_kind");
@@ -84,6 +85,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.CreatedBy).HasColumnName("created_by");
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.Property(x => x.DeletedAt).HasColumnName("deleted_at");
+            b.Property(x => x.DeletedBy).HasColumnName("deleted_by");
         });
 
         modelBuilder.Entity<CaseInstitution>(b =>
@@ -97,6 +99,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.StartedAt).HasColumnName("started_at");
             b.Property(x => x.StartedBy).HasColumnName("started_by");
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
+            b.Property(x => x.EndedBy).HasColumnName("ended_by");
         });
 
         modelBuilder.Entity<CaseAssignmentRow>(b =>
@@ -204,6 +207,7 @@ public sealed class CaseParty
     public const string Institution = "INSTITUTION";
 
     public ulong Id { get; set; }
+    public Guid PublicId { get; set; }
     public ulong CaseId { get; set; }
     public byte PartyRoleId { get; set; }
     public string PartyKind { get; set; } = string.Empty;
@@ -214,7 +218,9 @@ public sealed class CaseParty
     public string? Identifier { get; set; }
     public uint CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
+    /// <summary>Soft delete: a removed party stays for history.</summary>
     public DateTime? DeletedAt { get; set; }
+    public uint? DeletedBy { get; set; }
 }
 
 public sealed class CaseInstitution
@@ -230,6 +236,7 @@ public sealed class CaseInstitution
     public uint StartedBy { get; set; }
     /// <summary>Null = the link is active (one active link per case and institution, unique key).</summary>
     public DateTime? EndedAt { get; set; }
+    public uint? EndedBy { get; set; }
 }
 
 public sealed class CaseHistoryEvent

@@ -22,5 +22,7 @@ public abstract class ModuleDbContextBase : DbContext
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
         configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+        configurationBuilder.Properties<DateOnly>().HaveConversion<DateOnlyConverter>();
+        configurationBuilder.Properties<DateOnly?>().HaveConversion<NullableDateOnlyConverter>();
     }
 }

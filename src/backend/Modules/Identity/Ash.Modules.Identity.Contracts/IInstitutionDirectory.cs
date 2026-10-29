@@ -7,4 +7,7 @@ public interface IInstitutionDirectory
 {
     /// <summary>The institutions with these public ids (inactive ones included); unknown ids are simply missing.</summary>
     Task<IReadOnlyList<InstitutionInfo>> GetByPublicIdsAsync(IReadOnlyCollection<Guid> publicIds, CancellationToken ct = default);
+
+    /// <summary>By internal id (as stored in other modules' foreign keys); unknown ids are simply missing.</summary>
+    Task<IReadOnlyList<InstitutionInfo>> GetByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct = default);
 }
