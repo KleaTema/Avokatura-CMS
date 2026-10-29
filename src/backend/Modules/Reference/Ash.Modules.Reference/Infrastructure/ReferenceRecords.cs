@@ -107,3 +107,13 @@ public sealed class AllowedFileTypeRecord
     public string AppliesTo { get; set; } = "";
     public bool IsActive { get; set; }
 }
+
+public sealed class DossierCodeFormatRecord
+{
+    public byte Id { get; set; }
+    public string Template { get; set; } = "";
+    public byte RandomDigits { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? Note { get; set; }
+}

@@ -20,6 +20,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
     public DbSet<CaseCategoryRecord> CaseCategories => Set<CaseCategoryRecord>();
     public DbSet<CaseSubcategoryRecord> CaseSubcategories => Set<CaseSubcategoryRecord>();
     public DbSet<AllowedFileTypeRecord> AllowedFileTypes => Set<AllowedFileTypeRecord>();
+    public DbSet<DossierCodeFormatRecord> DossierCodeFormats => Set<DossierCodeFormatRecord>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -36,7 +37,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("court_levels");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.SortOrder).HasColumnName("sort_order");
@@ -48,7 +49,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("courts");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.CourtLevelId).HasColumnName("court_level_id");
             b.Property(x => x.City).HasColumnName("city");
@@ -71,7 +72,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("party_roles");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.ReportGroup).HasColumnName("report_group");
@@ -83,7 +84,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("summons_types");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.IsActive).HasColumnName("is_active");
@@ -93,7 +94,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("hearing_types");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.IsOther).HasColumnName("is_other");
@@ -105,7 +106,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("document_types");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.IsOther).HasColumnName("is_other");
@@ -117,7 +118,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("decision_results");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.OutcomeGroup).HasColumnName("outcome_group");
@@ -131,7 +132,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("case_categories");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.IsDelegation).HasColumnName("is_delegation");
@@ -142,7 +143,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("case_subcategories");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.CategoryId).HasColumnName("category_id");
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
@@ -153,13 +154,25 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
         {
             b.ToTable("allowed_file_types");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Extension).HasColumnName("extension");
             b.Property(x => x.ContentType).HasColumnName("content_type");
             b.Property(x => x.MagicHex).HasColumnName("magic_hex");
             b.Property(x => x.MaxSizeBytes).HasColumnName("max_size_bytes");
             b.Property(x => x.AppliesTo).HasColumnName("applies_to");
             b.Property(x => x.IsActive).HasColumnName("is_active");
+        });
+
+        modelBuilder.Entity<DossierCodeFormatRecord>(b =>
+        {
+            b.ToTable("dossier_code_formats");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.Template).HasColumnName("template");
+            b.Property(x => x.RandomDigits).HasColumnName("random_digits");
+            b.Property(x => x.IsActive).HasColumnName("is_active");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.Note).HasColumnName("note");
         });
     }
 }
