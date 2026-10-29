@@ -1,3 +1,4 @@
+using Ash.Modules.Cases.Application.Parties;
 using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Endpoints;
@@ -19,6 +20,7 @@ public static class CasesModule
 		services.AddScoped<ICaseAssignmentCounts, CaseAssignmentCounts>();
 		services.AddScoped<IHistoryWriter, HistoryWriter>();
 		services.AddScoped<ICaseAccessService>(sp => sp.GetRequiredService<CaseAccessService>());
+		services.AddScoped<PartyWriter>();
 		services.AddScoped<RegisterCaseHandler>();
 		return services;
 	}

@@ -2,6 +2,7 @@ using System.Data;
 using Ash.SharedKernel.Events;
 using Ash.Infrastructure.Persistence;
 using Ash.Modules.Audit.Contracts;
+using Ash.Modules.Cases.Application.Parties;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Contracts.Events;
 using Ash.Modules.Cases.Infrastructure;
@@ -17,16 +18,18 @@ namespace Ash.Modules.Cases.Application.RegisterCase;
 
 /// <summary>
 /// Protokoll registers a summons: dossier with its unique code (create_dossier), case X/1 in REGISTERED,
-/// the first hearing, three history rows, and CaseRegistered for the office head — all in the request
-/// transaction, so any failure leaves nothing behind.
+/// the first hearing, the parties (with institution links), the history rows, and CaseRegistered for the
+/// office head — all in the request transaction, so any failure leaves nothing behind.
 /// </summary>
-public sealed class RegisterCaseHandler(
+internal sealed class RegisterCaseHandler(
     CasesDbContext db,
     IUnitOfWork unitOfWork,
     IReferenceData reference,
     IOfficeDirectory offices,
+    IInstitutionDirectory institutions,
     ICaseAccessService access,
     IHistoryWriter history,
+    PartyWriter parties,
     IAuditLog audit,
     IEventPublisher events,
     ICurrentUser user,
@@ -43,6 +46,7 @@ public sealed class RegisterCaseHandler(
 
         // 2. Lookups (only for the fields that are present)
         var lookups = await ResolveLookupsAsync(req, errors, warnings, ct);
+        var newParties = await ResolvePartiesAsync(req.Parties, errors, ct);
         if (errors.Any)
         {
             return Error.ValidationFields("Të dhënat e regjistrimit nuk janë të vlefshme.", errors.ToDictionary());
@@ -147,6 +151,14 @@ public sealed class RegisterCaseHandler(
                 JudgeId = lookups.Judge.Id,
                 PossibleDuplicateConfirmed = duplicates.Total > 0
             });
+        await db.SaveChangesAsync(ct);
+
+        // 7b. Parties: PARTY_ADDED each, institution links with INSTITUTION_LINKED and InstitutionLinked
+        foreach (var party in newParties)
+        {
+            await parties.AddAsync(registered, party, ct);
+        }
+
         history.Add((long)dossier.Id, caseId, HistoryEventType.SentToHead,
             $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { HeadUserId = head.UserId });
         await db.SaveChangesAsync(ct);
@@ -155,6 +167,55 @@ public sealed class RegisterCaseHandler(
         await events.PublishAsync(new CaseRegistered(registered.PublicId, officeId, head.PublicId), ct);
 
         return new RegisterCaseResponse(registered.PublicId, registered.CaseCode, warnings);
+    }
+
+    /// <summary>Roles and institutions must exist and be active; returns the parties ready for <see cref="PartyWriter"/>.</summary>
+    private async Task<List<NewParty>> ResolvePartiesAsync(
+        IReadOnlyList<PartyRequest>? requested, RegisterCaseValidator.FieldErrors errors, CancellationToken ct)
+    {
+        var result = new List<NewParty>();
+        if (requested is null)
+        {
+            return result;
+        }
+
+        var institutionIds = requested.Where(p => p?.InstitutionPublicId is not null)
+            .Select(p => p!.InstitutionPublicId!.Value).Distinct().ToList();
+        var known = (await institutions.GetByPublicIdsAsync(institutionIds, ct)).ToDictionary(i => i.PublicId);
+
+        for (var i = 0; i < requested.Count; i++)
+        {
+            var p = requested[i];
+            var key = $"parties[{i}]";
+            if (p is null || string.IsNullOrWhiteSpace(p.PartyRoleCode))
+            {
+                continue; // reported by the validator
+            }
+
+            var role = await reference.GetPartyRole(p.PartyRoleCode.Trim(), ct);
+            if (role is null || !role.IsActive)
+            {
+                errors.Add($"{key}.partyRoleCode", "Roli i palës nuk ekziston ose nuk është aktiv.");
+                continue;
+            }
+
+            var kind = p.Kind?.Trim();
+            InstitutionInfo? institution = null;
+            if (kind == CaseParty.Institution && p.InstitutionPublicId is { } institutionId
+                && !errors.Has($"{key}.institutionPublicId"))
+            {
+                if (!known.TryGetValue(institutionId, out institution) || !institution.IsActive)
+                {
+                    errors.Add($"{key}.institutionPublicId", "Institucioni nuk ekziston ose nuk është aktiv.");
+                    continue;
+                }
+            }
+
+            result.Add(new NewParty(role, kind ?? string.Empty, institution, p.DisplayName?.Trim() ?? string.Empty,
+                RegisterCaseValidator.CleanIdentifier(kind, p.Identifier)));
+        }
+
+        return result;
     }
 
     private sealed record Lookups(

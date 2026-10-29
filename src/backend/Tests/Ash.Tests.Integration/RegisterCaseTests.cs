@@ -5,6 +5,7 @@ using Ash.SharedKernel.Events;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Contracts.Events;
 using Ash.SharedKernel.Identity;
+using Ash.SharedKernel.Ids;
 using Ash.SharedKernel.Time;
 using Ash.Tests.Integration.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,9 +45,36 @@ public class RegisterCaseTests(MySqlFixture db) : IntegrationTest(db)
                 ["at"] = DateTime.UtcNow.AddDays(14).ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 ["hearingTypeCode"] = null,
                 ["otherTypeText"] = null
-            }
+            },
+            ["parties"] = new List<Dictionary<string, object?>> { NaturalParty("Agim Hoxha") }
         };
     }
+
+    private static Dictionary<string, object?> NaturalParty(string name, string role = "PADITES") => new()
+    {
+        ["partyRoleCode"] = role,
+        ["kind"] = "NATURAL",
+        ["institutionPublicId"] = null,
+        ["displayName"] = name,
+        ["identifier"] = null
+    };
+
+    private static Dictionary<string, object?> InstitutionParty(Guid? institution, string role = "I_PADITUR") => new()
+    {
+        ["partyRoleCode"] = role,
+        ["kind"] = "INSTITUTION",
+        ["institutionPublicId"] = institution,
+        ["displayName"] = "ignored by the server",
+        ["identifier"] = null
+    };
+
+    private static List<Dictionary<string, object?>> Parties(Dictionary<string, object?> body) =>
+        (List<Dictionary<string, object?>>)body["parties"]!;
+
+    /// <summary>The seeded ministry (LocalScripts/901), active, with institution users.</summary>
+    private async Task<Guid> SeededMinistry() =>
+        PublicId.FromBytes((byte[])(await Scalar(
+            "SELECT public_id FROM institutions WHERE name = 'Ministria e Financave dhe Ekonomisë'"))!);
 
     private static async Task<JsonElement> Json(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
@@ -95,7 +123,8 @@ public class RegisterCaseTests(MySqlFixture db) : IntegrationTest(db)
             SELECT GROUP_CONCAT(event_type ORDER BY id) FROM case_history_events
             WHERE dossier_id = (SELECT dossier_id FROM cases WHERE id = {caseId})
             """);
-        events.ShouldBe("DOSSIER_CREATED,CASE_REGISTERED,SENT_TO_HEAD");
+        events.ShouldBe("DOSSIER_CREATED,CASE_REGISTERED,PARTY_ADDED,SENT_TO_HEAD");
+        (await Scalar($"SELECT display_name FROM case_parties WHERE case_id = {caseId}")).ShouldBe("Agim Hoxha");
         ((string)(await Scalar($"SELECT summary FROM case_history_events WHERE case_id = {caseId} AND event_type = 'SENT_TO_HEAD'"))!)
             .ShouldContain("Kryetar");
     }
@@ -344,5 +373,171 @@ public class RegisterCaseTests(MySqlFixture db) : IntegrationTest(db)
 
         (await CanView(otherProtokoll, otherOffice)).ShouldBeFalse();
         (await CanView(ownProtokoll, ownOffice)).ShouldBeTrue();
+    }
+
+    // ---- Parties (016b) ----
+
+    private sealed class LinkedRecorder
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<InstitutionLinked> Events { get; } = new();
+    }
+
+    private sealed class RecordingInstitutionLinkedHandler(LinkedRecorder recorder) : IEventHandler<InstitutionLinked>
+    {
+        public Task HandleAsync(InstitutionLinked @event, CancellationToken cancellationToken = default)
+        {
+            recorder.Events.Enqueue(@event);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FailingInstitutionLinkedHandler : IEventHandler<InstitutionLinked>
+    {
+        public Task HandleAsync(InstitutionLinked @event, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("forced failure while saving a party");
+    }
+
+    private async Task<HttpResponseMessage> RegisterWith(params Dictionary<string, object?>[] parties)
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var body = await ValidBody();
+        body["parties"] = parties.ToList();
+        return await client.PostAsJsonAsync(Path, body, Ct);
+    }
+
+    private static async Task ShouldHaveFieldError(HttpResponseMessage response, string field)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await Json(response)).GetProperty("errors").TryGetProperty(field, out _).ShouldBeTrue(field);
+    }
+
+    [Fact]
+    public async Task Natural_and_institution_parties_are_saved_with_a_monitoring_link()
+    {
+        var ministry = await SeededMinistry();
+        var recorder = new LinkedRecorder();
+        await using var factory = new AshApiFactory(Db, configureServices: services =>
+        {
+            services.AddSingleton(recorder);
+            services.AddScoped<IEventHandler<InstitutionLinked>, RecordingInstitutionLinkedHandler>();
+        });
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var body = await ValidBody();
+        Parties(body).Add(InstitutionParty(ministry));
+
+        var response = await client.PostAsJsonAsync(Path, body, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await Json(response);
+        var casePublicId = created.GetProperty("casePublicId").GetGuid();
+        var caseId = Convert.ToInt64(await Scalar($"SELECT id FROM cases WHERE case_code = '{created.GetProperty("caseCode").GetString()}'"));
+
+        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {caseId}")).ShouldBe(2L);
+        (await Scalar($"SELECT display_name FROM case_parties WHERE case_id = {caseId} AND party_kind = 'INSTITUTION'"))
+            .ShouldBe("Ministria e Financave dhe Ekonomisë"); // snapshot, not the client's text
+        (await Scalar($"SELECT COUNT(*) FROM case_institutions WHERE case_id = {caseId} AND link_mode = 'MONITORING' AND ended_at IS NULL"))
+            .ShouldBe(1L);
+        (await Scalar($"SELECT COUNT(*) FROM case_history_events WHERE case_id = {caseId} AND event_type = 'PARTY_ADDED'")).ShouldBe(2L);
+        (await Scalar($"SELECT COUNT(*) FROM case_history_events WHERE case_id = {caseId} AND event_type = 'INSTITUTION_LINKED'")).ShouldBe(1L);
+        ((string)(await Scalar($"SELECT summary FROM case_history_events WHERE case_id = {caseId} AND event_type = 'PARTY_ADDED' ORDER BY id LIMIT 1"))!)
+            .ShouldContain("Paditës — Agim Hoxha");
+
+        var linked = recorder.Events.ShouldHaveSingleItem();
+        linked.CasePublicId.ShouldBe(casePublicId);
+        linked.InstitutionPublicId.ShouldBe(ministry);
+        linked.Mode.ShouldBe("MONITORING");
+    }
+
+    [Fact]
+    public async Task No_parties_is_rejected_with_400()
+    {
+        await ShouldHaveFieldError(await RegisterWith(), "parties");
+        (await Count("dossiers")).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Institution_party_without_institution_id_is_rejected_with_400() =>
+        await ShouldHaveFieldError(await RegisterWith(InstitutionParty(null)), "parties[0].institutionPublicId");
+
+    [Fact]
+    public async Task Natural_party_with_institution_id_is_rejected_with_400()
+    {
+        var party = NaturalParty("Agim Hoxha");
+        party["institutionPublicId"] = await SeededMinistry();
+
+        await ShouldHaveFieldError(await RegisterWith(party), "parties[0].institutionPublicId");
+    }
+
+    [Fact]
+    public async Task Inactive_institution_is_rejected_with_400()
+    {
+        await using var seed = await Seed.CreateAsync(Db.AppConnectionString);
+        var name = $"Institucion joaktiv {seed.Suffix}";
+        var id = await seed.InstitutionAsync(name, "IJT", "AGENCY");
+        try
+        {
+            await Scalar($"UPDATE institutions SET is_active = 0 WHERE id = {id}");
+            var publicId = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM institutions WHERE id = {id}"))!);
+
+            await ShouldHaveFieldError(
+                await RegisterWith(NaturalParty("Agim Hoxha"), InstitutionParty(publicId)), "parties[1].institutionPublicId");
+        }
+        finally
+        {
+            await Scalar($"DELETE FROM institutions WHERE id = {id}");
+        }
+    }
+
+    [Fact]
+    public async Task Legal_party_with_bad_nipt_is_rejected_and_a_good_one_is_stored_upper_case()
+    {
+        var bad = NaturalParty("Shoqëria Test sh.p.k.");
+        bad["kind"] = "LEGAL";
+        bad["identifier"] = "K1234567A";
+        await ShouldHaveFieldError(await RegisterWith(bad), "parties[0].identifier");
+
+        var good = NaturalParty("Shoqëria Test sh.p.k.");
+        good["kind"] = "LEGAL";
+        good["identifier"] = " k12345678a ";
+        var created = await RegisterWith(good);
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await Scalar("SELECT identifier FROM case_parties")).ShouldBe("K12345678A");
+    }
+
+    [Fact]
+    public async Task Same_institution_twice_and_same_name_and_role_twice_are_rejected()
+    {
+        var ministry = await SeededMinistry();
+        await ShouldHaveFieldError(
+            await RegisterWith(InstitutionParty(ministry), InstitutionParty(ministry, "PERSON_I_TRETE")),
+            "parties[1].institutionPublicId");
+
+        // case- and accent-insensitive; a different role is allowed
+        var twice = await RegisterWith(NaturalParty("Agim Hoxha"), NaturalParty("agïm  HOXHA"), NaturalParty("Agim Hoxha", "I_PADITUR"));
+        twice.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var errors = (await Json(twice)).GetProperty("errors");
+        errors.TryGetProperty("parties[1].displayName", out _).ShouldBeTrue();
+        errors.TryGetProperty("parties[2].displayName", out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Failing_party_rolls_back_the_whole_registration()
+    {
+        var ministry = await SeededMinistry();
+        // InstitutionLinked is published right after the party and its link are saved
+        await using var factory = new AshApiFactory(Db, configureServices: services =>
+            services.AddScoped<IEventHandler<InstitutionLinked>, FailingInstitutionLinkedHandler>());
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var body = await ValidBody();
+        Parties(body).Add(InstitutionParty(ministry));
+
+        var response = await client.PostAsJsonAsync(Path, body, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        foreach (var table in new[] { "dossiers", "cases", "case_hearings", "case_parties", "case_institutions", "case_history_events" })
+        {
+            (await Count(table)).ShouldBe(0, table);
+        }
     }
 }

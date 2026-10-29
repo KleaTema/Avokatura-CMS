@@ -43,6 +43,7 @@ public static class IdentityModule
 		services.AddScoped<IPermissionService, PermissionService>();
 		services.AddScoped<IUserDirectory, UserDirectory>();
 		services.AddScoped<IOfficeDirectory, OfficeDirectory>();
+		services.AddScoped<IInstitutionDirectory, InstitutionDirectory>();
 		services.AddScoped<CurrentUser>();
 		services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 		return services;

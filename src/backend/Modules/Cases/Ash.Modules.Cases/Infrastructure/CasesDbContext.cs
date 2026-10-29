@@ -8,6 +8,8 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<Dossier> Dossiers => Set<Dossier>();
     public DbSet<Case> Cases => Set<Case>();
     public DbSet<CaseHearing> CaseHearings => Set<CaseHearing>();
+    public DbSet<CaseParty> CaseParties => Set<CaseParty>();
+    public DbSet<CaseInstitution> CaseInstitutions => Set<CaseInstitution>();
     public DbSet<CaseAccessRow> CaseAccess => Set<CaseAccessRow>();
     public DbSet<CasePermissionRow> CasePermissions => Set<CasePermissionRow>();
     public DbSet<CaseHistoryEvent> CaseHistoryEvents => Set<CaseHistoryEvent>();
@@ -66,6 +68,35 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.Status).HasColumnName("status");
             b.Property(x => x.CreatedBy).HasColumnName("created_by");
             b.Property(x => x.RowVersion).HasColumnName("row_version");
+        });
+
+        modelBuilder.Entity<CaseParty>(b =>
+        {
+            b.ToTable("case_parties");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.CaseId).HasColumnName("case_id");
+            b.Property(x => x.PartyRoleId).HasColumnName("party_role_id");
+            b.Property(x => x.PartyKind).HasColumnName("party_kind");
+            b.Property(x => x.InstitutionId).HasColumnName("institution_id");
+            b.Property(x => x.DisplayName).HasColumnName("display_name");
+            b.Property(x => x.Identifier).HasColumnName("identifier");
+            b.Property(x => x.CreatedBy).HasColumnName("created_by");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<CaseInstitution>(b =>
+        {
+            b.ToTable("case_institutions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.CaseId).HasColumnName("case_id");
+            b.Property(x => x.InstitutionId).HasColumnName("institution_id");
+            b.Property(x => x.LinkMode).HasColumnName("link_mode");
+            b.Property(x => x.StartedAt).HasColumnName("started_at");
+            b.Property(x => x.StartedBy).HasColumnName("started_by");
+            b.Property(x => x.EndedAt).HasColumnName("ended_at");
         });
 
         modelBuilder.Entity<CaseAssignmentRow>(b =>
@@ -164,6 +195,41 @@ public sealed class CaseHearing
     public string Status { get; set; } = Scheduled;
     public uint CreatedBy { get; set; }
     public uint RowVersion { get; set; }
+}
+
+public sealed class CaseParty
+{
+    public const string Natural = "NATURAL";
+    public const string Legal = "LEGAL";
+    public const string Institution = "INSTITUTION";
+
+    public ulong Id { get; set; }
+    public ulong CaseId { get; set; }
+    public byte PartyRoleId { get; set; }
+    public string PartyKind { get; set; } = string.Empty;
+    /// <summary>Set exactly when PartyKind = INSTITUTION (CHECK constraint).</summary>
+    public uint? InstitutionId { get; set; }
+    /// <summary>For institutions a snapshot of the name at the time.</summary>
+    public string DisplayName { get; set; } = string.Empty;
+    public string? Identifier { get; set; }
+    public uint CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
+}
+
+public sealed class CaseInstitution
+{
+    public const string Monitoring = "MONITORING";
+    public const string Delegated = "DELEGATED";
+
+    public ulong Id { get; set; }
+    public ulong CaseId { get; set; }
+    public uint InstitutionId { get; set; }
+    public string LinkMode { get; set; } = string.Empty;
+    public DateTime StartedAt { get; set; }
+    public uint StartedBy { get; set; }
+    /// <summary>Null = the link is active (one active link per case and institution, unique key).</summary>
+    public DateTime? EndedAt { get; set; }
 }
 
 public sealed class CaseHistoryEvent
