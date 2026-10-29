@@ -69,10 +69,9 @@ public class AuditLogTests(MySqlFixture db) : IntegrationTest(db)
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var correlationId = CorrelationOf(response);
 
-        var rows = await WaitForRowsAsync(correlationId);
+        var rows = await WaitForRowsAsync(correlationId, AuditActions.CaseView);
 
         var row = rows.ShouldHaveSingleItem();
-        row.Action.ShouldBe(AuditActions.CaseView);
         row.Outcome.ShouldBe(AuditOutcomes.Success);
         row.CaseId.ShouldBe(caseId);
         row.Ip.ShouldBe(TestIp);
@@ -91,12 +90,11 @@ public class AuditLogTests(MySqlFixture db) : IntegrationTest(db)
         unauthorized.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         forbidden.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
+        // Only this request's ACCESS_DENIED rows: the same request may also write LOGIN when the user has not logged in recently.
         foreach (var response in new[] { unauthorized, forbidden })
         {
-            var rows = await WaitForRowsAsync(CorrelationOf(response));
-            var row = rows.ShouldHaveSingleItem();
-            row.Action.ShouldBe(AuditActions.AccessDenied);
-            row.Outcome.ShouldBe(AuditOutcomes.Denied);
+            var rows = await WaitForRowsAsync(CorrelationOf(response), AuditActions.AccessDenied);
+            rows.ShouldHaveSingleItem().Outcome.ShouldBe(AuditOutcomes.Denied);
         }
     }
 
@@ -167,12 +165,12 @@ public class AuditLogTests(MySqlFixture db) : IntegrationTest(db)
 
     private sealed record AuditRow(string Action, string Outcome, long? UserId, long? CaseId, string? Ip);
 
-    private async Task<List<AuditRow>> WaitForRowsAsync(Guid correlationId)
+    private async Task<List<AuditRow>> WaitForRowsAsync(Guid correlationId, string? action = null)
     {
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (true)
         {
-            var rows = await ReadRowsAsync(correlationId);
+            var rows = (await ReadRowsAsync(correlationId)).Where(x => action is null || x.Action == action).ToList();
             if (rows.Count > 0 || DateTime.UtcNow > deadline)
             {
                 return rows;

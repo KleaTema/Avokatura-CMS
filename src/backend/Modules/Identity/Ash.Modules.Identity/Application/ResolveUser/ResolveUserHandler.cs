@@ -52,6 +52,7 @@ public sealed class ResolveUserHandler(IdentityDbContext db, IMemoryCache cache,
         }
 
         var now = clock.UtcNow;
+        // TODO(prod-auth): in OIDC mode write LOGIN only when the token's auth_time claim is newer than the stored last login, instead of the 1-hour interval.
         var isLogin = user.LastLoginAt is null || now - user.LastLoginAt.Value >= LastLoginInterval;
         if (isLogin)
         {
