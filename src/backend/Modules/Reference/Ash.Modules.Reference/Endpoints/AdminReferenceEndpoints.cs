@@ -1,6 +1,7 @@
 using Ash.AspNetCore.Authorization;
 using Ash.AspNetCore.Http;
 using Ash.Modules.Reference.Application.Admin;
+using Ash.SharedKernel.Paging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -310,6 +311,102 @@ public static class AdminReferenceEndpoints
             .Produces<DecisionResultAdminResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("ActivateAdminDecisionResult");
+
+        group.MapGet("/courts", async (ListCourtsAdminHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(ct)))
+            .RequirePermission(Permission)
+            .Produces<IReadOnlyList<CourtAdminResponse>>()
+            .WithName("ListAdminCourts");
+
+        group.MapPost("/courts", async (CreateCourtRequest req, CreateCourtHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(req, ct);
+                    return result.IsSuccess ? Results.Created($"/api/reference/admin/courts/{result.Value.Id}", result.Value)
+                        : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<CourtAdminResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("CreateAdminCourt");
+
+        group.MapPut("/courts/{id:int:range(1,65535)}", async (int id, UpdateCourtRequest req, UpdateCourtHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle((ushort)id, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<CourtAdminResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("UpdateAdminCourt");
+
+        group.MapPost("/courts/{id:int:range(1,65535)}/deactivate", async (int id, SetCourtActiveHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle((ushort)id, false, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<CourtAdminResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("DeactivateAdminCourt");
+
+        group.MapPost("/courts/{id:int:range(1,65535)}/activate", async (int id, SetCourtActiveHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle((ushort)id, true, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<CourtAdminResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("ActivateAdminCourt");
+
+        group.MapGet("/judges", async (string? q, bool? active, string? after, int? limit, ListJudgesAdminHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(new ListJudgesAdminQuery(q, active, after, limit), ct)))
+            .RequirePermission(Permission)
+            .Produces<KeysetPage<JudgeAdminResponse>>()
+            .WithName("ListAdminJudges");
+
+        group.MapPost("/judges", async (CreateJudgeRequest req, CreateJudgeHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(req, ct);
+                    return result.IsSuccess ? Results.Created($"/api/reference/admin/judges/{result.Value.Id}", result.Value)
+                        : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<JudgeAdminResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithName("CreateAdminJudge");
+
+        group.MapPut("/judges/{id:int:min(1)}", async (int id, UpdateJudgeRequest req, UpdateJudgeHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle((uint)id, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<JudgeAdminResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("UpdateAdminJudge");
+
+        group.MapPost("/judges/{id:int:min(1)}/deactivate", async (int id, SetJudgeActiveHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle((uint)id, false, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<JudgeAdminResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("DeactivateAdminJudge");
+
+        group.MapPost("/judges/{id:int:min(1)}/activate", async (int id, SetJudgeActiveHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle((uint)id, true, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<JudgeAdminResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("ActivateAdminJudge");
 
         return endpoints;
     }

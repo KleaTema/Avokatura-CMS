@@ -65,6 +65,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
             b.Property(x => x.FirstName).HasColumnName("first_name");
             b.Property(x => x.LastName).HasColumnName("last_name");
             b.Property(x => x.CourtId).HasColumnName("court_id");
+            b.Property(x => x.ExternalRef).HasColumnName("external_ref");
             b.Property(x => x.IsActive).HasColumnName("is_active");
         });
 

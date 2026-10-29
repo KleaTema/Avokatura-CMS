@@ -45,6 +45,14 @@ public static class ReferenceModule
 		services.AddScoped<CreateDecisionResultHandler>();
 		services.AddScoped<UpdateDecisionResultHandler>();
 		services.AddScoped<SetDecisionResultActiveHandler>();
+		services.AddScoped<ListCourtsAdminHandler>();
+		services.AddScoped<CreateCourtHandler>();
+		services.AddScoped<UpdateCourtHandler>();
+		services.AddScoped<SetCourtActiveHandler>();
+		services.AddScoped<ListJudgesAdminHandler>();
+		services.AddScoped<CreateJudgeHandler>();
+		services.AddScoped<UpdateJudgeHandler>();
+		services.AddScoped<SetJudgeActiveHandler>();
 		return services;
 	}
 

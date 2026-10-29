@@ -832,6 +832,186 @@ public class ReferenceDataTests(MySqlFixture db) : IntegrationTest(db)
             .ShouldBe(HttpStatusCode.BadRequest);
     }
 
+    private async Task<long> InsertCourt(string name, bool active)
+    {
+        await Execute($"""
+            INSERT INTO courts (name, court_level_id, city, is_foreign, is_active)
+            SELECT '{name}', id, 'Tiranë', 0, {(active ? 1 : 0)} FROM court_levels WHERE code = 'FIRST_INSTANCE'
+            """);
+        return Convert.ToInt64(await ScalarAsync($"SELECT id FROM courts WHERE name = '{name}'", Db.AppConnectionString));
+    }
+
+    [Fact]
+    public async Task Admin_can_create_and_rename_court()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var name = "Gjykata Admin Test";
+        var renamed = "Gjykata Admin Test e riemërtuar";
+
+        try
+        {
+            var created = await client.PostAsJsonAsync("/api/reference/admin/courts",
+                new { name, courtLevel = "FIRST_INSTANCE", city = "Durrës", isForeign = false }, TestContext.Current.CancellationToken);
+            created.StatusCode.ShouldBe(HttpStatusCode.Created);
+            var court = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            var id = court.GetProperty("id").GetInt32();
+            id.ShouldBeGreaterThan(0);
+            court.GetProperty("courtLevel").GetString().ShouldBe("FIRST_INSTANCE");
+
+            var update = await client.PutAsJsonAsync($"/api/reference/admin/courts/{id}",
+                new { name = renamed, courtLevel = "APPEAL", city = (string?)null, isForeign = false }, TestContext.Current.CancellationToken);
+            update.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+            var row = (await GetJson(client, "/api/reference/admin/courts")).EnumerateArray()
+                .Single(x => x.GetProperty("id").GetInt32() == id);
+            row.GetProperty("name").GetString().ShouldBe(renamed);
+            row.GetProperty("courtLevel").GetString().ShouldBe("APPEAL");
+            row.GetProperty("city").ValueKind.ShouldBe(JsonValueKind.Null);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM courts WHERE name IN ('{name}', '{renamed}')");
+        }
+    }
+
+    [Fact]
+    public async Task Duplicate_court_name_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var name = "Gjykata Admin Dup";
+
+        try
+        {
+            await InsertCourt(name, active: true);
+
+            (await PostStatus(client, "courts", new { name, courtLevel = "FIRST_INSTANCE", city = (string?)null, isForeign = false }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM courts WHERE name = '{name}'");
+        }
+    }
+
+    [Fact]
+    public async Task Unknown_court_level_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var name = "Gjykata Admin Bad Level";
+
+        try
+        {
+            (await PostStatus(client, "courts", new { name, courtLevel = "SUPREME_GALACTIC", city = (string?)null, isForeign = false }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute($"DELETE FROM courts WHERE name = '{name}'");
+        }
+    }
+
+    [Fact]
+    public async Task Admin_can_create_judge_and_duplicate_external_ref_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var courtName = "Gjykata Admin Judges";
+
+        try
+        {
+            var courtId = await InsertCourt(courtName, active: true);
+
+            var created = await client.PostAsJsonAsync("/api/reference/admin/judges",
+                new { firstName = "Ana", lastName = "AdminTestJudge", courtId, externalRef = "ADMIN-TEST-REF-1" },
+                TestContext.Current.CancellationToken);
+            created.StatusCode.ShouldBe(HttpStatusCode.Created);
+            var judge = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            judge.GetProperty("id").GetInt64().ShouldBeGreaterThan(0);
+            judge.GetProperty("courtName").GetString().ShouldBe(courtName);
+
+            (await PostStatus(client, "judges", new { firstName = "Beni", lastName = "AdminTestJudge", courtId = (int?)null, externalRef = "ADMIN-TEST-REF-1" }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute("DELETE FROM judges WHERE last_name = 'AdminTestJudge'");
+            await Execute($"DELETE FROM courts WHERE name = '{courtName}'");
+        }
+    }
+
+    [Fact]
+    public async Task Judge_with_inactive_court_is_rejected_with_400()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var courtName = "Gjykata Admin Inactive";
+
+        try
+        {
+            var courtId = await InsertCourt(courtName, active: false);
+
+            (await PostStatus(client, "judges", new { firstName = "Ana", lastName = "AdminInactiveCourt", courtId, externalRef = (string?)null }))
+                .ShouldBe(HttpStatusCode.BadRequest);
+        }
+        finally
+        {
+            await Execute("DELETE FROM judges WHERE last_name = 'AdminInactiveCourt'");
+            await Execute($"DELETE FROM courts WHERE name = '{courtName}'");
+        }
+    }
+
+    [Fact]
+    public async Task Judge_list_pages_with_keyset_cursor_without_overlap()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser("admin@ash.local");
+        var lastName = "AdminPagingJudge";
+
+        try
+        {
+            await Execute($"""
+                INSERT INTO judges (first_name, last_name, is_active) VALUES
+                ('Një', '{lastName}', 1), ('Dy', '{lastName}', 1), ('Tre', '{lastName}', 0)
+                """);
+
+            var first = await GetJson(client, $"/api/reference/admin/judges?q={lastName}&limit=2");
+            var firstIds = first.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("id").GetInt64()).ToList();
+            firstIds.Count.ShouldBe(2);
+            var cursor = first.GetProperty("nextCursor").GetString();
+            cursor.ShouldNotBeNullOrWhiteSpace();
+
+            var second = await GetJson(client, $"/api/reference/admin/judges?q={lastName}&limit=2&after={Uri.EscapeDataString(cursor)}");
+            var secondIds = second.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("id").GetInt64()).ToList();
+            secondIds.Count.ShouldBe(1);
+            secondIds.ShouldNotContain(x => firstIds.Contains(x));
+            second.GetProperty("nextCursor").ValueKind.ShouldBe(JsonValueKind.Null);
+
+            var inactive = await GetJson(client, $"/api/reference/admin/judges?q={lastName}&active=false");
+            inactive.GetProperty("items").EnumerateArray().Single().GetProperty("firstName").GetString().ShouldBe("Tre");
+        }
+        finally
+        {
+            await Execute($"DELETE FROM judges WHERE last_name = '{lastName}'");
+        }
+    }
+
+    [Fact]
+    public async Task Non_admin_cannot_manage_courts_and_judges()
+    {
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient().AsUser(User);
+
+        (await client.GetAsync("/api/reference/admin/courts", TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await client.GetAsync("/api/reference/admin/judges", TestContext.Current.CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await PostStatus(client, "courts", new { name = "X", courtLevel = "FIRST_INSTANCE", city = (string?)null, isForeign = false }))
+            .ShouldBe(HttpStatusCode.Forbidden);
+        (await PostStatus(client, "judges", new { firstName = "X", lastName = "Y", courtId = (int?)null, externalRef = (string?)null }))
+            .ShouldBe(HttpStatusCode.Forbidden);
+    }
+
     [Fact]
     public async Task Invalidate_forces_a_reload()
     {
