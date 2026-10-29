@@ -8,7 +8,6 @@ import {
   DialogTitle,
   FormControlLabel,
   FormLabel,
-  MenuItem,
   Radio,
   RadioGroup,
   Stack,
@@ -17,7 +16,9 @@ import {
 import { useState } from 'react'
 import { Controller, useForm, useWatch, type Path } from 'react-hook-form'
 import { z } from 'zod'
-import { useAdminInstitutions, useAdminOffices, useCreateUser } from '../../features/admin/api'
+import { InstitutionPicker, type PickedInstitution } from '../../components/InstitutionPicker'
+import { OptionPicker } from '../../components/OptionPicker'
+import { useAdminOffices, useCreateUser } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { problemCode, problemMessage } from '../../lib/problem'
 
@@ -62,9 +63,9 @@ const fieldOfCode: Record<string, Path<FormValues>> = {
 
 export function UsersCreateDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const offices = useAdminOffices(open)
-  const institutions = useAdminInstitutions(open)
   const create = useCreateUser()
   const [formError, setFormError] = useState<string | null>(null)
+  const [institution, setInstitution] = useState<PickedInstitution | null>(null)
   const {
     control,
     handleSubmit,
@@ -77,6 +78,7 @@ export function UsersCreateDialog({ open, onClose }: { open: boolean; onClose: (
   const close = () => {
     reset(defaultValues)
     setFormError(null)
+    setInstitution(null)
     create.reset()
     onClose()
   }
@@ -100,7 +102,9 @@ export function UsersCreateDialog({ open, onClose }: { open: boolean; onClose: (
     }
   })
 
-  const lookupError = offices.isError ? offices.error : institutions.isError ? institutions.error : null
+  const lookupError = offices.isError ? offices.error : null
+  // new users go to active offices only
+  const activeOffices = (offices.data ?? []).filter((o) => o.isActive)
 
   return (
     <Dialog open={open} onClose={close} fullWidth maxWidth="sm" aria-labelledby="create-user-title">
@@ -168,21 +172,16 @@ export function UsersCreateDialog({ open, onClose }: { open: boolean; onClose: (
                 name="officeId"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
+                  <OptionPicker
+                    options={activeOffices.map((o) => ({ value: o.publicId, label: o.name }))}
+                    value={field.value}
+                    onChange={field.onChange}
                     label={t.create.office}
                     required
                     disabled={offices.isPending}
                     error={!!errors.officeId}
                     helperText={errors.officeId?.message}
-                  >
-                    {(offices.data ?? []).map((o) => (
-                      <MenuItem key={o.publicId} value={o.publicId}>
-                        {o.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  />
                 )}
               />
             ) : (
@@ -190,21 +189,17 @@ export function UsersCreateDialog({ open, onClose }: { open: boolean; onClose: (
                 name="institutionId"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
+                  <InstitutionPicker
+                    value={institution}
+                    onChange={(picked) => {
+                      setInstitution(picked)
+                      field.onChange(picked?.publicId ?? '')
+                    }}
                     label={t.create.institution}
                     required
-                    disabled={institutions.isPending}
                     error={!!errors.institutionId}
                     helperText={errors.institutionId?.message}
-                  >
-                    {(institutions.data ?? []).map((i) => (
-                      <MenuItem key={i.publicId} value={i.publicId}>
-                        {i.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  />
                 )}
               />
             )}

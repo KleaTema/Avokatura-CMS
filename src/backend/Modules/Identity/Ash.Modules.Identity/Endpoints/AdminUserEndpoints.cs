@@ -82,20 +82,6 @@ public static class AdminUserEndpoints
             .Produces<IReadOnlyList<RoleResponse>>()
             .WithName("ListAdminRoles");
 
-        endpoints.MapGet("/api/identity/admin/offices", async (IdentityDbContext db, CancellationToken ct) =>
-                Results.Ok(await db.Offices.AsNoTracking().OrderBy(o => o.Name)
-                    .Select(o => new NamedRef(o.PublicId, o.Name)).ToListAsync(ct)))
-            .RequirePermission(Permission)
-            .Produces<IReadOnlyList<NamedRef>>()
-            .WithName("ListAdminOffices");
-
-        endpoints.MapGet("/api/identity/admin/institutions", async (IdentityDbContext db, CancellationToken ct) =>
-                Results.Ok(await db.Institutions.AsNoTracking().OrderBy(i => i.Name)
-                    .Select(i => new NamedRef(i.PublicId, i.Name)).ToListAsync(ct)))
-            .RequirePermission(Permission)
-            .Produces<IReadOnlyList<NamedRef>>()
-            .WithName("ListAdminInstitutions");
-
         return endpoints;
     }
 

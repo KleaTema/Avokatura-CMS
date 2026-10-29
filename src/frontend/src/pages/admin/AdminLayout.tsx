@@ -8,6 +8,8 @@ const t = sq.adminNav
 
 const adminItems = [
   { path: '/admin/users', label: t.users, permission: 'admin.users' },
+  { path: '/admin/offices', label: t.offices, permission: 'admin.org' },
+  { path: '/admin/institutions', label: t.institutions, permission: 'admin.org' },
   { path: '/admin/lists', label: t.lists, permission: 'admin.lookups' },
   { path: '/admin/file-types', label: t.fileTypes, permission: 'admin.lookups' },
   { path: '/admin/code-format', label: t.codeFormat, permission: 'admin.lookups' },

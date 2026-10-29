@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField } from '@mui/material'
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { OptionPicker } from '../../../components/OptionPicker'
 import { useAdminCourts, useSaveJudge, type AdminJudge } from '../../../features/admin/api'
 import { sq } from '../../../i18n/sq'
 import { problemMessage } from '../../../lib/problem'
@@ -104,25 +105,18 @@ export function JudgeDialog({ judge, onClose }: { judge: AdminJudge | null; onCl
               name="courtId"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  value={courts.data ? field.value : ''}
-                  select
+                <OptionPicker
+                  options={courtOptions.map((c) => ({
+                    value: String(c.id),
+                    label: c.isActive ? c.name : `${c.name}${t.inactiveSuffix}`,
+                  }))}
+                  value={field.value}
+                  onChange={field.onChange}
                   label={t.columns.court}
                   disabled={courts.isPending}
                   error={!!errors.courtId}
-                  helperText={errors.courtId?.message}
-                >
-                  <MenuItem value="">
-                    <em>{t.noCourt}</em>
-                  </MenuItem>
-                  {courtOptions.map((c) => (
-                    <MenuItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                      {c.isActive ? '' : t.inactiveSuffix}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  helperText={errors.courtId?.message ?? (field.value ? undefined : t.noCourt)}
+                />
               )}
             />
             <Controller

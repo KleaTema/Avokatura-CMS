@@ -27,6 +27,12 @@ public sealed class SetUserActiveHandler(IdentityDbContext db, UserAdminSupport 
             {
                 return Error.Validation("user.last_admin", "Nuk mund të çaktivizohet administratori i fundit aktiv.");
             }
+
+            var headError = await support.HeadOfOfficeErrorAsync(user.Id, ct);
+            if (headError is not null)
+            {
+                return headError;
+            }
         }
 
         if (user.IsActive != active)

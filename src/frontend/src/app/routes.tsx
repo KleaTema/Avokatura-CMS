@@ -4,6 +4,8 @@ import { ForbiddenPage, NotFoundPage } from '../pages/ErrorPages'
 import { AdminIndex, AdminLayout } from '../pages/admin/AdminLayout'
 import { CodeFormatPage } from '../pages/admin/CodeFormat'
 import { FileTypesPage } from '../pages/admin/FileTypes'
+import { InstitutionsPage } from '../pages/admin/Institutions'
+import { OfficesPage } from '../pages/admin/Offices'
 import { ListsPage } from '../pages/admin/Lists'
 import { UsersPage } from '../pages/admin/UsersPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
@@ -32,6 +34,22 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission code="admin.users">
                 <UsersPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'offices',
+            element: (
+              <RequirePermission code="admin.org">
+                <OfficesPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'institutions',
+            element: (
+              <RequirePermission code="admin.org">
+                <InstitutionsPage />
               </RequirePermission>
             ),
           },

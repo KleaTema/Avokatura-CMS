@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../../api/client'
 import type { components } from '../../api/schema'
+import { MIN_SERVER_QUERY } from '../../lib/search'
 import { referenceKeys } from '../reference/api'
 
 export type AdminUser = components['schemas']['UserResponse']
@@ -15,6 +16,10 @@ export const adminKeys = {
   roles: ['admin-roles'] as const,
   offices: ['admin-offices'] as const,
   institutions: ['admin-institutions'] as const,
+  institutionList: (q: string) => ['admin-institutions', 'list', q] as const,
+  institutionSearch: (q: string) => ['institution-search', q] as const,
+  // under 'admin-users': any user change (role, status, office) can change who may be head
+  headCandidates: (officeId: string) => ['admin-users', 'head-candidates', officeId] as const,
   lookup: (list: string) => ['admin-lookups', list] as const,
   judgeList: (q: string, active: boolean | undefined) => ['admin-lookups', 'judges', q, active ?? 'all'] as const,
 }
@@ -47,16 +52,24 @@ export const useAdminOffices = (enabled = true) =>
     queryFn: () => api.GET('/api/identity/admin/offices').then(unwrap),
   })
 
-export const useAdminInstitutions = (enabled = true) =>
+export const MIN_INSTITUTION_QUERY = MIN_SERVER_QUERY
+
+/** Type-ahead over active institutions (public names only); runs from 2 characters. */
+export const useInstitutionSearch = (q: string, enabled = true) =>
   useQuery({
-    queryKey: adminKeys.institutions,
-    enabled,
-    staleTime: 5 * 60_000,
-    queryFn: () => api.GET('/api/identity/admin/institutions').then(unwrap),
+    queryKey: adminKeys.institutionSearch(q),
+    enabled: enabled && q.length >= MIN_INSTITUTION_QUERY,
+    staleTime: 60_000,
+    queryFn: () => api.GET('/api/identity/institutions', { params: { query: { q } } }).then(unwrap),
   })
 
-// Every user mutation changes one user; the user lists (for every search term) are the only cached views of it.
-const invalidateUsers = (qc: QueryClient) => qc.invalidateQueries({ queryKey: adminKeys.users })
+// A user change shows in the user lists and in the active-user counts of offices and institutions.
+const invalidateUsers = (qc: QueryClient) =>
+  Promise.all([
+    qc.invalidateQueries({ queryKey: adminKeys.users }),
+    qc.invalidateQueries({ queryKey: adminKeys.offices }),
+    qc.invalidateQueries({ queryKey: adminKeys.institutions }),
+  ])
 
 export const useCreateUser = () => {
   const qc = useQueryClient()
@@ -406,5 +419,119 @@ export const useSetJudgeActive = () => {
         ? api.POST('/api/reference/admin/judges/{id}/activate', { params: { path: { id } } }).then(unwrap)
         : api.POST('/api/reference/admin/judges/{id}/deactivate', { params: { path: { id } } }).then(unwrap),
     onSuccess: () => invalidateLookup(qc, 'judges'),
+  })
+}
+
+// ---- Offices and institutions (task 015) ----
+
+export type AdminOffice = components['schemas']['OfficeAdminResponse']
+export type OfficeInput = components['schemas']['CreateOfficeRequest']
+export type AdminInstitution = components['schemas']['InstitutionAdminResponse']
+export type InstitutionInput = components['schemas']['CreateInstitutionRequest']
+export type InstitutionSearchResult = components['schemas']['InstitutionSearchResult']
+
+// Offices also feed the office picker of the Users page and the office names in the user list.
+const invalidateOffices = (qc: QueryClient) =>
+  Promise.all([
+    qc.invalidateQueries({ queryKey: adminKeys.offices }),
+    qc.invalidateQueries({ queryKey: adminKeys.users }),
+  ])
+
+const invalidateInstitutions = (qc: QueryClient) =>
+  Promise.all([
+    qc.invalidateQueries({ queryKey: adminKeys.institutions }),
+    qc.invalidateQueries({ queryKey: ['institution-search'] }),
+    qc.invalidateQueries({ queryKey: adminKeys.users }),
+  ])
+
+export const useSaveOffice = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ publicId, body }: { publicId: string | null; body: OfficeInput }) =>
+      publicId === null
+        ? api.POST('/api/identity/admin/offices', { body }).then(unwrap)
+        : api
+            .PUT('/api/identity/admin/offices/{publicId}', {
+              params: { path: { publicId } },
+              body: { name: body.name, officeType: body.officeType, parentOfficeId: body.parentOfficeId },
+            })
+            .then(unwrap),
+    onSuccess: () => invalidateOffices(qc),
+  })
+}
+
+export const useSetOfficeActive = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ publicId, active }: { publicId: string; active: boolean }) =>
+      active
+        ? api.POST('/api/identity/admin/offices/{publicId}/activate', { params: { path: { publicId } } }).then(unwrap)
+        : api.POST('/api/identity/admin/offices/{publicId}/deactivate', { params: { path: { publicId } } }).then(unwrap),
+    onSuccess: () => invalidateOffices(qc),
+  })
+}
+
+export const useSetOfficeHead = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ publicId, userPublicId }: { publicId: string; userPublicId: string | null }) =>
+      api
+        .PUT('/api/identity/admin/offices/{publicId}/head', { params: { path: { publicId } }, body: { userPublicId } })
+        .then(unwrap),
+    onSuccess: () => invalidateOffices(qc),
+  })
+}
+
+/** Active users of the office with role OFFICE_HEAD — the only valid heads. */
+export const useOfficeHeadCandidates = (officePublicId: string) =>
+  useQuery({
+    queryKey: adminKeys.headCandidates(officePublicId),
+    queryFn: () =>
+      api
+        .GET('/api/identity/admin/users', {
+          params: { query: { officeId: officePublicId, role: 'OFFICE_HEAD', active: true, limit: 200 } },
+        })
+        .then(unwrap)
+        .then((page) => page.items),
+  })
+
+export const useAdminInstitutionList = (q: string) =>
+  useInfiniteQuery({
+    queryKey: adminKeys.institutionList(q),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      api
+        .GET('/api/identity/admin/institutions', {
+          params: { query: { q: q || undefined, after: pageParam, limit: PAGE_SIZE } },
+        })
+        .then(unwrap),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  })
+
+export const useSaveInstitution = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ publicId, body }: { publicId: string | null; body: InstitutionInput }) =>
+      publicId === null
+        ? api.POST('/api/identity/admin/institutions', { body }).then(unwrap)
+        : api
+            .PUT('/api/identity/admin/institutions/{publicId}', { params: { path: { publicId } }, body })
+            .then(unwrap),
+    onSuccess: () => invalidateInstitutions(qc),
+  })
+}
+
+export const useSetInstitutionActive = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ publicId, active }: { publicId: string; active: boolean }) =>
+      active
+        ? api
+            .POST('/api/identity/admin/institutions/{publicId}/activate', { params: { path: { publicId } } })
+            .then(unwrap)
+        : api
+            .POST('/api/identity/admin/institutions/{publicId}/deactivate', { params: { path: { publicId } } })
+            .then(unwrap),
+    onSuccess: () => invalidateInstitutions(qc),
   })
 }

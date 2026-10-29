@@ -1,3 +1,4 @@
+using Ash.Modules.Identity.Application.Offices;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
@@ -69,6 +70,15 @@ public sealed class RevokeRoleHandler(IdentityDbContext db, UserAdminSupport sup
             if (admins.Count == 1 && admins[0] == user.Id)
             {
                 return Error.Validation("user.last_admin", "Nuk mund të hiqet roli i administratorit të fundit aktiv.");
+            }
+        }
+
+        if (role == OfficeAdminSupport.HeadRole)
+        {
+            var headError = await support.HeadOfOfficeErrorAsync(user.Id, ct);
+            if (headError is not null)
+            {
+                return headError;
             }
         }
 

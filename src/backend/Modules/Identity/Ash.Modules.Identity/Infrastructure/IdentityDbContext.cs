@@ -56,6 +56,9 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
             b.Property(x => x.OfficeType).HasColumnName("office_type");
+            b.Property(x => x.ParentOfficeId).HasColumnName("parent_office_id");
+            b.Property(x => x.HeadUserId).HasColumnName("head_user_id");
+            b.Property(x => x.IsActive).HasColumnName("is_active");
         });
 
         modelBuilder.Entity<InstitutionRecord>(b =>
@@ -65,6 +68,11 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
             b.Property(x => x.Name).HasColumnName("name");
+            b.Property(x => x.ShortName).HasColumnName("short_name");
+            b.Property(x => x.InstitutionType).HasColumnName("institution_type");
+            b.Property(x => x.ParentInstitutionId).HasColumnName("parent_institution_id");
+            b.Property(x => x.Nipt).HasColumnName("nipt");
+            b.Property(x => x.IsActive).HasColumnName("is_active");
         });
     }
 }
@@ -104,6 +112,9 @@ public sealed class OfficeRecord
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string OfficeType { get; set; } = string.Empty;
+    public ushort? ParentOfficeId { get; set; }
+    public uint? HeadUserId { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public sealed class InstitutionRecord
@@ -111,4 +122,9 @@ public sealed class InstitutionRecord
     public uint Id { get; set; }
     public Guid PublicId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? ShortName { get; set; }
+    public string InstitutionType { get; set; } = string.Empty;
+    public uint? ParentInstitutionId { get; set; }
+    public string? Nipt { get; set; }
+    public bool IsActive { get; set; } = true;
 }

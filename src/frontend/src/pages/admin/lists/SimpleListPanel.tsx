@@ -10,9 +10,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
 import {
   useSetSimpleItemActive,
   useSimpleList,
@@ -21,6 +23,8 @@ import {
 } from '../../../features/admin/api'
 import { sq } from '../../../i18n/sq'
 import { isForbidden, problemMessage } from '../../../lib/problem'
+import { matches } from '../../../lib/search'
+import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
 import { StatusChip } from './common'
 import { rowSx, useForbiddenRedirect } from './helpers'
@@ -36,9 +40,12 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
   const redirectIfForbidden = useForbiddenRedirect()
   // null = closed; { item: null } = create; { item } = edit
   const [editing, setEditing] = useState<{ item: SimpleListItem | null } | null>(null)
+  const [q, setQ] = useUrlSearch()
 
   if (isForbidden(rows.error)) return <ForbiddenPage />
 
+  const all = rows.data ?? []
+  const visible = all.filter((row) => matches(q, row.code, row.name))
   const title = t.lists[list]
   const groupHeader = config.group === 'report' ? t.columns.reportGroup : t.columns.outcomeGroup
   const columnCount =
@@ -57,6 +64,15 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
           {t.add}
         </Button>
       </Stack>
+
+      <TextField
+        label={t.searchSimple}
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        fullWidth
+        sx={{ mb: 2 }}
+      />
 
       {rows.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -87,7 +103,7 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {(rows.data ?? []).map((row) => {
+              {visible.map((row) => {
                 const groupCode = row.reportGroup ?? row.outcomeGroup ?? ''
                 return (
                   <TableRow key={row.code} hover sx={rowSx(row.isActive)}>
@@ -117,10 +133,13 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
                   </TableRow>
                 )
               })}
-              {rows.isSuccess && rows.data.length === 0 && (
+              {rows.isSuccess && all.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={columnCount}>{t.empty}</TableCell>
                 </TableRow>
+              )}
+              {rows.isSuccess && all.length > 0 && visible.length === 0 && (
+                <SearchEmptyRow q={q} colSpan={columnCount} onClear={() => setQ('')} />
               )}
             </TableBody>
           </Table>

@@ -10,13 +10,17 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
 import { useAdminCourts, useSetCourtActive, type AdminCourt } from '../../../features/admin/api'
 import { useCourtLevels } from '../../../features/reference/api'
 import { sq } from '../../../i18n/sq'
 import { isForbidden, problemMessage } from '../../../lib/problem'
+import { matches } from '../../../lib/search'
+import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
 import { StatusChip } from './common'
 import { rowSx, useForbiddenRedirect } from './helpers'
@@ -30,10 +34,14 @@ export function CourtsPanel() {
   const setActive = useSetCourtActive()
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ court: AdminCourt | null } | null>(null)
+  const [q, setQ] = useUrlSearch()
 
   if (isForbidden(courts.error)) return <ForbiddenPage />
 
   const levelName = (code: string) => levels.data?.find((l) => l.code === code)?.name ?? code
+  // about 100 courts: filtered in the browser
+  const all = courts.data ?? []
+  const visible = all.filter((c) => matches(q, c.name, c.city, levelName(c.courtLevel)))
   const toggle = (court: AdminCourt) =>
     setActive.mutate({ id: Number(court.id), active: !court.isActive }, { onError: redirectIfForbidden })
 
@@ -47,6 +55,15 @@ export function CourtsPanel() {
           {t.add}
         </Button>
       </Stack>
+
+      <TextField
+        label={t.searchCourts}
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        fullWidth
+        sx={{ mb: 2 }}
+      />
 
       {courts.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -75,7 +92,7 @@ export function CourtsPanel() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {(courts.data ?? []).map((court) => (
+              {visible.map((court) => (
                 <TableRow key={court.id} hover sx={rowSx(court.isActive)}>
                   <TableCell>{court.name}</TableCell>
                   <TableCell>{levelName(court.courtLevel)}</TableCell>
@@ -100,10 +117,13 @@ export function CourtsPanel() {
                   </TableCell>
                 </TableRow>
               ))}
-              {courts.isSuccess && courts.data.length === 0 && (
+              {courts.isSuccess && all.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6}>{t.empty}</TableCell>
                 </TableRow>
+              )}
+              {courts.isSuccess && all.length > 0 && visible.length === 0 && (
+                <SearchEmptyRow q={q} colSpan={6} onClear={() => setQ('')} />
               )}
             </TableBody>
           </Table>

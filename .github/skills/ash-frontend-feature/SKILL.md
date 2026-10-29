@@ -38,6 +38,18 @@ export const useCase = (id: string) =>
 - 409 → show "Të dhënat u ndryshuan nga një përdorues tjetër." with a "Rifresko" button that refetches and keeps the user's unsaved input visible for copying.
 - 404 on a case → "Çështja nuk u gjet ose nuk keni akses." (never reveal which).
 
+## Search and filtering (always consider)
+Every list, table and picker gets search unless it will never have more than ~10 rows.
+- Up to ~200 rows loaded at once (offices, courts, lookup lists): client-side filter, no backend change.
+- More rows or growing data (users, judges, institutions, cases, documents, chat, audit): server-side `?q=` with keyset paging.
+- Match name, code and other short identifiers the user would type (short name, email, NIPT, case number).
+- Accent- and case-insensitive: "shendetesise" finds "Shëndetësisë". Client-side: normalize with
+  `s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()`; server-side relies on the ai collation.
+- Server search: debounce 300 ms, min 2 characters, keep `q` in the URL (`?q=`) so refresh/back keep the search.
+- Pickers with more than ~10 options: MUI Autocomplete with typing, not a plain Select.
+- Empty result: "Nuk u gjet asnjë rezultat për „{q}“." with a button to clear the search.
+- Search box placeholder lists what can be searched, e.g. "Kërko (emër, kod)".
+Not needed: lists that are always tiny (file types, code formats).
 ## Done when
 - `npm run lint` and `npm run build` pass, no `any`, no console errors.
 - Works with keyboard only; MUI components keep their accessible labels.

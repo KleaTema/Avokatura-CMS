@@ -37,6 +37,15 @@ public sealed class UpdateUserHandler(IdentityDbContext db, UserAdminSupport sup
                 "Nuk mund të ndryshohet lloji i përdoruesit (zyrë / institucion). Krijoni një përdorues të ri.");
         }
 
+        if (org.Value.OfficeId != user.OfficeId)
+        {
+            var headError = await support.HeadOfOfficeErrorAsync(user.Id, ct);
+            if (headError is not null)
+            {
+                return headError;
+            }
+        }
+
         if (await db.Users.AnyAsync(u => u.Email == email && u.Id != user.Id, ct))
         {
             return Error.Conflict("user.email_exists", "Ekziston tashmë një përdorues me këtë email.");

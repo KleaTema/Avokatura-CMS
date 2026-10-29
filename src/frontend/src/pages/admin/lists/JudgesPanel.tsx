@@ -18,8 +18,11 @@ import {
 import { useState } from 'react'
 import { useAdminJudges, useSetJudgeActive, type AdminJudge } from '../../../features/admin/api'
 import { sq } from '../../../i18n/sq'
+import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
 import { isForbidden, problemMessage } from '../../../lib/problem'
+import { serverQuery } from '../../../lib/search'
 import { useDebounced } from '../../../lib/useDebounced'
+import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
 import { StatusChip } from './common'
 import { rowSx, useForbiddenRedirect } from './helpers'
@@ -31,9 +34,9 @@ type ActiveFilter = 'all' | 'active' | 'inactive'
 const activeParam: Record<ActiveFilter, boolean | undefined> = { all: undefined, active: true, inactive: false }
 
 export function JudgesPanel() {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useUrlSearch()
   const [filter, setFilter] = useState<ActiveFilter>('all')
-  const q = useDebounced(search.trim(), 300)
+  const q = useDebounced(serverQuery(search), 300)
   const judges = useAdminJudges(q, activeParam[filter])
   const setActive = useSetJudgeActive()
   const redirectIfForbidden = useForbiddenRedirect()
@@ -127,10 +130,13 @@ export function JudgesPanel() {
                 </TableRow>
               )
             })}
-            {judges.isSuccess && rows.length === 0 && (
+            {judges.isSuccess && rows.length === 0 && !q && (
               <TableRow>
                 <TableCell colSpan={5}>{t.empty}</TableCell>
               </TableRow>
+            )}
+            {judges.isSuccess && rows.length === 0 && q && (
+              <SearchEmptyRow q={search} colSpan={5} onClear={() => setSearch('')} />
             )}
           </TableBody>
         </Table>

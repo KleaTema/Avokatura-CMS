@@ -142,6 +142,22 @@ public sealed class UserAdminSupport(
             user.IsActive, user.LastLoginAt, counts.GetValueOrDefault(user.Id));
     }
 
+    /// <summary>
+    /// A head of office cannot be deactivated, lose OFFICE_HEAD or move to another office: new cases are routed
+    /// to the head, so the admin must first appoint another head.
+    /// </summary>
+    public async Task<Error?> HeadOfOfficeErrorAsync(uint userId, CancellationToken ct)
+    {
+        var officeName = await db.Offices.AsNoTracking()
+            .Where(o => o.HeadUserId == userId)
+            .Select(o => o.Name)
+            .FirstOrDefaultAsync(ct);
+        return officeName is null
+            ? null
+            : Error.Validation("user.is_office_head",
+                $"Ky përdorues është Kryetar i zyrës {officeName}. Caktoni fillimisht një Kryetar tjetër.");
+    }
+
     /// <summary>Role and status changes must apply immediately, so drop the 60-second access cache of the user.</summary>
     public void InvalidateAccess(uint userId) => cache.Remove($"identity:access:{userId}");
 

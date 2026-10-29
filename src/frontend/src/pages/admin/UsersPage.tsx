@@ -19,8 +19,11 @@ import { useState } from 'react'
 import { useActivateUser, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
+import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { problemMessage } from '../../lib/problem'
+import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
+import { useUrlSearch } from '../../lib/useUrlSearch'
 import { UsersCreateDialog } from './UsersCreateDialog'
 import { UsersDeactivateDialog } from './UsersDeactivateDialog'
 import { UsersRolesDialog } from './UsersRolesDialog'
@@ -28,8 +31,8 @@ import { UsersRolesDialog } from './UsersRolesDialog'
 const t = sq.adminUsers
 
 export function UsersPage() {
-  const [search, setSearch] = useState('')
-  const q = useDebounced(search.trim(), 300)
+  const [search, setSearch] = useUrlSearch()
+  const q = useDebounced(serverQuery(search), 300)
   const users = useAdminUsers(q)
   const roles = useAdminRoles()
   const activate = useActivateUser()
@@ -134,10 +137,13 @@ export function UsersPage() {
                 </TableRow>
               )
             })}
-            {users.isSuccess && rows.length === 0 && (
+            {users.isSuccess && rows.length === 0 && !q && (
               <TableRow>
                 <TableCell colSpan={7}>{t.empty}</TableCell>
               </TableRow>
+            )}
+            {users.isSuccess && rows.length === 0 && q && (
+              <SearchEmptyRow q={search} colSpan={7} onClear={() => setSearch('')} />
             )}
           </TableBody>
         </Table>
