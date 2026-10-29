@@ -9,6 +9,8 @@ public enum HistoryEventType
     DossierCreated,
     CaseRegistered,
     CaseCreatedFromPrevious,
+    /// <summary>NEXT_LEVEL_SUMMONS_PENDING (task 018): a next-level summons arrived while this level is not closed.</summary>
+    NextLevelSummonsPending,
     SentToHead,
     LawyerAssigned,
     LawyerTransferred,

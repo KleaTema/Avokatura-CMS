@@ -18,8 +18,11 @@ internal static partial class RegisterCaseValidator
 
     public const string JudgeMissingHint = "Nëse gjyqtari mungon në listë, kërkoni administratorit ta shtojë.";
 
-    /// <summary>Validates the request; returns the hearing time in UTC when it could be read.</summary>
-    public static DateTime? Validate(RegisterCaseRequest req, DateOnly todayInTirane, FieldErrors errors)
+    /// <summary>
+    /// Validates the request; returns the hearing time in UTC when it could be read. <paramref name="withParties"/>
+    /// is false for the next level (task 018), whose parties are copied from the previous level.
+    /// </summary>
+    public static DateTime? Validate(RegisterCaseRequest req, DateOnly todayInTirane, FieldErrors errors, bool withParties = true)
     {
         Required(errors, "summonsNumber", req.SummonsNumber, MaxNumberLength, "Numri i fletëthirrjes");
         Required(errors, "actNumber", req.ActNumber, MaxNumberLength, "Numri i aktit");
@@ -55,7 +58,10 @@ internal static partial class RegisterCaseValidator
             errors.Add("actDate", "Data e aktit nuk mund të jetë pas datës së hyrjes.");
         }
 
-        ValidateParties(req.Parties, errors);
+        if (withParties)
+        {
+            ValidateParties(req.Parties, errors);
+        }
 
         if (req.FirstHearing is null)
         {
@@ -68,27 +74,36 @@ internal static partial class RegisterCaseValidator
             errors.Add("firstHearing.otherTypeText", $"Përshkrimi i llojit mund të ketë deri në {MaxOtherTypeLength} karaktere.");
         }
 
-        if (string.IsNullOrWhiteSpace(req.FirstHearing.At))
-        {
-            errors.Add("firstHearing.at", "Data dhe ora e seancës së parë janë të detyrueshme.");
-            return null;
-        }
-
-        var at = req.FirstHearing.At.Trim();
-        if (!OffsetRegex().IsMatch(at)
-            || !DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-        {
-            errors.Add("firstHearing.at", "Data dhe ora e seancës nuk janë të vlefshme (ISO 8601 me zonë kohore, p.sh. 2026-11-05T09:30:00+01:00).");
-            return null;
-        }
-
-        var hearingUtc = parsed.UtcDateTime;
-        if (req.ActDate is { } act && TiraneTime.DateOf(hearingUtc) < act)
+        var hearingUtc = ParseHearingAt(req.FirstHearing.At, "firstHearing.at", errors);
+        if (hearingUtc is { } utc && req.ActDate is { } act && TiraneTime.DateOf(utc) < act)
         {
             errors.Add("firstHearing.at", "Seanca nuk mund të jetë para datës së aktit.");
         }
 
         return hearingUtc;
+    }
+
+    /// <summary>
+    /// A hearing date and time: required, ISO 8601 WITH an offset or Z (a bare local time would be ambiguous),
+    /// returned in UTC. Null (with the error added under <paramref name="field"/>) when missing or invalid.
+    /// </summary>
+    public static DateTime? ParseHearingAt(string? value, string field, FieldErrors errors)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            errors.Add(field, "Data dhe ora e seancës janë të detyrueshme.");
+            return null;
+        }
+
+        var at = value.Trim();
+        if (!OffsetRegex().IsMatch(at)
+            || !DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+        {
+            errors.Add(field, "Data dhe ora e seancës nuk janë të vlefshme (ISO 8601 me zonë kohore, p.sh. 2026-11-05T09:30:00+01:00).");
+            return null;
+        }
+
+        return parsed.UtcDateTime;
     }
 
     /// <summary>Each party's format, plus duplicates inside the request; roles and institutions are checked by the handler.</summary>
@@ -136,7 +151,7 @@ internal static partial class RegisterCaseValidator
         }
     }
 
-    // the value must state its offset: "Z" or "+01:00"; a bare local time would be ambiguous
+    // the value must state its offset: "Z" or "+01:00"
     [GeneratedRegex(@"(Z|[+-]\d{2}:\d{2})$", RegexOptions.IgnoreCase)]
     private static partial Regex OffsetRegex();
 }

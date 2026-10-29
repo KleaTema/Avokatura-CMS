@@ -35,6 +35,12 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
         }
     }
 
+    public const string LinkPreviousPermission = "case.link_previous";
+
+    public RegistrationLookupScope GetRegistrationLookupScope() =>
+        // All offices: confirmed by the client (Q1a) — a next-level summons may arrive at another office.
+        user.HasPermission(LinkPreviousPermission) ? RegistrationLookupScope.AllOffices : RegistrationLookupScope.None;
+
     private Task<CaseAccess> GetAsync(long caseId, CancellationToken cancellationToken)
     {
         var key = (user.UserId, caseId);

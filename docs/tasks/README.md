@@ -36,15 +36,15 @@ Rules
 | 012 | [Reference data API with caching](012-reference-data-api.md) | 006 |  | done |
 | 013 | [Admin: users and roles](013-admin-users-roles.md) | 006, 011 | yes | done |
 | 014 | [Admin: manage lookup lists and settings](014-admin-lookups.md) | 012, 013 |  | done |
-| 015 | [Admin: offices and institutions](015-admin-offices-institutions.md) | 013 |  | todo |
+| 015 | [Admin: offices and institutions](015-admin-offices-institutions.md) | 013 |  | done |
 
 ### Phase 2 — Registration (Protokoll)
 
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
-| 016 | [Register a new case from a summons (X/1)](016-register-new-case.md) | 007, 009, 012 |  | todo |
-| 017 | [Parties: add, edit, delete](017-case-parties.md) | 016 |  | todo |
-| 018 | [Continue a closed case at the next level (X/n+1)](018-register-next-level.md) | 016, 017 | yes | todo |
+| 016 | [Register a new case from a summons (X/1)](016-register-new-case.md) | 007, 009, 012 |  | done |
+| 017 | [Parties: add, edit, delete](017-case-parties.md) | 016 |  | done |
+| 018 | [Continue a closed case at the next level (X/n+1)](018-register-next-level.md) | 016, 017 | yes | done |
 | 019 | [Case list with scopes and filters](019-case-list.md) | 007 |  | todo |
 | 020 | [Case detail (quick view and tabs)](020-case-detail.md) | 017, 019 |  | todo |
 | 021 | [UI: registration form and party editor](021-ui-registration.md) | 011, 016, 017, 018 |  | todo |

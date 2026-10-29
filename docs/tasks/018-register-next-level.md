@@ -28,5 +28,17 @@ When a summons concerns an existing dispute (appeal, recourse, retrial), Protoko
 ## Out of scope
 - Anything not listed above.
 
-## Open questions (use the default, mark TODO in code)
-- Client question 1: how should Protokoll identify the existing case (which search fields)?
+## Client answers (question 1)
+- **Q1a — scope:** the registration search covers ALL offices (confirmed): a next-level summons may arrive at another
+  office than the first level. It is a registration lookup only (`ICaseAccessService.GetRegistrationLookupScope`) and
+  never grants case.view.
+- **Q1a — search fields:** still to be confirmed by the client (`TODO(client-q1)` in `RegistrationSearchHandler`).
+  Default until then: unique code / case code (prefix), act number of any level (prefix), party name (prefix per word),
+  party identifier / NIPT (exact); optional court filter.
+- **Q1b — level not closed yet:** Protokoll waits for the lawyer and never edits the previous level. `next-level`
+  answers 409 `case.previous_not_closed` without side effects; Protokoll then calls
+  `POST /api/cases/{id}/notify-not-closed` with the summons number, court and hearing date. That writes
+  NEXT_LEVEL_SUMMONS_PENDING on the case and publishes `PreviousLevelNotClosed` to the primary lawyer and the office
+  head (the same summons number at most once per 24 h; another summons number is announced too).
+  TODO(task-040): notifications, and a reminder to the lawyer and the Kryetar if the level is still not closed
+  3 days before the hearing.

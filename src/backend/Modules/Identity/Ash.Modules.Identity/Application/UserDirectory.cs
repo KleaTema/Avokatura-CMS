@@ -12,6 +12,19 @@ public sealed class UserDirectory(IdentityDbContext db) : IUserDirectory
         return rows.Select(ToSummary).SingleOrDefault();
     }
 
+    public async Task<IReadOnlyDictionary<long, Guid>> GetPublicIdsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<long, Guid>();
+        }
+
+        var ids = userIds.Select(id => (uint)id).ToList();
+        return await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(u => (long)u.Id, u => u.PublicId, ct);
+    }
+
     public async Task<IReadOnlyList<UserSummary>> FindUsers(string? query, string? role, CancellationToken ct = default)
     {
         var users = Summaries();

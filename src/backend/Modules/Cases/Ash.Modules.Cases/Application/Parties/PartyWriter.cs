@@ -51,31 +51,57 @@ internal sealed class PartyWriter(
             $"Pala u shtua: {party.Role.Name} — {name}.",
             @new: new { Role = party.Role.Code, party.Kind, DisplayName = name, party.Identifier });
 
-        var newLink = party.Institution is { } institution && !await HasActiveLinkAsync(target.Id, (uint)institution.Id, ct);
-        if (newLink)
-        {
-            db.CaseInstitutions.Add(new CaseInstitution
-            {
-                CaseId = target.Id,
-                InstitutionId = (uint)party.Institution!.Id,
-                LinkMode = CaseInstitution.Monitoring,
-                StartedAt = now,
-                StartedBy = userId
-            });
-            history.Add((long)target.DossierId, (long)target.Id, HistoryEventType.InstitutionLinked,
-                $"Institucioni {name} u lidh me çështjen (monitorim).",
-                @new: new { Institution = name, Mode = CaseInstitution.Monitoring });
-        }
-
         await db.SaveChangesAsync(ct);
 
-        if (newLink)
+        if (party.Institution is { } institution && !await HasActiveLinkAsync(target.Id, (uint)institution.Id, ct))
         {
-            await events.PublishAsync(
-                new InstitutionLinked(target.PublicId, party.Institution!.PublicId, CaseInstitution.Monitoring), ct);
+            await LinkAsync(target, institution, CaseInstitution.Monitoring, ct);
         }
 
         return row;
+    }
+
+    /// <summary>
+    /// Copies a party of the previous level to the new level (task 018) as it was: role, kind, institution, name
+    /// snapshot and identifier. New public id, created by the current user. Links are copied separately (<see cref="LinkAsync"/>).
+    /// </summary>
+    public async Task CopyAsync(Case target, CaseParty source, PartyRoleDto role, CancellationToken ct)
+    {
+        db.CaseParties.Add(new CaseParty
+        {
+            PublicId = Guid.NewGuid(),
+            CaseId = target.Id,
+            PartyRoleId = source.PartyRoleId,
+            PartyKind = source.PartyKind,
+            InstitutionId = source.InstitutionId,
+            DisplayName = source.DisplayName,
+            Identifier = source.Identifier,
+            CreatedBy = (uint)user.UserId,
+            CreatedAt = clock.UtcNow
+        });
+        history.Add((long)target.DossierId, (long)target.Id, HistoryEventType.PartyAdded,
+            $"Pala u shtua: {role.Name} — {source.DisplayName}.",
+            @new: new { Role = role.Code, Kind = source.PartyKind, source.DisplayName, source.Identifier });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Links an institution to the case with INSTITUTION_LINKED and the InstitutionLinked event.</summary>
+    public async Task LinkAsync(Case target, InstitutionInfo institution, string mode, CancellationToken ct)
+    {
+        db.CaseInstitutions.Add(new CaseInstitution
+        {
+            CaseId = target.Id,
+            InstitutionId = (uint)institution.Id,
+            LinkMode = mode,
+            StartedAt = clock.UtcNow,
+            StartedBy = (uint)user.UserId
+        });
+        var modeText = mode == CaseInstitution.Delegated ? "delegim" : "monitorim";
+        history.Add((long)target.DossierId, (long)target.Id, HistoryEventType.InstitutionLinked,
+            $"Institucioni {institution.Name} u lidh me çështjen ({modeText}).",
+            @new: new { Institution = institution.Name, Mode = mode });
+        await db.SaveChangesAsync(ct);
+        await events.PublishAsync(new InstitutionLinked(target.PublicId, institution.PublicId, mode), ct);
     }
 
     /// <summary>Role for every kind; name and identifier only for NATURAL/LEGAL (an institution's name is its snapshot).</summary>

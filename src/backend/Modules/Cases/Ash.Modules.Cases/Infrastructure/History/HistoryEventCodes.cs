@@ -9,6 +9,7 @@ public static class HistoryEventCodes
         HistoryEventType.DossierCreated => "DOSSIER_CREATED",
         HistoryEventType.CaseRegistered => "CASE_REGISTERED",
         HistoryEventType.CaseCreatedFromPrevious => "CASE_CREATED_FROM_PREVIOUS",
+        HistoryEventType.NextLevelSummonsPending => "NEXT_LEVEL_SUMMONS_PENDING",
         HistoryEventType.SentToHead => "SENT_TO_HEAD",
         HistoryEventType.LawyerAssigned => "LAWYER_ASSIGNED",
         HistoryEventType.LawyerTransferred => "LAWYER_TRANSFERRED",

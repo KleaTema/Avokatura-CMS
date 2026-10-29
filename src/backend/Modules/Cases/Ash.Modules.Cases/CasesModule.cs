@@ -1,5 +1,7 @@
 using Ash.Modules.Cases.Application.Parties;
 using Ash.Modules.Cases.Application.RegisterCase;
+using Ash.Modules.Cases.Application.RegisterNextLevel;
+using Ash.Modules.Cases.Application.RegistrationSearch;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Endpoints;
 using Ash.Modules.Cases.Infrastructure;
@@ -24,7 +26,11 @@ public static class CasesModule
 		services.AddScoped<PartyResolver>();
 		services.AddScoped<PartyCaseGate>();
 		services.AddScoped<PartyViews>();
+		services.AddScoped<CaseRegistrationSupport>();
 		services.AddScoped<RegisterCaseHandler>();
+		services.AddScoped<RegisterNextLevelHandler>();
+		services.AddScoped<NotifyNotClosedHandler>();
+		services.AddScoped<RegistrationSearchHandler>();
 		services.AddScoped<ListPartiesHandler>();
 		services.AddScoped<AddPartyHandler>();
 		services.AddScoped<UpdatePartyHandler>();

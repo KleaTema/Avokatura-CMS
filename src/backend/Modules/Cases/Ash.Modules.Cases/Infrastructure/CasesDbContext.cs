@@ -28,6 +28,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.OfficeId).HasColumnName("office_id");
             b.Property(x => x.OpenedBy).HasColumnName("opened_by");
             b.Property(x => x.OpenedAt).HasColumnName("opened_at");
+            b.Property(x => x.ArchivedAt).HasColumnName("archived_at");
         });
 
         modelBuilder.Entity<Case>(b =>
@@ -39,6 +40,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.DossierId).HasColumnName("dossier_id");
             b.Property(x => x.LevelSeq).HasColumnName("level_seq");
             b.Property(x => x.CaseCode).HasColumnName("case_code");
+            b.Property(x => x.PreviousCaseId).HasColumnName("previous_case_id");
             b.Property(x => x.OfficeId).HasColumnName("office_id");
             b.Property(x => x.SummonsNumber).HasColumnName("summons_number");
             b.Property(x => x.SummonsTypeId).HasColumnName("summons_type_id");
@@ -53,6 +55,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.NextHearingAt).HasColumnName("next_hearing_at");
             b.Property(x => x.RegisteredBy).HasColumnName("registered_by");
             b.Property(x => x.RegisteredAt).HasColumnName("registered_at");
+            b.Property(x => x.ClosedAt).HasColumnName("closed_at");
             b.Property(x => x.RowVersion).HasColumnName("row_version");
         });
 
@@ -107,7 +110,9 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.ToTable("case_assignments");
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.CaseId).HasColumnName("case_id");
             b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.CaseRole).HasColumnName("case_role");
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
         });
 
@@ -154,6 +159,8 @@ public sealed class Dossier
     public ushort OfficeId { get; set; }
     public uint OpenedBy { get; set; }
     public DateTime OpenedAt { get; set; }
+    /// <summary>Set when the dossier is closed with a final decision; an archived dossier is not continued.</summary>
+    public DateTime? ArchivedAt { get; set; }
 }
 
 public sealed class Case
@@ -166,6 +173,8 @@ public sealed class Case
     public ulong DossierId { get; set; }
     public ushort LevelSeq { get; set; }
     public string CaseCode { get; set; } = string.Empty;
+    /// <summary>The closed case this one continues (appeal, recourse, retrial).</summary>
+    public ulong? PreviousCaseId { get; set; }
     public ushort OfficeId { get; set; }
     public string SummonsNumber { get; set; } = string.Empty;
     public byte? SummonsTypeId { get; set; }
@@ -182,6 +191,7 @@ public sealed class Case
     public DateTime? NextHearingAt { get; set; }
     public uint RegisteredBy { get; set; }
     public DateTime RegisteredAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
     public uint RowVersion { get; set; }
 }
 
@@ -253,8 +263,12 @@ public sealed class CaseHistoryEvent
 
 public sealed class CaseAssignmentRow
 {
+    public const string PrimaryLawyer = "PRIMARY_LAWYER";
+
     public ulong Id { get; set; }
+    public ulong CaseId { get; set; }
     public uint UserId { get; set; }
+    public string CaseRole { get; set; } = string.Empty;
     public DateTime? EndedAt { get; set; }
 }
 
