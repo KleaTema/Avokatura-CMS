@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Ash.SharedKernel\Ash.SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Ash.Infrastructure\Ash.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Ash.AspNetCore\Ash.AspNetCore.csproj" />
     <ProjectReference Include="..\Ash.Modules.Cases.Contracts\Ash.Modules.Cases.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\Ash.Modules.Identity.Contracts\Ash.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Reference\Ash.Modules.Reference.Contracts\Ash.Modules.Reference.Contracts.csproj" />

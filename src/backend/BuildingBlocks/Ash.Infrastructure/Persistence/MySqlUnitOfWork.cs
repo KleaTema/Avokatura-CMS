@@ -18,6 +18,17 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
 
     public bool HasActiveTransaction => _transaction is not null;
 
+    public MySqlCommand CreateCommand(string sql)
+    {
+        if (_transaction is null)
+        {
+            throw new InvalidOperationException(
+                "No active transaction: raw commands must run inside the unit of work (a POST/PUT/PATCH/DELETE request).");
+        }
+
+        return new MySqlCommand(sql, Connection, _transaction);
+    }
+
     public async Task BeginAsync(CancellationToken cancellationToken = default)
     {
         if (_transaction is not null)

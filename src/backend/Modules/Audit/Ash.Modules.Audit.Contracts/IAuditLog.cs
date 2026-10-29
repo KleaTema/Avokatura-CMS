@@ -6,6 +6,7 @@ public static class AuditActions
     public const string LoginFailed = "LOGIN_FAILED";
     public const string AccessDenied = "ACCESS_DENIED";
     public const string CaseView = "CASE_VIEW";
+    public const string CaseCreate = "CASE_CREATE";
     public const string CaseUpdate = "CASE_UPDATE";
     public const string DocumentDownload = "DOCUMENT_DOWNLOAD";
     public const string DocumentUpload = "DOCUMENT_UPLOAD";

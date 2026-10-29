@@ -1,3 +1,4 @@
+using Ash.SharedKernel.Events;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ash.Infrastructure.Events;

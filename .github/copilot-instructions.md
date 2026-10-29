@@ -5,7 +5,7 @@ Full module map: `docs/architecture.md`. Work comes as task files in `docs/tasks
 Repo skills in `.github/skills/`: ash-backend-feature, ash-sql-migration, ash-frontend-feature, ash-task-done-check (always run this last).
 
 ## Stack
-- Backend: .NET 10, C# latest, nullable enabled, Minimal APIs, EF Core 10 (MySQL provider chosen in task 001), FluentValidation, Serilog, SignalR.
+- Backend: .NET 10, C# latest, nullable enabled, Minimal APIs, EF Core 10 (MySQL provider chosen in task 001), Serilog, SignalR. Validation is plain static helpers (no FluentValidation).
 - Database: MySQL 8.0. Schema is owned by **DbUp SQL scripts** in `src/backend/Database/Ash.Database/Scripts/`. NEVER use EF migrations; EF only maps existing tables.
 - Files: S3-compatible object storage (MinIO locally, AKSHI storage in production) via `IFileStorage`.
 - Frontend: React + TypeScript + Vite, React Router, TanStack Query, MUI, typed API client generated from OpenAPI.
@@ -15,10 +15,11 @@ Repo skills in `.github/skills/`: ash-backend-feature, ash-sql-migration, ash-fr
 ## Repo layout
 ```
 src/backend/Host/Ash.Api                      composition root, endpoints mapping, auth
-src/backend/BuildingBlocks/Ash.SharedKernel   Result, errors, IClock, ICurrentUser, paging
-src/backend/BuildingBlocks/Ash.Infrastructure MySQL unit of work, S3 storage, background jobs
-src/backend/Modules/<M>/Ash.Modules.<M>            module internals (Domain/, Application/, Infrastructure/, Endpoints/)
-src/backend/Modules/<M>/Ash.Modules.<M>.Contracts  the ONLY thing other modules may reference
+src/backend/BuildingBlocks/Ash.SharedKernel   Result, errors, IClock, TiraneTime, ICurrentUser, paging, event abstractions
+src/backend/BuildingBlocks/Ash.Infrastructure MySQL unit of work, in-process event publisher, S3 storage, background jobs
+src/backend/BuildingBlocks/Ash.AspNetCore     RequirePermission, Error.ToProblem (no module knowledge)
+src/backend/Modules/<M>/Ash.Modules.<M>            module internals (Application/, Infrastructure/ = DbContext + entities, Endpoints/)
+src/backend/Modules/<M>/Ash.Modules.<M>.Contracts  the ONLY thing other modules may reference (references Ash.SharedKernel only)
 src/backend/Database/Ash.Database             DbUp runner + Scripts/
 src/backend/Tests/*                           integration + architecture tests
 src/frontend                                  React app
@@ -42,7 +43,10 @@ Modules: Identity, Reference, Cases, Documents, Notifications, Audit, Reports, C
 14. Edit files ONLY with the file edit tool, never with PowerShell (Set-Content, .Replace, here-strings). Never pipe test or build output through Select-Object; show it directly.
 ## Conventions
 - Endpoint per feature: `Endpoints/<Feature>Endpoints.cs` with `Map<Feature>(this IEndpointRouteBuilder)`; routes `/api/<module>/...`.
-- Handler per use case: `Application/<UseCase>/<UseCase>Handler.cs` + `<UseCase>Request` + `<UseCase>Validator`.
-- Permission check: `.RequirePermission("case.assign_lawyer")` (system) or `ICaseAccessService.Require(caseId, "hearing.add")` (case level).
-- One `DbContext` per module, mapped with `IEntityTypeConfiguration<T>`; all contexts share the request's connection + transaction via `IUnitOfWork`.
+- Handler per use case: `Application/<UseCase>/<UseCase>Handler.cs` + `<UseCase>Request` + `<UseCase>Validator` (static helpers returning `Error?`; field errors via `Error.ValidationFields(message, fields)` with camelCase keys; validate before trimming).
+- Endpoints return `result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem()` (`Ash.AspNetCore.Http`).
+- Permission check: `.RequirePermission("case.assign_lawyer")` from `Ash.AspNetCore.Authorization` (system) or `await ICaseAccessService.RequireAsync(caseId, "hearing.add", ct)` (case level).
+- One `DbContext` per module in `Infrastructure/`, mapped in `OnModelCreating`, with its entity classes next to it (no `Domain/` folder); all contexts share the request's connection + transaction via `IUnitOfWork`.
+- Raw SQL / stored procedures only through `IUnitOfWork.CreateCommand(sql)` (bound to the request transaction). Work that must wait for the commit (cache invalidation) goes in `IUnitOfWork.OnCommitted(...)`.
+- Events: records implement `IEvent` (`Ash.SharedKernel.Events`) and live in the publisher's `.Contracts`; `IEventPublisher.PublishAsync` runs handlers in the same transaction.
 - Tests: every handler that changes data gets an integration test (real MySQL via Testcontainers).

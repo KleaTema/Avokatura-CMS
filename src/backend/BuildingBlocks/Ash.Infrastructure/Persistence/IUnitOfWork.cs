@@ -6,7 +6,14 @@ namespace Ash.Infrastructure.Persistence;
 public interface IUnitOfWork
 {
     MySqlConnection Connection { get; }
+
     bool HasActiveTransaction { get; }
+
+    /// <summary>
+    /// Raw SQL (e.g. a stored procedure) inside the request: the command is bound to the unit of work's connection
+    /// AND transaction, so it commits or rolls back with everything else. Throws when no transaction is active.
+    /// </summary>
+    MySqlCommand CreateCommand(string sql);
 
     Task BeginAsync(CancellationToken cancellationToken = default);
     Task EnlistAsync(DbContext context, CancellationToken cancellationToken = default);

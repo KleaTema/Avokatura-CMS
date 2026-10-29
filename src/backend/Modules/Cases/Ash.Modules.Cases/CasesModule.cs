@@ -1,4 +1,6 @@
+using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Contracts;
+using Ash.Modules.Cases.Endpoints;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
 using Ash.Modules.Cases.Infrastructure.History;
@@ -17,11 +19,12 @@ public static class CasesModule
 		services.AddScoped<ICaseAssignmentCounts, CaseAssignmentCounts>();
 		services.AddScoped<IHistoryWriter, HistoryWriter>();
 		services.AddScoped<ICaseAccessService>(sp => sp.GetRequiredService<CaseAccessService>());
+		services.AddScoped<RegisterCaseHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints;
+		return endpoints.MapCaseRegistration();
 	}
 }

@@ -1,5 +1,6 @@
 using Ash.Infrastructure.Events;
 using Ash.Infrastructure.Persistence;
+using Ash.SharedKernel.Events;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ash.Infrastructure;

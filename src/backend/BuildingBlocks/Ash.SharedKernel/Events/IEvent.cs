@@ -1,5 +1,6 @@
-namespace Ash.Infrastructure.Events;
+namespace Ash.SharedKernel.Events;
 
+/// <summary>An in-process domain event. Event types live in the publishing module's Contracts.</summary>
 public interface IEvent
 {
 }

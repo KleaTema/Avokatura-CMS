@@ -14,9 +14,14 @@ public static class ErrorResults
         _ => StatusCodes.Status500InternalServerError
     };
 
-    public static IResult ToProblem(this Error error) =>
-        Results.Problem(
-            title: error.Message,
-            statusCode: error.Type.ToStatusCode(),
-            extensions: new Dictionary<string, object?> { ["code"] = error.Code });
+    public static IResult ToProblem(this Error error)
+    {
+        var extensions = new Dictionary<string, object?> { ["code"] = error.Code };
+        foreach (var (key, value) in error.Extensions ?? new Dictionary<string, object?>())
+        {
+            extensions[key] = value;
+        }
+
+        return Results.Problem(title: error.Message, statusCode: error.Type.ToStatusCode(), extensions: extensions);
+    }
 }
