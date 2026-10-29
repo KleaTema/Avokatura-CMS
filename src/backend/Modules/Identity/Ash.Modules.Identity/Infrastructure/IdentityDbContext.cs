@@ -17,7 +17,7 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
         {
             b.ToTable("users");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
             b.Property(x => x.ExternalSubject).HasColumnName("external_subject");
             b.Property(x => x.Email).HasColumnName("email");
@@ -33,7 +33,7 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
         {
             b.ToTable("roles");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
         });
@@ -51,16 +51,18 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
         {
             b.ToTable("offices");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
+            b.Property(x => x.Code).HasColumnName("code");
             b.Property(x => x.Name).HasColumnName("name");
+            b.Property(x => x.OfficeType).HasColumnName("office_type");
         });
 
         modelBuilder.Entity<InstitutionRecord>(b =>
         {
             b.ToTable("institutions");
             b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
             b.Property(x => x.Name).HasColumnName("name");
         });
@@ -99,7 +101,9 @@ public sealed class OfficeRecord
 {
     public ushort Id { get; set; }
     public Guid PublicId { get; set; }
+    public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string OfficeType { get; set; } = string.Empty;
 }
 
 public sealed class InstitutionRecord

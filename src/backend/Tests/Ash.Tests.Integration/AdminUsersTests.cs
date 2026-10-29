@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Ash.Modules.Identity.Application.ResolveUser;
+using Ash.Modules.Identity.Contracts;
 using Ash.Tests.Integration.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using MySql.Data.MySqlClient;
@@ -72,6 +73,19 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
         await connection.OpenAsync(Ct);
         await using var command = new MySqlCommand(sql, connection);
         return await command.ExecuteScalarAsync(Ct);
+    }
+
+    [Fact]
+    public async Task User_directory_filters_by_role()
+    {
+        await using var factory = new AshApiFactory(Db);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var directory = scope.ServiceProvider.GetRequiredService<IUserDirectory>();
+
+        // "@ash.local" keeps it to the seeded dev accounts; other tests add STATE_LAWYER users under @ash.test
+        var lawyers = await directory.FindUsers("@ash.local", "STATE_LAWYER", Ct);
+
+        lawyers.Select(u => u.Email).OrderBy(e => e).ShouldBe(["avokat1@ash.local", "avokat2@ash.local"]);
     }
 
     [Fact]

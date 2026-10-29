@@ -35,7 +35,7 @@ Rules
 | --- | --- | --- | --- | --- |
 | 012 | [Reference data API with caching](012-reference-data-api.md) | 006 |  | done |
 | 013 | [Admin: users and roles](013-admin-users-roles.md) | 006, 011 | yes | done |
-| 014 | [Admin: manage lookup lists and settings](014-admin-lookups.md) | 012, 013 |  | todo |
+| 014 | [Admin: manage lookup lists and settings](014-admin-lookups.md) | 012, 013 |  | done |
 | 015 | [Admin: offices and institutions](015-admin-offices-institutions.md) | 013 |  | todo |
 
 ### Phase 2 — Registration (Protokoll)
