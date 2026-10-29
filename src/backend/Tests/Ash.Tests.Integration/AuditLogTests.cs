@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Net;
-using Ash.Api.Auth;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Ash.Api.Middleware;
+using Ash.AspNetCore.Authorization;
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Audit.Infrastructure;
 using Ash.SharedKernel.Ids;
@@ -96,6 +98,23 @@ public class AuditLogTests(MySqlFixture db) : IntegrationTest(db)
             var rows = await WaitForRowsAsync(CorrelationOf(response), AuditActions.AccessDenied);
             rows.ShouldHaveSingleItem().Outcome.ShouldBe(AuditOutcomes.Denied);
         }
+    }
+
+    [Fact]
+    public async Task Missing_permission_returns_403_problem_with_code_and_one_access_denied_row()
+    {
+        await using var factory = CreateFactory(AuditConnection);
+        using var client = factory.CreateClient();
+
+        var response = await client.SendAsync(Get(ForbiddenPath, "monitor@ash.local"), TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        body.GetProperty("code").GetString().ShouldBe("permission.denied");
+        body.GetProperty("title").GetString().ShouldBe("Nuk keni leje për këtë veprim.");
+
+        var rows = await WaitForRowsAsync(CorrelationOf(response), AuditActions.AccessDenied);
+        rows.ShouldHaveSingleItem().Outcome.ShouldBe(AuditOutcomes.Denied);
     }
 
     [Fact]

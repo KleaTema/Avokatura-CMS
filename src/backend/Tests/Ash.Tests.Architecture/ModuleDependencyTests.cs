@@ -24,6 +24,20 @@ public class ModuleDependencyTests
         offenders.ShouldBeEmpty($"{module} must not depend on internals of {other}; use Ash.Modules.{other}.Contracts");
     }
 
+    [Theory]
+    [InlineData("Ash.SharedKernel")]
+    [InlineData("Ash.Infrastructure")]
+    [InlineData("Ash.AspNetCore")]
+    public void Building_block_does_not_depend_on_any_module(string buildingBlock)
+    {
+        var result = Types.InAssembly(Assembly.Load(buildingBlock))
+            .ShouldNot().HaveDependencyOn("Ash.Modules")
+            .GetResult();
+
+        var offenders = result.FailingTypeNames ?? [];
+        offenders.ShouldBeEmpty($"{buildingBlock} must not reference any module, including Contracts");
+    }
+
     private static string[] InternalNamespaces(string module) =>
     [
         $"Ash.Modules.{module}.Domain",

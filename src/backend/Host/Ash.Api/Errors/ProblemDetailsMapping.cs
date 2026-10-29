@@ -1,28 +1,10 @@
+using Ash.AspNetCore.Http;
 using Ash.Modules.Cases.Contracts;
 using Ash.SharedKernel.Concurrency;
-using Ash.SharedKernel.Results;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ash.Api.Errors;
-
-public static class ProblemDetailsMapping
-{
-    public static int ToStatusCode(this ErrorType type) => type switch
-    {
-        ErrorType.Validation => StatusCodes.Status400BadRequest,
-        ErrorType.NotFound => StatusCodes.Status404NotFound,
-        ErrorType.Conflict => StatusCodes.Status409Conflict,
-        ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-        _ => StatusCodes.Status500InternalServerError
-    };
-
-    public static IResult ToProblem(this Error error) =>
-        Results.Problem(
-            title: error.Message,
-            statusCode: error.Type.ToStatusCode(),
-            extensions: new Dictionary<string, object?> { ["code"] = error.Code });
-}
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, ILogger<ApiExceptionHandler> logger)
     : IExceptionHandler

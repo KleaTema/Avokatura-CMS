@@ -54,8 +54,9 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseMiddleware<UnitOfWorkMiddleware>();
 app.UseAuthentication();
-app.UseAuthorization();
+// fills ICurrentUser before permission policies are evaluated
 app.UseMiddleware<CurrentUserMiddleware>();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
