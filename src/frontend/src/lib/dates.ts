@@ -32,10 +32,20 @@ export function todayInTirane(now: Date = new Date()): string {
   return `${p.year}-${p.month}-${p.day}`
 }
 
-/** yyyy-MM-dd → dd.MM.yyyy (empty for anything else). */
-export function isoDateToDisplay(iso: string | null | undefined): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '')
+/**
+ * A calendar date from the API (DateOnly, "yyyy-MM-dd") → "dd.MM.yyyy". Pure text: no Date object and no time zone,
+ * so the day can never shift. Use it for every DateOnly field; empty for anything else.
+ */
+export function formatDate(dateOnly: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly ?? '')
   return m ? `${m[3]}.${m[2]}.${m[1]}` : ''
+}
+
+/** A calendar date ("yyyy-MM-dd") plus n days, computed on the calendar only (no time zone). */
+export function addDays(dateOnly: string, days: number): string {
+  const [y, m, d] = dateOnly.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d + days))
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
 }
 
 /** dd.MM.yyyy (d.M.yyyy accepted) → yyyy-MM-dd, or null when it is not a real calendar date. */
@@ -67,8 +77,14 @@ export function tiraneLocalToUtcIso(date: string, time: string): string | null {
   return candidates.length > 0 ? new Date(candidates[0]).toISOString().replace('.000Z', 'Z') : null
 }
 
-/** Formats a UTC ISO string as the Tirane calendar date dd.MM.yyyy. */
-export const formatDate = (utcIso: string | null | undefined): string => formatDateTime(utcIso).slice(0, 10)
+/** The Tirane calendar date (dd.MM.yyyy) of a UTC instant (an ISO date-time, e.g. closedAt) — not for DateOnly fields. */
+export const formatTiraneDate = (utcIso: string | null | undefined): string => formatDateTime(utcIso).slice(0, 10)
+
+/** The Tirane calendar date ("yyyy-MM-dd") of a UTC instant, or null. */
+export function tiraneDateOf(utcIso: string | null | undefined): string | null {
+  const shown = formatTiraneDate(utcIso)
+  return shown ? `${shown.slice(6, 10)}-${shown.slice(3, 5)}-${shown.slice(0, 2)}` : null
+}
 
 /** Formats a UTC ISO string as dd.MM.yyyy HH:mm in Europe/Tirane. */
 export function formatDateTime(utcIso: string | null | undefined): string {

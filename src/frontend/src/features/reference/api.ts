@@ -62,6 +62,13 @@ export const useJudgeSearch = (courtId: number | null, q: string, enabled = true
   })
 }
 
+export const useCaseCategories = () =>
+  useQuery({
+    queryKey: referenceKeys.list('case-categories'),
+    staleTime: LIST_STALE_MS,
+    queryFn: () => api.GET('/api/reference/case-categories').then(unwrap),
+  })
+
 export const useCourtLevels = () =>
   useQuery({
     queryKey: referenceKeys.list('court-levels'),

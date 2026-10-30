@@ -8,7 +8,8 @@ import { InstitutionsPage } from '../pages/admin/Institutions'
 import { OfficesPage } from '../pages/admin/Offices'
 import { ListsPage } from '../pages/admin/Lists'
 import { UsersPage } from '../pages/admin/UsersPage'
-import { CasesHome } from '../pages/cases/CasesHome'
+import { CaseListPage } from '../pages/cases/CaseList'
+import { CasePage } from '../pages/cases/CasePage'
 import { ContinueCasePage } from '../pages/cases/ContinueCase'
 import { RegisterCasePage } from '../pages/cases/RegisterCase'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
@@ -27,7 +28,10 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       ...placeholderMenuCodes.map((code) => ({ path: code, element: <PlaceholderPage menu={code} /> })),
-      { path: 'cases', element: <CasesHome /> },
+      { path: 'cases', element: <CaseListPage /> },
+      // static paths (register, continue) rank above these parameters
+      { path: 'cases/:publicId', element: <CasePage /> },
+      { path: 'cases/:publicId/:tab', element: <CasePage /> },
       {
         path: 'cases/register',
         element: (

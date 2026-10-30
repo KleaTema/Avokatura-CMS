@@ -25,7 +25,7 @@ import {
 import { useMe } from '../../features/identity/api'
 import { useCourts } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
-import { formatDate } from '../../lib/dates'
+import { formatTiraneDate } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { MIN_SERVER_QUERY, serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
@@ -166,7 +166,7 @@ function ResultCard({
           </Typography>
           <Chip size="small" label={sq.cases.status[item.status] ?? item.status} />
           <Typography color="text.secondary">
-            {item.closedAt ? `${t.closedAt} ${formatDate(item.closedAt)}` : t.notClosed}
+            {item.closedAt ? `${t.closedAt} ${formatTiraneDate(item.closedAt)}` : t.notClosed}
           </Typography>
         </Stack>
         <Typography>

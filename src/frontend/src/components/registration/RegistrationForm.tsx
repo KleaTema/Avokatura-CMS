@@ -24,7 +24,7 @@ import {
 } from '@mui/material'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Controller, useForm, useWatch, type Control, type Resolver } from 'react-hook-form'
-import { useBlocker, useNavigate } from 'react-router'
+import { Link, useBlocker, useNavigate } from 'react-router'
 import { ApiError } from '../../api/client'
 import {
   hasCaseWithActNumber,
@@ -687,11 +687,14 @@ function RegistrationSuccess({
           ))}
         </Stack>
       )}
-      <Box>
+      <Stack direction="row" spacing={2}>
         <Button variant="contained" onClick={onAnother} autoFocus>
           {anotherLabel}
         </Button>
-      </Box>
+        <Button variant="outlined" component={Link} to={`/cases/${created.casePublicId}`}>
+          {t.success.openCase}
+        </Button>
+      </Stack>
     </Stack>
   )
 }

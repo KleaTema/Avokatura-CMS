@@ -9,7 +9,7 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material'
-import { Navigate, NavLink, Outlet } from 'react-router'
+import { Navigate, NavLink, Outlet, ScrollRestoration } from 'react-router'
 import { ApiError } from '../api/client'
 import { useMe } from '../features/identity/api'
 import { sq } from '../i18n/sq'
@@ -68,10 +68,12 @@ export function Layout() {
           </ListItemButton>
         </List>
       </Drawer>
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Box component="main" sx={{ flexGrow: 1, p: 3, minWidth: 0 }}>
         <Toolbar />
         {content}
       </Box>
+      {/* Back/Forward return to the same scroll position (e.g. the case list, whose pages stay cached) */}
+      <ScrollRestoration />
     </Box>
   )
 }

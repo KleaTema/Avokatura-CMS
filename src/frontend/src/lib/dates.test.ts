@@ -1,5 +1,49 @@
 import { describe, expect, it } from 'vitest'
-import { formatDateTime, isoDateToDisplay, parseDisplayDate, tiraneLocalToUtcIso, todayInTirane } from './dates'
+import {
+  addDays,
+  formatDate,
+  formatDateTime,
+  formatTiraneDate,
+  parseDisplayDate,
+  tiraneDateOf,
+  tiraneLocalToUtcIso,
+  todayInTirane,
+} from './dates'
+
+describe('formatDate (DateOnly, no time zone)', () => {
+  it('rewrites yyyy-MM-dd as dd.MM.yyyy', () => {
+    expect(formatDate('2026-11-05')).toBe('05.11.2026')
+    expect(formatDate('2026-01-01')).toBe('01.01.2026')
+  })
+
+  it('never shifts the day, whatever the time zone', () => {
+    // the dates where a Date-based conversion would move to the previous or next day
+    expect(formatDate('2026-03-29')).toBe('29.03.2026')
+    expect(formatDate('2026-10-25')).toBe('25.10.2026')
+    expect(formatDate('2026-12-31')).toBe('31.12.2026')
+  })
+
+  it('returns empty for empty or non-date input', () => {
+    expect(formatDate(null)).toBe('')
+    expect(formatDate(undefined)).toBe('')
+    expect(formatDate('2026-11-05T10:00:00Z')).toBe('')
+    expect(formatDate('05.11.2026')).toBe('')
+  })
+})
+
+describe('calendar arithmetic and UTC instants', () => {
+  it('adds days across month and year ends', () => {
+    expect(addDays('2026-01-31', 1)).toBe('2026-02-01')
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDays('2026-03-29', 1)).toBe('2026-03-30')
+  })
+
+  it('takes the Tirane date of a UTC instant', () => {
+    expect(formatTiraneDate('2026-07-14T23:30:00Z')).toBe('15.07.2026')
+    expect(tiraneDateOf('2026-07-14T23:30:00Z')).toBe('2026-07-15')
+    expect(tiraneDateOf(null)).toBeNull()
+  })
+})
 
 describe('tiraneLocalToUtcIso', () => {
   it('converts a winter time (CET, UTC+1)', () => {
@@ -80,11 +124,6 @@ describe('calendar dates', () => {
     expect(parseDisplayDate('29.02.2026')).toBeNull()
     expect(parseDisplayDate('2026-11-05')).toBeNull()
     expect(parseDisplayDate('')).toBeNull()
-  })
-
-  it('formats yyyy-MM-dd for display', () => {
-    expect(isoDateToDisplay('2026-11-05')).toBe('05.11.2026')
-    expect(isoDateToDisplay(null)).toBe('')
   })
 
   it('takes today in Tirane, not in UTC', () => {
