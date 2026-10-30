@@ -441,4 +441,84 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         (await Json(conflict)).GetProperty("title").GetString().ShouldBe($"Kjo çështje ka vazhduar tashmë në {first.UniqueCode}/2");
         (await Scalar($"SELECT COUNT(*) FROM cases WHERE dossier_id = (SELECT dossier_id FROM cases WHERE id = {first.Id})")).ShouldBe(2L);
     }
+
+    // ---------------------------------------------------------------- preview (task 021)
+
+    private static string PreviewPath(Guid previous) => $"/api/cases/{previous}/next-level/preview";
+
+    [Fact]
+    public async Task Preview_shows_what_continuing_copies_without_internal_ids_and_is_audited()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var first = await RegisterFirstLevel(client);
+        // a removed party is not copied, so it is not previewed
+        await Scalar($"""
+            INSERT INTO case_parties (case_id, party_role_id, party_kind, display_name, created_by, deleted_at, deleted_by)
+            SELECT {first.Id}, r.id, 'NATURAL', 'E Hequr', u.id, UTC_TIMESTAMP(3), u.id
+              FROM party_roles r JOIN users u ON u.email = 'protokoll@ash.local' WHERE r.code = 'PADITES'
+            """);
+
+        var response = await client.GetAsync(PreviewPath(first.PublicId), Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var preview = await Json(response);
+        JsonAssert.NoNumericIds(preview);
+        preview.GetProperty("caseCode").GetString().ShouldBe(first.CaseCode);
+        preview.GetProperty("courtLevelName").GetString().ShouldBe("Shkalla e parë");
+        preview.GetProperty("courtName").GetString().ShouldBe("Gjykata e Shkallës së Parë Tiranë");
+        preview.GetProperty("objectText").GetString().ShouldBe("Kërkesë për shpërblim dëmi — objekti i shkallës së parë");
+        preview.GetProperty("parties").EnumerateArray()
+            .Select(p => $"{p.GetProperty("role").GetString()}|{p.GetProperty("kind").GetString()}|{p.GetProperty("displayName").GetString()}|{p.GetProperty("identifier").GetString()}")
+            .ShouldBe([
+                "Paditës|NATURAL|Agim Hoxha|",
+                "Person i tretë|LEGAL|Shoqëria Alfa sh.p.k.|K12345678A",
+                $"I paditur|INSTITUTION|{Ministry}|"
+            ]);
+        var link = preview.GetProperty("institutionLinks").EnumerateArray().Single();
+        link.GetProperty("institution").GetString().ShouldBe(Ministry);
+        link.GetProperty("mode").GetString().ShouldBe("MONITORING");
+
+        var sql = $"SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.Purpose')) FROM ash_audit.audit_log " +
+                  $"WHERE action = 'CASE_VIEW' AND case_id = {first.Id}";
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        object? purpose;
+        while ((purpose = await ScalarAudit(sql)) is null && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(100, Ct);
+        }
+
+        purpose.ShouldBe("registration preview");
+    }
+
+    [Fact]
+    public async Task Preview_is_refused_exactly_like_the_registration()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+
+        var open = await RegisterFirstLevel(client, close: false);
+        var notClosed = await client.GetAsync(PreviewPath(open.PublicId), Ct);
+        notClosed.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await Json(notClosed)).GetProperty("code").GetString().ShouldBe("case.previous_not_closed");
+
+        var first = await RegisterFirstLevel(client);
+        (await client.PostAsJsonAsync(NextLevelPath(first.PublicId), await NextLevelBody(), Ct)).StatusCode.ShouldBe(HttpStatusCode.Created);
+        var continued = await client.GetAsync(PreviewPath(first.PublicId), Ct);
+        continued.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await Json(continued)).GetProperty("code").GetString().ShouldBe("case.already_continued");
+
+        (await client.GetAsync(PreviewPath(Guid.NewGuid()), Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
+        (await lawyer.GetAsync(PreviewPath(first.PublicId), Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    private async Task<object?> ScalarAudit(string sql)
+    {
+        await using var connection = new MySqlConnection(Db.AuditConnectionString);
+        await connection.OpenAsync(Ct);
+        await using var command = new MySqlCommand(sql, connection);
+        var value = await command.ExecuteScalarAsync(Ct);
+        return value is DBNull ? null : value;
+    }
 }

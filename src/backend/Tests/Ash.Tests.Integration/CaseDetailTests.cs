@@ -328,13 +328,13 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
 
         foreach (var caseId in new[] { s.Level1, s.Level2 })
         {
-            AssertNoNumericIds(await Get(client, $"/api/cases/{caseId}"), "$");
+            JsonAssert.NoNumericIds(await Get(client, $"/api/cases/{caseId}"));
         }
 
         var history = await AllHistory(client, s.Level2);
         foreach (var item in history)
         {
-            AssertNoNumericIds(item, "$");
+            JsonAssert.NoNumericIds(item);
         }
 
         // stored legacy ids are stripped, the rest of the details stays
@@ -399,34 +399,6 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     // ---------------------------------------------------------------- helpers
-
-    /// <summary>Every "id" / "…Id" / "…_id" property, at any depth, must not hold a number.</summary>
-    private static void AssertNoNumericIds(JsonElement element, string path)
-    {
-        switch (element.ValueKind)
-        {
-            case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
-                {
-                    var isId = property.Name.Equals("id", StringComparison.OrdinalIgnoreCase)
-                               || property.Name.EndsWith("Id", StringComparison.Ordinal)
-                               || property.Name.EndsWith("_id", StringComparison.OrdinalIgnoreCase);
-                    (isId && property.Value.ValueKind == JsonValueKind.Number)
-                        .ShouldBeFalse($"numeric id at {path}.{property.Name}");
-                    AssertNoNumericIds(property.Value, $"{path}.{property.Name}");
-                }
-
-                break;
-            case JsonValueKind.Array:
-                var i = 0;
-                foreach (var item in element.EnumerateArray())
-                {
-                    AssertNoNumericIds(item, $"{path}[{i++}]");
-                }
-
-                break;
-        }
-    }
 
     private static async Task<List<string>> Permissions(AshApiFactory factory, string user, Guid caseId)
     {

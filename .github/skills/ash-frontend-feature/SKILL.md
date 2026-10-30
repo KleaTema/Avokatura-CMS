@@ -49,6 +49,8 @@ Every list, table and picker gets search unless it will never have more than ~10
 - Pickers with more than ~10 options: MUI Autocomplete with typing, not a plain Select.
 - Empty result: "Nuk u gjet asnjë rezultat për „{q}“." with a button to clear the search.
 - Search box placeholder lists what can be searched, e.g. "Kërko (emër, kod)".
+## Dates and times
+Always use components/AppDatePicker and AppTimePicker (DD.MM.YYYY, 24h, 5-minute steps). Click opens the picker; Tab focus does not. Never a plain text field for dates or times.
 Not needed: lists that are always tiny (file types, code formats).
 ## Done when
 - `npm run lint` and `npm run build` pass, no `any`, no console errors.

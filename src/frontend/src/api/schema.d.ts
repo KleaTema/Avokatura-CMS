@@ -52,6 +52,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegisterCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/registration-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["SearchCasesForRegistration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{previousCasePublicId}/next-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegisterNextLevel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{previousCasePublicId}/notify-not-closed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["NotifyPreviousLevelNotClosed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/tabs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListCaseTabs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetCaseHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -980,6 +1108,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{caseId}/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListCaseParties"];
+        put?: never;
+        post: operations["AddCaseParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{caseId}/parties/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["UpdateCaseParty"];
+        post?: never;
+        delete: operations["RemoveCaseParty"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -996,10 +1156,129 @@ export interface components {
             name: string;
             isDelegation: boolean;
         };
+        CaseData: {
+            summonsNumber: string;
+            summonsType: null | components["schemas"]["CodeName"];
+            actNumber: string;
+            /** Format: date */
+            actDate: null | string;
+            /** Format: date */
+            receivedDate: string;
+            courtLevel: null | components["schemas"]["CodeName"];
+            courtName: string;
+            judgeName: null | string;
+            objectText: string;
+            category: null | components["schemas"]["CodeName"];
+            subcategory: null | components["schemas"]["CodeName"];
+            claim: null | components["schemas"]["ClaimView"];
+            hasSecurityMeasure: boolean;
+            /** Format: date-time */
+            nextHearingAt: null | string;
+            /** Format: date-time */
+            registeredAt: string;
+            registeredBy: null | components["schemas"]["UserView"];
+            /** Format: date-time */
+            closedAt: null | string;
+        };
+        CaseDecisionSummary: {
+            result: components["schemas"]["CodeName"];
+            resultOtherText: null | string;
+            decisionNumber: null | string;
+            /** Format: date */
+            decisionDate: null | string;
+            decisionReceived: boolean;
+            isAppealed: boolean;
+            isRecursed: boolean;
+            isFinal: boolean;
+        };
+        CaseHeader: {
+            /** Format: uuid */
+            publicId: string;
+            caseCode: string;
+            /** Format: int32 */
+            levelSeq: number | string;
+            status: string;
+            priority: string;
+            isSuspended: boolean;
+            /** Format: uint32 */
+            rowVersion: number | string;
+        };
+        CaseHistoryItem: {
+            level: string;
+            eventType: string;
+            actorName: null | string;
+            /** Format: date-time */
+            occurredAt: string;
+            summary: string;
+            old: null | components["schemas"]["JsonNode"];
+            new: null | components["schemas"]["JsonNode"];
+        };
+        CaseInstitutionView: {
+            /** Format: uuid */
+            institutionPublicId: string;
+            name: string;
+            mode: string;
+            juristNames: string[];
+        };
+        CaseLevelView: {
+            caseCode: string;
+            /** Format: int32 */
+            levelSeq: number | string;
+            courtLevelName: string;
+            status: string;
+            /** Format: uuid */
+            publicId: null | string;
+            canOpen: boolean;
+        };
+        CaseListItem: {
+            /** Format: uuid */
+            publicId: string;
+            caseCode: string;
+            actNumber: string;
+            courtName: string;
+            primaryLawyerName: null | string;
+            priority: string;
+            status: string;
+            /** Format: date-time */
+            nextHearingAt: null | string;
+            isSuspended: boolean;
+            /** Format: date-time */
+            registeredAt: string;
+            /** Format: date-time */
+            closedAt: null | string;
+        };
         CaseSubcategoryResponse: {
             code: string;
             name: string;
             categoryCode: null | string;
+        };
+        CaseTabCount: {
+            tab: string;
+            /** Format: int32 */
+            count: number | string;
+        };
+        CaseTabsResponse: {
+            tabs: components["schemas"]["CaseTabCount"][];
+            defaultTab: null | string;
+        };
+        CaseTeamMember: {
+            role: string;
+            /** Format: uuid */
+            userPublicId: string;
+            name: string;
+            /** Format: date-time */
+            assignedAt: string;
+        };
+        ClaimView: {
+            /** Format: double */
+            amount: null | number | string;
+            currency: null | string;
+            /** Format: double */
+            areaM2: null | number | string;
+        };
+        CodeName: {
+            code: string;
+            name: string;
         };
         CourtAdminResponse: {
             /** Format: int32 */
@@ -1163,6 +1442,25 @@ export interface components {
             appliesTo: string;
             isActive: boolean;
         };
+        FirstHearingRequest: {
+            at: null | string;
+            hearingTypeCode: null | string;
+            otherTypeText: null | string;
+        };
+        GetCaseResponse: {
+            header: components["schemas"]["CaseHeader"];
+            data: components["schemas"]["CaseData"];
+            team: components["schemas"]["CaseTeamMember"][];
+            institutions: components["schemas"]["CaseInstitutionView"][];
+            parties: components["schemas"]["PartyResponse"][];
+            /** Format: int32 */
+            hearingsCount: number | string;
+            /** Format: int32 */
+            documentsCount: number | string;
+            decision: null | components["schemas"]["CaseDecisionSummary"];
+            levels: components["schemas"]["CaseLevelView"][];
+            permissions: string[];
+        };
         GetMeResponse: {
             /** Format: uuid */
             publicId: string;
@@ -1188,6 +1486,17 @@ export interface components {
             name: string;
             isOther: boolean;
         };
+        HttpValidationProblemDetails: {
+            type?: null | string;
+            title?: null | string;
+            /** Format: int32 */
+            status?: null | number | string;
+            detail?: null | string;
+            instance?: null | string;
+            errors?: {
+                [key: string]: string[];
+            };
+        };
         InstitutionAdminResponse: {
             /** Format: uuid */
             publicId: string;
@@ -1208,6 +1517,7 @@ export interface components {
             institutionType: string;
             parentName: null | string;
         };
+        JsonNode: unknown;
         JudgeAdminResponse: {
             /** Format: int64 */
             id: number | string;
@@ -1227,12 +1537,24 @@ export interface components {
             /** Format: int32 */
             courtId: null | number | string;
         };
+        KeysetPageOfCaseHistoryItem: {
+            items: components["schemas"]["CaseHistoryItem"][];
+            nextCursor: null | string;
+        };
+        KeysetPageOfCaseListItem: {
+            items: components["schemas"]["CaseListItem"][];
+            nextCursor: null | string;
+        };
         KeysetPageOfInstitutionAdminResponse: {
             items: components["schemas"]["InstitutionAdminResponse"][];
             nextCursor: null | string;
         };
         KeysetPageOfJudgeAdminResponse: {
             items: components["schemas"]["JudgeAdminResponse"][];
+            nextCursor: null | string;
+        };
+        KeysetPageOfRegistrationSearchItem: {
+            items: components["schemas"]["RegistrationSearchItem"][];
             nextCursor: null | string;
         };
         KeysetPageOfUserResponse: {
@@ -1243,6 +1565,17 @@ export interface components {
             /** Format: uuid */
             publicId: string;
             name: string;
+        };
+        NotifyNotClosedRequest: {
+            summonsNumber: null | string;
+            /** Format: int32 */
+            courtId: null | number | string;
+            hearingAt: null | string;
+        };
+        NotifyNotClosedResponse: {
+            alreadyNotified: boolean;
+            /** Format: date-time */
+            notifiedAt: string;
         };
         OfficeAdminResponse: {
             /** Format: uuid */
@@ -1256,6 +1589,28 @@ export interface components {
             /** Format: int32 */
             activeUsers: number | string;
         };
+        PartyInstitutionRef: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
+        PartyRequest: {
+            partyRoleCode: null | string;
+            kind: null | string;
+            /** Format: uuid */
+            institutionPublicId: null | string;
+            displayName: null | string;
+            identifier: null | string;
+        };
+        PartyResponse: {
+            /** Format: uuid */
+            publicId: string;
+            role: components["schemas"]["PartyRoleRef"];
+            kind: string;
+            displayName: string;
+            identifier: null | string;
+            institution: null | components["schemas"]["PartyInstitutionRef"];
+        };
         PartyRoleAdminResponse: {
             code: string;
             name: string;
@@ -1264,10 +1619,18 @@ export interface components {
             sortOrder: number | string;
             isActive: boolean;
         };
+        PartyRoleRef: {
+            code: string;
+            name: string;
+        };
         PartyRoleResponse: {
             code: string;
             name: string;
             reportGroup: string;
+        };
+        PartyWarning: {
+            code: string;
+            message: string;
         };
         ProblemDetails: {
             type?: null | string;
@@ -1276,6 +1639,72 @@ export interface components {
             status?: null | number | string;
             detail?: null | string;
             instance?: null | string;
+        };
+        RegisterCaseRequest: {
+            summonsNumber: null | string;
+            summonsTypeCode: null | string;
+            actNumber: null | string;
+            /** Format: date */
+            actDate: null | string;
+            /** Format: date */
+            receivedDate: null | string;
+            courtLevelCode: null | string;
+            /** Format: int32 */
+            courtId: null | number | string;
+            /** Format: int64 */
+            judgeId: null | number | string;
+            objectText: null | string;
+            firstHearing: null | components["schemas"]["FirstHearingRequest"];
+            parties: null | components["schemas"]["PartyRequest"][];
+            /** @default false */
+            confirmPossibleDuplicate: boolean;
+        };
+        RegisterCaseResponse: {
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            warnings: components["schemas"]["RegistrationWarning"][];
+        };
+        RegisterNextLevelRequest: {
+            summonsNumber: null | string;
+            summonsTypeCode: null | string;
+            actNumber: null | string;
+            /** Format: date */
+            actDate: null | string;
+            /** Format: date */
+            receivedDate: null | string;
+            courtLevelCode: null | string;
+            /** Format: int32 */
+            courtId: null | number | string;
+            /** Format: int64 */
+            judgeId: null | number | string;
+            firstHearing: null | components["schemas"]["FirstHearingRequest"];
+            /** @default false */
+            confirmPossibleDuplicate: boolean;
+        };
+        RegistrationSearchItem: {
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            status: string;
+            actNumber: string;
+            courtName: string;
+            partyNames: string[];
+            /** Format: int32 */
+            partyCount: number | string;
+            /** Format: date-time */
+            closedAt: null | string;
+            canContinue: boolean;
+            reason: null | string;
+        };
+        RegistrationWarning: {
+            code: string;
+            message: string;
+        };
+        RemovePartyResponse: {
+            lastInstitutionParty: boolean;
+            institutionLinkEnded: boolean;
+            warnings: components["schemas"]["PartyWarning"][];
         };
         RoleRequest: {
             role: string;
@@ -1384,6 +1813,11 @@ export interface components {
             /** Format: int32 */
             currentAssignments: number | string;
         };
+        UserView: {
+            /** Format: uuid */
+            userPublicId: string;
+            name: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1465,6 +1899,333 @@ export interface operations {
             };
             /** @description Bad Request */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    RegisterCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterCaseResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SearchCasesForRegistration: {
+        parameters: {
+            query?: {
+                q?: string;
+                courtId?: number | string;
+                after?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysetPageOfRegistrationSearchItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    RegisterNextLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previousCasePublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterNextLevelRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterCaseResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    NotifyPreviousLevelNotClosed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previousCasePublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotifyNotClosedRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyNotClosedResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListCases: {
+        parameters: {
+            query?: {
+                tab?: string;
+                status?: string;
+                courtId?: number | string;
+                categoryCode?: string;
+                priority?: string;
+                suspended?: boolean;
+                hearingFrom?: string;
+                hearingTo?: string;
+                lawyerId?: string;
+                q?: string;
+                after?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysetPageOfCaseListItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListCaseTabs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseTabsResponse"];
+                };
+            };
+        };
+    };
+    GetCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCaseResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetCaseHistory: {
+        parameters: {
+            query?: {
+                after?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysetPageOfCaseHistoryItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3614,6 +4375,214 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListCaseParties: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartyResponse"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AddCaseParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartyResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateCaseParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartyResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    RemoveCaseParty: {
+        parameters: {
+            query?: {
+                endInstitutionLink?: boolean;
+            };
+            header?: never;
+            path: {
+                caseId: string;
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovePartyResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

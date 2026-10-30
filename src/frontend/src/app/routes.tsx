@@ -8,12 +8,15 @@ import { InstitutionsPage } from '../pages/admin/Institutions'
 import { OfficesPage } from '../pages/admin/Offices'
 import { ListsPage } from '../pages/admin/Lists'
 import { UsersPage } from '../pages/admin/UsersPage'
+import { CasesHome } from '../pages/cases/CasesHome'
+import { ContinueCasePage } from '../pages/cases/ContinueCase'
+import { RegisterCasePage } from '../pages/cases/RegisterCase'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { Layout } from './Layout'
 import { RequirePermission } from './RequirePermission'
 
 // Menu codes without a real page yet; each shows the "coming soon" placeholder.
-const placeholderMenuCodes = ['dashboard', 'cases', 'chat', 'notifications', 'profile', 'agenda', 'reports']
+const placeholderMenuCodes = ['dashboard', 'chat', 'notifications', 'profile', 'agenda', 'reports']
 
 export const router = createBrowserRouter([
   { path: '/login', element: <DevLogin /> },
@@ -24,6 +27,23 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       ...placeholderMenuCodes.map((code) => ({ path: code, element: <PlaceholderPage menu={code} /> })),
+      { path: 'cases', element: <CasesHome /> },
+      {
+        path: 'cases/register',
+        element: (
+          <RequirePermission code="case.create">
+            <RegisterCasePage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'cases/continue',
+        element: (
+          <RequirePermission code="case.link_previous">
+            <ContinueCasePage />
+          </RequirePermission>
+        ),
+      },
       {
         path: 'admin',
         element: <AdminLayout />,

@@ -22,7 +22,7 @@ namespace Ash.Modules.Cases.Application.RegisterNextLevel;
 /// </summary>
 internal sealed class RegisterNextLevelHandler(
     CasesDbContext db,
-    ICaseAccessService access,
+    NextLevelGate gate,
     CaseRegistrationSupport support,
     IReferenceData reference,
     IInstitutionDirectory institutions,
@@ -35,36 +35,15 @@ internal sealed class RegisterNextLevelHandler(
 {
     public async Task<Result<RegisterCaseResponse>> Handle(Guid previousCasePublicId, RegisterNextLevelRequest req, CancellationToken ct)
     {
-        // The previous case is only read, never changed (no tracking).
-        var previous = await db.Cases.AsNoTracking().SingleOrDefaultAsync(c => c.PublicId == previousCasePublicId, ct);
-        if (previous is null || access.GetRegistrationLookupScope() == RegistrationLookupScope.None)
+        // 1. The previous level must be the latest, its dossier open, and the level closed in the system.
+        //    The previous case is only read, never changed (no tracking).
+        var source = await gate.CheckAsync(previousCasePublicId, ct);
+        if (source.IsFailure)
         {
-            return Error.NotFound("case.not_found", "Çështja nuk u gjet.");
+            return source.Error!;
         }
 
-        // 1. The previous level must be the latest, its dossier open, and the level closed in the system
-        var latest = await db.Cases.AsNoTracking()
-            .Where(c => c.DossierId == previous.DossierId)
-            .OrderByDescending(c => c.LevelSeq)
-            .Select(c => new { c.Id, c.CaseCode, c.LevelSeq })
-            .FirstAsync(ct);
-        if (latest.Id != previous.Id)
-        {
-            return AlreadyContinued(latest.CaseCode);
-        }
-
-        var dossier = await db.Dossiers.AsNoTracking().SingleAsync(d => d.Id == previous.DossierId, ct);
-        if (dossier.ArchivedAt is not null)
-        {
-            return Error.Conflict("case.dossier_archived", "Dosja është arkivuar; çështja nuk mund të vazhdojë në një shkallë tjetër.");
-        }
-
-        if (previous.LifecycleStatus != Case.Closed)
-        {
-            // No side effects in a failing request: the UI offers POST …/notify-not-closed to tell the lawyer and the Kryetar.
-            return Error.Conflict("case.previous_not_closed",
-                "Shkalla e mëparshme nuk është mbyllur ende në sistem. Avokati duhet të regjistrojë vendimin.");
-        }
+        var (previous, dossier, latestLevelSeq) = source.Value;
 
         // 2. The form, as in task 016 (object text and parties come from the previous level)
         var form = req.AsRegistration(previous.ObjectText);
@@ -96,7 +75,7 @@ internal sealed class RegisterNextLevelHandler(
         }
 
         // 3. The new level; a parallel request continuing the same case hits uq_cases_dossier_level → 409
-        var levelSeq = (ushort)(latest.LevelSeq + 1);
+        var levelSeq = (ushort)(latestLevelSeq + 1);
         var next = new Case
         {
             PublicId = Guid.NewGuid(),
@@ -201,8 +180,7 @@ internal sealed class RegisterNextLevelHandler(
         }
     }
 
-    internal static Error AlreadyContinued(string caseCode) =>
-        Error.Conflict("case.already_continued", $"Kjo çështje ka vazhduar tashmë në {caseCode}");
+    internal static Error AlreadyContinued(string caseCode) => NextLevelGate.AlreadyContinued(caseCode);
 }
 
 /// <summary>

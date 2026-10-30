@@ -54,6 +54,19 @@ public static class RegistrationEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("RegisterNextLevel");
 
+        // What continuing will copy (object, parties, institution links), shown read-only above the next-level form.
+        endpoints.MapGet("/api/cases/{previousCasePublicId:guid}/next-level/preview",
+                async (Guid previousCasePublicId, NextLevelPreviewHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(previousCasePublicId, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission("case.link_previous")
+            .Produces<NextLevelPreviewResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("PreviewNextLevel");
+
         // A next-level summons for a level not closed in the system: tell the lawyer and the Kryetar (at most once a day).
         endpoints.MapPost("/api/cases/{previousCasePublicId:guid}/notify-not-closed",
                 async (Guid previousCasePublicId, NotifyNotClosedRequest req, NotifyNotClosedHandler handler, CancellationToken ct) =>

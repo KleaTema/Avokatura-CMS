@@ -31,7 +31,9 @@ public static class CasesModule
 		services.AddScoped<PartyViews>();
 		services.AddScoped<CaseRegistrationSupport>();
 		services.AddScoped<RegisterCaseHandler>();
+		services.AddScoped<NextLevelGate>();
 		services.AddScoped<RegisterNextLevelHandler>();
+		services.AddScoped<NextLevelPreviewHandler>();
 		services.AddScoped<NotifyNotClosedHandler>();
 		services.AddScoped<CaseListQueryBuilder>();
 		services.AddScoped<ListCasesHandler>();
