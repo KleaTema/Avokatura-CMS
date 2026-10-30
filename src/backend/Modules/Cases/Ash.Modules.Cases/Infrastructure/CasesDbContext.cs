@@ -52,6 +52,9 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.JudgeId).HasColumnName("judge_id");
             b.Property(x => x.ObjectText).HasColumnName("object_text");
             b.Property(x => x.LifecycleStatus).HasColumnName("lifecycle_status");
+            b.Property(x => x.CategoryId).HasColumnName("category_id");
+            b.Property(x => x.Priority).HasColumnName("priority");
+            b.Property(x => x.IsSuspended).HasColumnName("is_suspended");
             b.Property(x => x.NextHearingAt).HasColumnName("next_hearing_at");
             b.Property(x => x.RegisteredBy).HasColumnName("registered_by");
             b.Property(x => x.RegisteredAt).HasColumnName("registered_at");
@@ -188,6 +191,10 @@ public sealed class Case
     public uint? JudgeId { get; set; }
     public string ObjectText { get; set; } = string.Empty;
     public string LifecycleStatus { get; set; } = string.Empty;
+    public byte? CategoryId { get; set; }
+    /// <summary>NONE | LOW | MEDIUM | HIGH (database default NONE).</summary>
+    public string Priority { get; set; } = "NONE";
+    public bool IsSuspended { get; set; }
     public DateTime? NextHearingAt { get; set; }
     public uint RegisteredBy { get; set; }
     public DateTime RegisteredAt { get; set; }

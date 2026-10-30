@@ -1,3 +1,4 @@
+using Ash.Modules.Cases.Application.ListCases;
 using Ash.Modules.Cases.Application.Parties;
 using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Application.RegisterNextLevel;
@@ -30,6 +31,9 @@ public static class CasesModule
 		services.AddScoped<RegisterCaseHandler>();
 		services.AddScoped<RegisterNextLevelHandler>();
 		services.AddScoped<NotifyNotClosedHandler>();
+		services.AddScoped<CaseListQueryBuilder>();
+		services.AddScoped<ListCasesHandler>();
+		services.AddScoped<CaseTabsHandler>();
 		services.AddScoped<RegistrationSearchHandler>();
 		services.AddScoped<ListPartiesHandler>();
 		services.AddScoped<AddPartyHandler>();
@@ -40,6 +44,6 @@ public static class CasesModule
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapCaseRegistration().MapCaseParties();
+		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList();
 	}
 }
