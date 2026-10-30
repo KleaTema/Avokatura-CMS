@@ -17,6 +17,9 @@ Kryetar replaces the primary lawyer of an active case; the old one stays in hist
 ## Steps
 1. `POST /api/cases/{id}/transfer` { newPrimaryUserPublicId, reason?, rowVersion }. Also allow changing/removing the secondary here.
 2. History LAWYER_TRANSFERRED with old → new names. Notify old and new lawyer.
+   History details shape fixed by task 020 test (`CaseDetailTests`, transfer seeded via SQL):
+   `{"old": {"name": "First Last", "userPublicId": "<guid>"}, "new": {"name": "First Last", "userPublicId": "<guid>", "reason": "…"}}`
+   — names are a snapshot at that moment, the public id is for linking, never internal ids; `reason` only when given.
 3. Ongoing 30-day timer: decide per client question 6 (default: restarts for the new lawyer).
 
 ## Acceptance criteria

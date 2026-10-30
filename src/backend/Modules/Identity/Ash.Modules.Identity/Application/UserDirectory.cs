@@ -51,6 +51,22 @@ public sealed class UserDirectory(IdentityDbContext db) : IUserDirectory
             .ToDictionaryAsync(u => (long)u.Id, u => u.FirstName + " " + u.LastName, ct);
     }
 
+    public async Task<IReadOnlyDictionary<long, UserRef>> GetRefsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<long, UserRef>();
+        }
+
+        var ids = userIds.Select(id => (uint)id).Distinct().ToList();
+        var rows = await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Id, u.PublicId, u.FirstName, u.LastName, u.InstitutionId })
+            .ToListAsync(ct);
+        return rows.ToDictionary(u => (long)u.Id,
+            u => new UserRef(u.PublicId, u.FirstName + " " + u.LastName, u.InstitutionId is { } i ? i : null));
+    }
+
     public async Task<IReadOnlyList<UserSummary>> FindUsers(string? query, string? role, CancellationToken ct = default)
     {
         var users = Summaries();

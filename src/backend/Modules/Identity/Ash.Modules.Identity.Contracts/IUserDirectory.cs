@@ -8,6 +8,12 @@ public sealed record UserSummary(
     Guid? OfficePublicId,
     Guid? InstitutionPublicId);
 
+/// <summary>
+/// A user as another module shows them: public id and "First Last". InstitutionId is internal (only for matching
+/// foreign keys, e.g. a jurist to the institution link), never sent out.
+/// </summary>
+public sealed record UserRef(Guid PublicId, string Name, long? InstitutionId);
+
 public interface IUserDirectory
 {
     Task<UserSummary?> GetUser(Guid publicId, CancellationToken ct = default);
@@ -20,6 +26,9 @@ public interface IUserDirectory
 
     /// <summary>"First Last" per internal user id, in one call (e.g. the primary lawyers of a list page).</summary>
     Task<IReadOnlyDictionary<long, string>> GetNamesAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default);
+
+    /// <summary>Public id + name (+ institution) per internal user id, inactive users included, in one call.</summary>
+    Task<IReadOnlyDictionary<long, UserRef>> GetRefsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default);
 
     /// <summary>Active users matching name/email text and, optionally, a role code.</summary>
     Task<IReadOnlyList<UserSummary>> FindUsers(string? query, string? role, CancellationToken ct = default);

@@ -14,6 +14,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CasePermissionRow> CasePermissions => Set<CasePermissionRow>();
     public DbSet<CaseHistoryEvent> CaseHistoryEvents => Set<CaseHistoryEvent>();
     public DbSet<CaseAssignmentRow> CaseAssignments => Set<CaseAssignmentRow>();
+    public DbSet<CaseDecision> CaseDecisions => Set<CaseDecision>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,8 +54,13 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.ObjectText).HasColumnName("object_text");
             b.Property(x => x.LifecycleStatus).HasColumnName("lifecycle_status");
             b.Property(x => x.CategoryId).HasColumnName("category_id");
+            b.Property(x => x.SubcategoryId).HasColumnName("subcategory_id");
             b.Property(x => x.Priority).HasColumnName("priority");
             b.Property(x => x.IsSuspended).HasColumnName("is_suspended");
+            b.Property(x => x.HasSecurityMeasure).HasColumnName("has_security_measure");
+            b.Property(x => x.ClaimAmount).HasColumnName("claim_amount");
+            b.Property(x => x.ClaimCurrency).HasColumnName("claim_currency");
+            b.Property(x => x.ClaimAreaM2).HasColumnName("claim_area_m2");
             b.Property(x => x.NextHearingAt).HasColumnName("next_hearing_at");
             b.Property(x => x.RegisteredBy).HasColumnName("registered_by");
             b.Property(x => x.RegisteredAt).HasColumnName("registered_at");
@@ -116,7 +122,24 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.CaseId).HasColumnName("case_id");
             b.Property(x => x.UserId).HasColumnName("user_id");
             b.Property(x => x.CaseRole).HasColumnName("case_role");
+            b.Property(x => x.AssignedAt).HasColumnName("assigned_at").ValueGeneratedOnAdd();
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
+        });
+
+        modelBuilder.Entity<CaseDecision>(b =>
+        {
+            b.ToTable("case_decisions");
+            b.HasKey(x => x.CaseId);
+            b.Property(x => x.CaseId).HasColumnName("case_id");
+            b.Property(x => x.ResultId).HasColumnName("result_id");
+            b.Property(x => x.ResultOtherText).HasColumnName("result_other_text");
+            b.Property(x => x.DecisionNumber).HasColumnName("decision_number");
+            b.Property(x => x.DecisionDate).HasColumnName("decision_date").HasColumnType("date");
+            b.Property(x => x.DecisionReceived).HasColumnName("decision_received");
+            b.Property(x => x.IsAppealed).HasColumnName("is_appealed");
+            b.Property(x => x.IsRecursed).HasColumnName("is_recursed");
+            b.Property(x => x.IsFinal).HasColumnName("is_final");
+            b.Property(x => x.RecordedAt).HasColumnName("recorded_at");
         });
 
         modelBuilder.Entity<CaseAccessRow>(b =>
@@ -192,9 +215,17 @@ public sealed class Case
     public string ObjectText { get; set; } = string.Empty;
     public string LifecycleStatus { get; set; } = string.Empty;
     public byte? CategoryId { get; set; }
+    /// <summary>Only for the NDJEKJE category (composite FK with the category).</summary>
+    public byte? SubcategoryId { get; set; }
     /// <summary>NONE | LOW | MEDIUM | HIGH (database default NONE).</summary>
     public string Priority { get; set; } = "NONE";
     public bool IsSuspended { get; set; }
+    /// <summary>Masë sigurimi po/jo; details in case_security_measures.</summary>
+    public bool HasSecurityMeasure { get; set; }
+    /// <summary>Vlera e padisë: money (with currency, CHECK) and/or square metres.</summary>
+    public decimal? ClaimAmount { get; set; }
+    public string? ClaimCurrency { get; set; }
+    public decimal? ClaimAreaM2 { get; set; }
     public DateTime? NextHearingAt { get; set; }
     public uint RegisteredBy { get; set; }
     public DateTime RegisteredAt { get; set; }
@@ -276,7 +307,27 @@ public sealed class CaseAssignmentRow
     public ulong CaseId { get; set; }
     public uint UserId { get; set; }
     public string CaseRole { get; set; } = string.Empty;
+    /// <summary>Database default on insert.</summary>
+    public DateTime AssignedAt { get; set; }
     public DateTime? EndedAt { get; set; }
+}
+
+/// <summary>Vendimi of a level (1:1 with the case). Read here for the case page; written by the decision task.</summary>
+public sealed class CaseDecision
+{
+    public ulong CaseId { get; set; }
+    public byte ResultId { get; set; }
+    public string? ResultOtherText { get; set; }
+    public string? DecisionNumber { get; set; }
+    /// <summary>Calendar date (DATE), never converted to UTC.</summary>
+    public DateOnly? DecisionDate { get; set; }
+    /// <summary>The reasoned decision arrived.</summary>
+    public bool DecisionReceived { get; set; }
+    public bool IsAppealed { get; set; }
+    public bool IsRecursed { get; set; }
+    /// <summary>Formë e prerë.</summary>
+    public bool IsFinal { get; set; }
+    public DateTime RecordedAt { get; set; }
 }
 
 public sealed class CaseAccessRow

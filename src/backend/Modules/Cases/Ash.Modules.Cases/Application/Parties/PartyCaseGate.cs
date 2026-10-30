@@ -1,6 +1,5 @@
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
-using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,12 +7,11 @@ namespace Ash.Modules.Cases.Application.Parties;
 
 /// <summary>
 /// Who may read or change the parties of a case. Order: no view → 404; CLOSED → 409; not allowed → 403.
-/// Change rights: while REGISTERED, the registering office's Protokoll (system permission case.edit_registration);
-/// in any open state, whoever holds the case permission (party.add / party.edit / party.delete).
+/// Change rights come ONLY from <see cref="ICaseAccessService.GetEffectivePermissionsAsync"/> (party.add / party.edit /
+/// party.delete) — the same list the case page shows. It includes the registering office's Protokoll while REGISTERED.
 /// </summary>
-internal sealed class PartyCaseGate(CasesDbContext db, ICaseAccessService access, ICurrentUser user)
+internal sealed class PartyCaseGate(CasesDbContext db, ICaseAccessService access)
 {
-    public const string EditRegistration = "case.edit_registration";
     public const string Add = "party.add";
     public const string Edit = "party.edit";
     public const string Delete = "party.delete";
@@ -38,10 +36,7 @@ internal sealed class PartyCaseGate(CasesDbContext db, ICaseAccessService access
             return Error.Conflict("case.closed", "Çështja është mbyllur; palët ndryshohen në shkallën e radhës.");
         }
 
-        var registrationDesk = c.LifecycleStatus == Case.Registered
-                               && user.HasPermission(EditRegistration)
-                               && user.OfficeId == c.OfficeId;
-        if (registrationDesk || await access.HasAsync((long)c.Id, casePermission, ct))
+        if ((await access.GetEffectivePermissionsAsync((long)c.Id, ct)).Contains(casePermission))
         {
             return c;
         }

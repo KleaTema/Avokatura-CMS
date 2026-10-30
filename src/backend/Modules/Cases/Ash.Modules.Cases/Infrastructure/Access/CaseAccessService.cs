@@ -35,7 +35,30 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
         }
     }
 
+    public async Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(long caseId, CancellationToken cancellationToken = default) =>
+        (await GetAsync(caseId, cancellationToken)).Permissions;
+
     public const string LinkPreviousPermission = "case.link_previous";
+    public const string ViewPermission = "case.view";
+    public const string EditRegistrationPermission = "case.edit_registration";
+
+    /// <summary>The registering office's Protokoll corrects the registration while the case waits for a lawyer.</summary>
+    private static readonly string[] RegistrationDeskActions = [EditRegistrationPermission, "party.add", "party.edit", "party.delete"];
+
+    /// <summary>
+    /// What still applies to a CLOSED case, if the user holds it (the next level continues the work):
+    /// view, and the case chat (lawyers discuss the appeal after closing).
+    /// Tasks 036/037 add the decision actions here (record the reasoned decision and its document after closing) —
+    /// nowhere else. Every other write action is off for a CLOSED case.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ActionsAllowedWhenClosed = new HashSet<string>
+    {
+        ViewPermission,
+        "chat.case",
+    };
+
+    /// <summary>The Kryetar of the case's office (system permissions held for their own office only).</summary>
+    private static readonly string[] OfficeHeadActions = ["case.assign_lawyer", "case.transfer", "case.set_priority_any"];
 
     public RegistrationLookupScope GetRegistrationLookupScope() =>
         // All offices: confirmed by the client (Q1a) — a next-level summons may arrive at another office.
@@ -83,12 +106,44 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
             || (user.HasPermission(CaseScopeQuery.ViewOfficePermission) && user.OfficeId == first.OfficeId)
             || (first.RegisteredBy == userId && first.LifecycleStatus == CaseScopeQuery.RegisteredStatus);
 
-        var permissions = rows.Where(r => r.Permission is not null).Select(r => r.Permission!).ToHashSet();
-        return new CaseAccess(canView, permissions);
+        if (!canView)
+        {
+            return CaseAccess.None;
+        }
+
+        return new CaseAccess(true, Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus));
     }
 
-    private sealed record CaseAccess(bool CanView, HashSet<string> Permissions)
+    /// <summary>
+    /// Case permissions ∪ system permissions that apply to this case in its current state. A CLOSED case keeps only
+    /// what is in <see cref="ActionsAllowedWhenClosed"/>.
+    /// </summary>
+    private HashSet<string> Effective(IEnumerable<string?> casePermissions, ushort officeId, string status)
     {
-        public static CaseAccess None { get; } = new(false, []);
+        var effective = casePermissions.Where(p => p is not null).Select(p => p!).ToHashSet();
+        effective.Add(ViewPermission); // viewing through the office or view_all is still viewing
+        if (status == Case.Closed)
+        {
+            effective.IntersectWith(ActionsAllowedWhenClosed);
+            return effective;
+        }
+
+        var ownOffice = user.OfficeId == officeId;
+        if (ownOffice && status == Case.Registered && user.HasPermission(EditRegistrationPermission))
+        {
+            effective.UnionWith(RegistrationDeskActions);
+        }
+
+        if (ownOffice)
+        {
+            effective.UnionWith(OfficeHeadActions.Where(user.HasPermission));
+        }
+
+        return effective;
+    }
+
+    private sealed record CaseAccess(bool CanView, IReadOnlySet<string> Permissions)
+    {
+        public static CaseAccess None { get; } = new(false, new HashSet<string>());
     }
 }

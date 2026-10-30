@@ -13,6 +13,14 @@ public interface ICaseAccessService
     Task RequireAsync(long caseId, string permissionCode, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// What the current user may do in this case NOW: the case permissions (v_case_permissions) plus the system
+    /// permissions that act on this case in its current state. Empty when the user cannot view the case.
+    /// The one source of truth for actions: the case page shows it and <see cref="HasAsync"/>/<see cref="RequireAsync"/>
+    /// check against it, so the UI and the API never differ. Cached per request.
+    /// </summary>
+    Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(long caseId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// For the registration lookup (task 018) ONLY: which cases Protokoll may FIND to continue at the next level.
     /// It never grants case.view — the lookup shows a few registration fields, nothing else of the case.
     /// </summary>

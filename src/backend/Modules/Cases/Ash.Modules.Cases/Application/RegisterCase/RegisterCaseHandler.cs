@@ -109,8 +109,8 @@ internal sealed class RegisterCaseHandler(
                 registered.CaseCode,
                 SummonsNumber = summonsNumber,
                 ActNumber = actNumber,
-                CourtId = courtId,
-                JudgeId = lookups.Judge.Id,
+                Court = lookups.Court.Name,
+                Judge = $"{lookups.Judge.FirstName} {lookups.Judge.LastName}",
                 PossibleDuplicateConfirmed = duplicates.Total > 0
             });
         await db.SaveChangesAsync(ct);
@@ -122,7 +122,7 @@ internal sealed class RegisterCaseHandler(
         }
 
         history.Add((long)dossier.Id, caseId, HistoryEventType.SentToHead,
-            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { HeadUserId = head.UserId });
+            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { Name = head.FullName, UserPublicId = head.PublicId });
         await db.SaveChangesAsync(ct);
 
         audit.Record(AuditActions.CaseCreate, "CASE", caseId, caseId, details: new { registered.CaseCode });

@@ -140,8 +140,8 @@ internal sealed class RegisterNextLevelHandler(
                 PreviousCaseCode = previous.CaseCode,
                 SummonsNumber = summonsNumber,
                 ActNumber = actNumber,
-                CourtId = lookups.Court.Id,
-                JudgeId = lookups.Judge.Id,
+                Court = lookups.Court.Name,
+                Judge = $"{lookups.Judge.FirstName} {lookups.Judge.LastName}",
                 PossibleDuplicateConfirmed = duplicates.Total > 0
             });
         await db.SaveChangesAsync(ct);
@@ -161,7 +161,7 @@ internal sealed class RegisterNextLevelHandler(
         await CopyLinksAsync(previous, next, lookups.CourtLevel, warnings, ct);
 
         history.Add((long)dossier.Id, caseId, HistoryEventType.SentToHead,
-            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { HeadUserId = head.UserId });
+            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { Name = head.FullName, UserPublicId = head.PublicId });
         await db.SaveChangesAsync(ct);
 
         audit.Record(AuditActions.CaseCreate, "CASE", caseId, caseId,
