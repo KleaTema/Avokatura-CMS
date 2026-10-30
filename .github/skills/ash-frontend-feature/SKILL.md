@@ -52,6 +52,19 @@ Every list, table and picker gets search unless it will never have more than ~10
 ## Dates and times
 Always use components/AppDatePicker and AppTimePicker (DD.MM.YYYY, 24h, 5-minute steps). Click opens the picker; Tab focus does not. Never a plain text field for dates or times.
 Not needed: lists that are always tiny (file types, code formats).
+## Visual design system (always)
+- Use only the MUI theme and `src/theme/tokens.ts`. No hex colors, font sizes, shadows or radii in pages or components.
+- Every page starts with `PageHeader` (title + optional subtitle + actions). Content lives in `SectionCard`s on the gray page background.
+- Buttons: at most ONE gold button (`variant="contained" color="secondary"`) per page, for the page's main action. Other actions: blue contained/outlined or text buttons. Destructive actions: `color="error"` with a confirmation dialog.
+- Statuses, priorities and deadlines are always shown with `StatusChip`; never invent new chip colors in a page.
+- Tables use `DataTable` (header band, hover, skeleton while loading, `EmptyState` when empty). Case codes are blue links.
+- Icons: one outline icon set only (the one chosen in the theme task), 20–22 px.
+- Typography: h1 page title, h3 card titles, body1/body2 content, caption for meta text (dates, "15 minuta më parë"). Never skip levels for looks.
+- Text contrast ≥ 4.5:1. Never show information by color alone: chips always have text, trends always have an arrow.
+- Numbers right-aligned in tables; dates via `formatDate` / `formatDateTime`; relative times ("2 orë më parë") only in activity feeds, with the exact time in a tooltip.
+- Charts (when needed): recharts, colors only from tokens (primary, primaryLight, success, warning, gold, gray), legend always visible, values readable without hover.
+- No fake data or decorative widgets: show a section only when its endpoint exists.
+- Check every new page at 1536×1024 and 390×844 (Playwright screenshot) before reporting done.
 ## Done when
 - `npm run lint` and `npm run build` pass, no `any`, no console errors.
 - Works with keyboard only; MUI components keep their accessible labels.

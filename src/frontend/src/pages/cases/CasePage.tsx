@@ -1,4 +1,6 @@
-import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { CaseCode } from '../../components/ui/CaseCode'
+import { StatusChip } from '../../components/ui/StatusChip'
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { ApiError } from '../../api/client'
@@ -64,32 +66,30 @@ export function CasePage() {
         </Button>
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={1}>
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="h3" component="h1" sx={{ fontWeight: 700, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-              {header.caseCode}
-            </Typography>
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box component="h1" sx={{ m: 0 }}>
+              <CaseCode code={header.caseCode} size="large" />
+            </Box>
             <Button variant="outlined" size="small" onClick={() => void copy()}>
               {sq.cases.register.success.copy}
             </Button>
-            <Typography role="status" variant="body2" color="success.main">
+            <Typography role="status" variant="body2" color="success.dark">
               {copied ? sq.cases.register.success.copied : ''}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-            <Chip
-              label={sq.cases.status[header.status] ?? header.status}
-              color={header.status === 'ACTIVE' ? 'success' : header.status === 'REGISTERED' ? 'info' : 'default'}
-            />
-            <Chip
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            <StatusChip kind="status" value={header.status} size="medium" />
+            <StatusChip
+              kind="priority"
+              value={header.priority}
+              size="medium"
               label={`${sq.cases.list.columns.priority}: ${sq.cases.priority[header.priority] ?? header.priority}`}
-              color={header.priority === 'HIGH' ? 'error' : header.priority === 'MEDIUM' ? 'warning' : 'default'}
-              variant={header.priority === 'NONE' ? 'outlined' : 'filled'}
             />
-            {header.isSuspended && <Chip label={t.suspended} color="warning" />}
+            {header.isSuspended && <StatusChip kind="suspended" size="medium" />}
           </Stack>
-          <Typography>
+          <Typography variant="body2" color="text.secondary">
             <strong>{t.court}:</strong> {data.courtName}
             {' · '}
             <strong>{t.nextHearing}:</strong> {data.nextHearingAt ? formatDateTime(data.nextHearingAt) : t.none}

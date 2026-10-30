@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useId, useState } from 'react'
+import { CodeText } from '../../../components/ui/CodeText'
 import { useCaseHistory, type CaseHistoryItem } from '../../../features/cases/api'
 import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
@@ -58,8 +59,10 @@ function HistoryEntry({ item }: { item: CaseHistoryItem }) {
     <Paper component="li" variant="outlined" sx={{ p: 2, mb: 1 }}>
       <Stack spacing={0.5}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.5 }}>
-          <Chip size="small" label={item.level} sx={{ fontFamily: 'monospace' }} />
-          <Typography sx={{ fontWeight: 600 }}>{h.events[item.eventType] ?? item.eventType}</Typography>
+          <Chip size="small" color="primary" label={<CodeText>{item.level}</CodeText>} />
+          <Typography variant="h5" component="p">
+            {h.events[item.eventType] ?? item.eventType}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             {formatDateTime(item.occurredAt)} · {h.by(item.actorName ?? h.system)}
           </Typography>

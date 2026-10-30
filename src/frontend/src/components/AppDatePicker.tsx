@@ -1,4 +1,4 @@
-import { Box } from '@mui/material'
+import { Box, type SxProps, type Theme } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import type { Ref } from 'react'
 import type { PickerValue } from '../lib/pickerValues'
@@ -23,7 +23,10 @@ export function AppDatePicker({
   maxDate,
   size,
   fullWidth,
+  sx,
 }: {
+  /** layout of the picker's box in its parent (e.g. full width on a phone, fixed width in a row) */
+  sx?: SxProps<Theme>
   size?: 'small' | 'medium'
   /** fill the parent's width (e.g. inside a sized filter box) */
   fullWidth?: boolean
@@ -40,7 +43,7 @@ export function AppDatePicker({
 }) {
   const { anchorRef, onClick, pickerProps } = useClickToOpen()
   return (
-    <Box ref={anchorRef} onClick={onClick}>
+    <Box ref={anchorRef} onClick={onClick} sx={[fullWidth ? { width: '100%' } : {}, ...(Array.isArray(sx) ? sx : [sx])]}>
       <DatePicker
         {...pickerProps}
         value={value}

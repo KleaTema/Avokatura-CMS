@@ -13,11 +13,12 @@ import { CasePage } from '../pages/cases/CasePage'
 import { ContinueCasePage } from '../pages/cases/ContinueCase'
 import { RegisterCasePage } from '../pages/cases/RegisterCase'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
+import { DashboardPage } from '../pages/Dashboard'
 import { Layout } from './Layout'
 import { RequirePermission } from './RequirePermission'
 
 // Menu codes without a real page yet; each shows the "coming soon" placeholder.
-const placeholderMenuCodes = ['dashboard', 'chat', 'notifications', 'profile', 'agenda', 'reports']
+const placeholderMenuCodes = ['chat', 'notifications', 'profile', 'agenda', 'reports']
 
 export const router = createBrowserRouter([
   { path: '/login', element: <DevLogin /> },
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
       ...placeholderMenuCodes.map((code) => ({ path: code, element: <PlaceholderPage menu={code} /> })),
       { path: 'cases', element: <CaseListPage /> },
       // static paths (register, continue) rank above these parameters

@@ -1,19 +1,9 @@
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material'
+import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
+import { CodeText } from '../../components/ui/CodeText'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminFileTypes, type AdminFileType } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { isForbidden, problemMessage } from '../../lib/problem'
@@ -33,14 +23,14 @@ export function FileTypesPage() {
 
   return (
     <Box>
-      <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4" component="h1">
-          {t.title}
-        </Typography>
-        <Button variant="contained" onClick={() => setEditing({ fileType: null })}>
-          {t.add}
-        </Button>
-      </Stack>
+      <PageHeader
+        title={t.title}
+        actions={
+          <Button variant="contained" color="secondary" onClick={() => setEditing({ fileType: null })}>
+            {t.add}
+          </Button>
+        }
+      />
 
       {fileTypes.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -48,53 +38,44 @@ export function FileTypesPage() {
         </Alert>
       )}
 
-      {fileTypes.isPending ? (
-        <CircularProgress aria-label={sq.errors.loading} />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table size="small" aria-label={t.title}>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t.columns.extension}</TableCell>
-                <TableCell>{t.columns.contentType}</TableCell>
-                <TableCell>{t.columns.magicHex}</TableCell>
-                <TableCell align="right">{t.columns.maxSize}</TableCell>
-                <TableCell>{t.columns.appliesTo}</TableCell>
-                <TableCell>{t.columns.status}</TableCell>
-                <TableCell align="right">{sq.common.actions}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(fileTypes.data ?? []).map((f) => (
-                <TableRow key={f.id} hover sx={rowSx(f.isActive)}>
-                  <TableCell>{f.extension}</TableCell>
-                  <TableCell>{f.contentType}</TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{f.magicHex}</TableCell>
-                  <TableCell align="right">{t.megabytes(formatMegabytes(Number(f.maxSizeBytes)))}</TableCell>
-                  <TableCell>{t.appliesToValues[f.appliesTo] ?? f.appliesTo}</TableCell>
-                  <TableCell>
-                    <StatusChip active={f.isActive} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      onClick={() => setEditing({ fileType: f })}
-                      aria-label={`${t.edit}: ${f.extension} (${t.appliesToValues[f.appliesTo] ?? f.appliesTo})`}
-                    >
-                      {t.edit}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {fileTypes.isSuccess && fileTypes.data.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7}>{t.empty}</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable
+        label={t.title}
+        loading={fileTypes.isPending}
+        columns={[
+          { key: 'extension', label: t.columns.extension },
+          { key: 'contentType', label: t.columns.contentType },
+          { key: 'magicHex', label: t.columns.magicHex },
+          { key: 'maxSize', label: t.columns.maxSize, align: 'right' },
+          { key: 'appliesTo', label: t.columns.appliesTo },
+          { key: 'status', label: t.columns.status },
+          { key: 'actions', label: sq.common.actions, align: 'right' },
+        ]}
+        empty={fileTypes.isSuccess && fileTypes.data.length === 0 && <EmptyState title={t.empty} />}
+      >
+        {(fileTypes.data ?? []).map((f) => (
+          <TableRow key={f.id} hover sx={rowSx(f.isActive)}>
+            <TableCell>{f.extension}</TableCell>
+            <TableCell>{f.contentType}</TableCell>
+            <TableCell>
+              <CodeText>{f.magicHex}</CodeText>
+            </TableCell>
+            <TableCell align="right">{t.megabytes(formatMegabytes(Number(f.maxSizeBytes)))}</TableCell>
+            <TableCell>{t.appliesToValues[f.appliesTo] ?? f.appliesTo}</TableCell>
+            <TableCell>
+              <StatusChip active={f.isActive} />
+            </TableCell>
+            <TableCell align="right">
+              <Button
+                size="small"
+                onClick={() => setEditing({ fileType: f })}
+                aria-label={`${t.edit}: ${f.extension} (${t.appliesToValues[f.appliesTo] ?? f.appliesTo})`}
+              >
+                {t.edit}
+              </Button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </DataTable>
 
       {editing && <FileTypeDialog fileType={editing.fileType} onClose={() => setEditing(null)} />}
     </Box>

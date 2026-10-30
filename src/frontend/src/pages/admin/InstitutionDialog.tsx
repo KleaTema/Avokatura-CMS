@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { InstitutionPicker, type PickedInstitution } from '../../components/InstitutionPicker'
 import { useSaveInstitution, type AdminInstitution } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
+import { tokens } from '../../theme/tokens'
 import { problemMessage } from '../../lib/problem'
 import { useForbiddenRedirect } from './lists/helpers'
 
@@ -152,7 +153,7 @@ export function InstitutionDialog({ institution, onClose }: { institution: Admin
                   label={t.columns.nipt}
                   error={!!errors.nipt}
                   helperText={errors.nipt?.message ?? t.niptHint}
-                  slotProps={{ htmlInput: { style: { fontFamily: 'monospace', textTransform: 'uppercase' } } }}
+                  slotProps={{ htmlInput: { style: { fontFamily: tokens.font.mono, textTransform: 'uppercase' } } }}
                 />
               )}
             />

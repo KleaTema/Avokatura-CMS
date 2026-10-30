@@ -3,23 +3,19 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
   TableCell,
-  TableContainer,
-  TableHead,
   TableRow,
-  Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { CodeText } from '../../components/ui/CodeText'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useActivateCodeFormat, useAdminCodeFormats, type AdminCodeFormat } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
@@ -39,14 +35,14 @@ export function CodeFormatPage() {
 
   return (
     <Box>
-      <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4" component="h1">
-          {t.title}
-        </Typography>
-        <Button variant="contained" onClick={() => setCreating(true)}>
-          {t.add}
-        </Button>
-      </Stack>
+      <PageHeader
+        title={t.title}
+        actions={
+          <Button variant="contained" color="secondary" onClick={() => setCreating(true)}>
+            {t.add}
+          </Button>
+        }
+      />
 
       {formats.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -54,25 +50,24 @@ export function CodeFormatPage() {
         </Alert>
       )}
 
-      {formats.isPending ? (
-        <CircularProgress aria-label={sq.errors.loading} />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table size="small" aria-label={t.title}>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t.columns.template}</TableCell>
-                <TableCell align="right">{t.columns.randomDigits}</TableCell>
-                <TableCell>{t.columns.note}</TableCell>
-                <TableCell>{t.columns.createdAt}</TableCell>
-                <TableCell>{t.columns.status}</TableCell>
-                <TableCell align="right">{sq.common.actions}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+      <DataTable
+        label={t.title}
+        loading={formats.isPending}
+        columns={[
+          { key: 'template', label: t.columns.template },
+          { key: 'digits', label: t.columns.randomDigits, align: 'right' },
+          { key: 'note', label: t.columns.note },
+          { key: 'createdAt', label: t.columns.createdAt },
+          { key: 'status', label: t.columns.status },
+          { key: 'actions', label: sq.common.actions, align: 'right' },
+        ]}
+        empty={formats.isSuccess && formats.data.length === 0 && <EmptyState title={t.empty} />}
+      >
               {(formats.data ?? []).map((f) => (
                 <TableRow key={f.id} hover sx={rowSx(f.isActive)}>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{f.template}</TableCell>
+                  <TableCell>
+                    <CodeText>{f.template}</CodeText>
+                  </TableCell>
                   <TableCell align="right">{f.randomDigits}</TableCell>
                   <TableCell>{f.note ?? ''}</TableCell>
                   <TableCell>{formatDateTime(f.createdAt)}</TableCell>
@@ -88,15 +83,7 @@ export function CodeFormatPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {formats.isSuccess && formats.data.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6}>{t.empty}</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      </DataTable>
 
       {creating && <CodeFormatCreateDialog onClose={() => setCreating(false)} />}
       {activating && <ActivateDialog format={activating} onClose={() => setActivating(null)} />}

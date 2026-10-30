@@ -51,10 +51,8 @@ export function JudgesPanel() {
   return (
     <>
       <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" component="h2">
-          {t.lists.judges}
-        </Typography>
-        <Button variant="contained" onClick={() => setEditing({ judge: null })}>
+        <Typography variant="h2">{t.lists.judges}</Typography>
+        <Button variant="contained" color="secondary" onClick={() => setEditing({ judge: null })}>
           {t.add}
         </Button>
       </Stack>

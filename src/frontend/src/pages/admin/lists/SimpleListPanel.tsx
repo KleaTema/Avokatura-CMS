@@ -57,10 +57,8 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
   return (
     <>
       <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" component="h2">
-          {title}
-        </Typography>
-        <Button variant="contained" onClick={() => setEditing({ item: null })}>
+        <Typography variant="h2">{title}</Typography>
+        <Button variant="contained" color="secondary" onClick={() => setEditing({ item: null })}>
           {t.add}
         </Button>
       </Stack>

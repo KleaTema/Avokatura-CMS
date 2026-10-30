@@ -1,20 +1,9 @@
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { Alert, Box, Button, CircularProgress, TableCell, TableRow, TextField } from '@mui/material'
 import { useState } from 'react'
+import { CodeText } from '../../components/ui/CodeText'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminInstitutionList, useSetInstitutionActive, type AdminInstitution } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
@@ -49,14 +38,14 @@ export function InstitutionsPage() {
 
   return (
     <Box>
-      <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4" component="h1">
-          {t.title}
-        </Typography>
-        <Button variant="contained" onClick={() => setEditing({ institution: null })}>
-          {t.add}
-        </Button>
-      </Stack>
+      <PageHeader
+        title={t.title}
+        actions={
+          <Button variant="contained" color="secondary" onClick={() => setEditing({ institution: null })}>
+            {t.add}
+          </Button>
+        }
+      />
 
       <TextField
         label={t.search}
@@ -78,28 +67,30 @@ export function InstitutionsPage() {
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
-        <Table size="small" aria-label={t.title}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t.columns.name}</TableCell>
-              <TableCell>{t.columns.shortName}</TableCell>
-              <TableCell>{t.columns.institutionType}</TableCell>
-              <TableCell>{t.columns.parent}</TableCell>
-              <TableCell>{t.columns.nipt}</TableCell>
-              <TableCell align="right">{t.columns.activeUsers}</TableCell>
-              <TableCell>{t.columns.status}</TableCell>
-              <TableCell align="right">{sq.common.actions}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      <DataTable
+        label={t.title}
+        loading={institutions.isPending}
+        columns={[
+          { key: 'name', label: t.columns.name },
+          { key: 'short', label: t.columns.shortName },
+          { key: 'type', label: t.columns.institutionType },
+          { key: 'parent', label: t.columns.parent },
+          { key: 'nipt', label: t.columns.nipt },
+          { key: 'users', label: t.columns.activeUsers, align: 'right' },
+          { key: 'status', label: t.columns.status },
+          { key: 'actions', label: sq.common.actions, align: 'right' },
+        ]}
+        empty={institutions.isSuccess && rows.length === 0 && !q && <EmptyState title={t.empty} />}
+      >
             {rows.map((i) => (
               <TableRow key={i.publicId} hover sx={rowSx(i.isActive)}>
                 <TableCell>{i.name}</TableCell>
                 <TableCell>{i.shortName ?? ''}</TableCell>
                 <TableCell>{t.institutionTypes[i.institutionType] ?? i.institutionType}</TableCell>
                 <TableCell>{i.parent?.name ?? ''}</TableCell>
-                <TableCell sx={{ fontFamily: 'monospace' }}>{i.nipt ?? ''}</TableCell>
+                <TableCell>
+                  <CodeText>{i.nipt ?? ''}</CodeText>
+                </TableCell>
                 <TableCell align="right">{i.activeUsers}</TableCell>
                 <TableCell>
                   <StatusChip active={i.isActive} />
@@ -120,20 +111,13 @@ export function InstitutionsPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {institutions.isSuccess && rows.length === 0 && !q && (
-              <TableRow>
-                <TableCell colSpan={8}>{t.empty}</TableCell>
-              </TableRow>
-            )}
             {institutions.isSuccess && rows.length === 0 && q && (
               <SearchEmptyRow q={search} colSpan={8} onClear={() => setSearch('')} />
             )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      </DataTable>
 
       <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        {institutions.isPending || institutions.isFetchingNextPage ? (
+        {institutions.isFetchingNextPage ? (
           <CircularProgress aria-label={sq.errors.loading} />
         ) : (
           institutions.hasNextPage && (

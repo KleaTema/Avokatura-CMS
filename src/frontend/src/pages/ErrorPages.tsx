@@ -1,17 +1,22 @@
-import { Button, Typography } from '@mui/material'
+import { Button, Paper } from '@mui/material'
+import { CircleAlert } from 'lucide-react'
 import { Link as RouterLink } from 'react-router'
+import { EmptyState } from '../components/ui/EmptyState'
 import { sq } from '../i18n/sq'
 
 function ErrorPage({ message }: { message: string }) {
   return (
-    <div>
-      <Typography variant="h5" gutterBottom>
-        {message}
-      </Typography>
-      <Button component={RouterLink} to="/">
-        {sq.errors.backHome}
-      </Button>
-    </div>
+    <Paper variant="outlined">
+      <EmptyState
+        icon={CircleAlert}
+        title={message}
+        action={
+          <Button variant="outlined" component={RouterLink} to="/">
+            {sq.errors.backHome}
+          </Button>
+        }
+      />
+    </Paper>
   )
 }
 

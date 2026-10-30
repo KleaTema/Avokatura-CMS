@@ -2,7 +2,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Link as MuiLink,
   Paper,
@@ -13,6 +12,9 @@ import {
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { OptionPicker } from '../../components/OptionPicker'
+import { CaseCode } from '../../components/ui/CaseCode'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { StatusChip } from '../../components/ui/StatusChip'
 import { NotifyNotClosedDialog } from '../../components/registration/NotifyNotClosedDialog'
 import { FormSection, RegistrationForm } from '../../components/registration/RegistrationForm'
 import {
@@ -72,9 +74,7 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4" component="h1">
-        {t.title}
-      </Typography>
+      <PageHeader title={t.title} />
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
         <TextField
           label={t.search}
@@ -161,10 +161,10 @@ function ResultCard({
     <Paper component="li" variant="outlined" sx={{ p: 2 }}>
       <Stack spacing={1}>
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography variant="h6" component="h2" sx={{ fontFamily: 'monospace' }}>
-            {item.caseCode}
+          <Typography variant="h3" component="h2">
+            <CaseCode code={item.caseCode} />
           </Typography>
-          <Chip size="small" label={sq.cases.status[item.status] ?? item.status} />
+          <StatusChip kind="status" value={item.status} />
           <Typography color="text.secondary">
             {item.closedAt ? `${t.closedAt} ${formatTiraneDate(item.closedAt)}` : t.notClosed}
           </Typography>
@@ -246,13 +246,13 @@ function PreviewPanel({ preview }: { preview: NextLevelPreview }) {
         <strong>{t.previous}:</strong> {preview.caseCode} · {preview.courtLevelName} · {preview.courtName}
       </Typography>
       <Box>
-        <Typography component="h3" sx={{ fontWeight: 600 }}>
+        <Typography variant="h5" component="h3">
           {t.object}
         </Typography>
         <Typography sx={{ whiteSpace: 'pre-wrap' }}>{preview.objectText}</Typography>
       </Box>
       <Box>
-        <Typography component="h3" sx={{ fontWeight: 600 }}>
+        <Typography variant="h5" component="h3">
           {t.parties}
         </Typography>
         {preview.parties.length === 0 ? (
@@ -270,7 +270,7 @@ function PreviewPanel({ preview }: { preview: NextLevelPreview }) {
       </Box>
       {preview.institutionLinks.length > 0 && (
         <Box>
-          <Typography component="h3" sx={{ fontWeight: 600 }}>
+          <Typography variant="h5" component="h3">
             {t.links}
           </Typography>
           <Box component="ul" sx={{ m: 0, pl: 3 }}>

@@ -15,6 +15,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { useCreateCodeFormat } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
+import { tokens } from '../../theme/tokens'
 import { problemMessage } from '../../lib/problem'
 import { useForbiddenRedirect } from './lists/helpers'
 
@@ -114,7 +115,7 @@ export function CodeFormatCreateDialog({ onClose }: { onClose: () => void }) {
                   error={!!errors.template}
                   helperText={errors.template?.message ?? (example ? t.example(example) : ' ')}
                   slotProps={{
-                    htmlInput: { style: { fontFamily: 'monospace' }, 'aria-describedby': 'code-format-tokens' },
+                    htmlInput: { style: { fontFamily: tokens.font.mono }, 'aria-describedby': 'code-format-tokens' },
                     formHelperText: { 'aria-live': 'polite' },
                   }}
                 />

@@ -1,4 +1,5 @@
-import { Box, List, ListItemButton, ListItemText, Paper, Stack, Typography } from '@mui/material'
+import { Box, List, ListItemButton, ListItemText, Paper, Stack } from '@mui/material'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useSearchParams } from 'react-router'
 import type { SimpleListKey } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
@@ -34,9 +35,7 @@ export function ListsPage() {
 
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        {t.title}
-      </Typography>
+      <PageHeader title={t.title} />
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ alignItems: 'flex-start' }}>
         <Paper sx={{ width: { xs: '100%', md: 260 }, flexShrink: 0 }}>
           <List component="nav" aria-label={t.pickerLabel} dense>

@@ -1,5 +1,6 @@
-import { Box, Paper, Stack, Typography } from '@mui/material'
+import { Box, Stack, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
+import { SectionCard } from '../../../components/ui/SectionCard'
 import type { CaseDetail } from '../../../features/cases/api'
 import { sq } from '../../../i18n/sq'
 import { formatDate, formatDateTime } from '../../../lib/dates'
@@ -85,17 +86,14 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Paper variant="outlined" component="section" sx={{ p: 2 }}>
-      <Typography variant="h6" component="h2" gutterBottom>
-        {title}
-      </Typography>
+    <SectionCard title={title}>
       <Box
         component="dl"
         sx={{ m: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}
       >
         {children}
       </Box>
-    </Paper>
+    </SectionCard>
   )
 }
 

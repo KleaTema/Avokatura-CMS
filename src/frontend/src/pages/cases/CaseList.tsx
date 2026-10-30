@@ -25,7 +25,11 @@ import {
 import dayjs from 'dayjs'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { CirclePause } from 'lucide-react'
 import { AppDatePicker } from '../../components/AppDatePicker'
+import { CaseCode } from '../../components/ui/CaseCode'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { StatusChip } from '../../components/ui/StatusChip'
 import { CourtPicker } from '../../components/CourtPicker'
 import { useCaseList, useCaseTabs, type CaseListFilters, type CaseListItem } from '../../features/cases/api'
 import { useMe } from '../../features/identity/api'
@@ -55,6 +59,8 @@ const TRUNCATE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'no
 interface Column {
   key: 'code' | 'act' | 'court' | 'lawyer' | 'hearing' | 'priority' | 'status' | 'suspended'
   label: string
+  /** shorter header on a phone */
+  phoneLabel?: string
   /** responsive width; the court takes the rest */
   width?: { xs: string | number; md: string | number }
   phone: boolean
@@ -67,9 +73,9 @@ const COLUMNS: Column[] = [
   { key: 'act', label: t.columns.actNumber, width: { xs: 0, md: 130 }, phone: false },
   { key: 'court', label: t.columns.court, phone: false },
   { key: 'lawyer', label: t.columns.lawyer, width: { xs: 0, md: 170 }, phone: false },
-  { key: 'hearing', label: t.columns.nextHearing, width: { xs: 96, md: 150 }, phone: true },
+  { key: 'hearing', label: t.columns.nextHearing, phoneLabel: t.columns.hearingShort, width: { xs: 92, md: 150 }, phone: true },
   { key: 'priority', label: t.columns.priority, width: { xs: 0, md: 120 }, phone: false, classification: true },
-  { key: 'status', label: t.columns.status, width: { xs: 96, md: 120 }, phone: true },
+  { key: 'status', label: t.columns.status, width: { xs: 112, md: 120 }, phone: true },
   { key: 'suspended', label: '', width: { xs: 28, md: 44 }, phone: true, classification: true },
 ]
 
@@ -226,27 +232,23 @@ export function CaseListPage() {
 
   return (
     <Stack spacing={2}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
-      >
-        <Typography variant="h4" component="h1">
-          {sq.cases.title}
-        </Typography>
-        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-          {permissions.includes('case.create') && (
-            <Button variant="contained" component={Link} to="/cases/register">
-              {sq.cases.registerNew}
-            </Button>
-          )}
-          {permissions.includes('case.link_previous') && (
-            <Button variant="outlined" component={Link} to="/cases/continue">
-              {sq.cases.continueExisting}
-            </Button>
-          )}
-        </Stack>
-      </Stack>
+      <PageHeader
+        title={sq.cases.title}
+        actions={
+          <>
+            {permissions.includes('case.link_previous') && (
+              <Button variant="outlined" component={Link} to="/cases/continue">
+                {sq.cases.continueExisting}
+              </Button>
+            )}
+            {permissions.includes('case.create') && (
+              <Button variant="contained" color="secondary" component={Link} to="/cases/register">
+                {sq.cases.registerNew}
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {tabs.isError && <Alert severity="error">{problemMessage(tabs.error)}</Alert>}
       {userTabs.length > 0 && (
@@ -332,7 +334,7 @@ export function CaseListPage() {
       </Collapse>
 
       {anyFilter && (
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, alignItems: 'center' }} aria-label={t.activeFilters}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }} aria-label={t.activeFilters}>
           {chips.map((chip) => (
             <Chip
               key={chip.key}
@@ -382,9 +384,20 @@ export function CaseListPage() {
                     <TableCell
                       key={c.key}
                       component="div"
-                      sx={{ width: c.width, fontWeight: 600, ...CELL_PADDING, ...TRUNCATE, ...(c.phone ? {} : HIDE_ON_PHONE) }}
+                      sx={{ width: c.width, ...CELL_PADDING, ...TRUNCATE, ...(c.phone ? {} : HIDE_ON_PHONE) }}
                     >
-                      {c.label}
+                      {c.phoneLabel ? (
+                        <>
+                          <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
+                            {c.label}
+                          </Box>
+                          <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
+                            {c.phoneLabel}
+                          </Box>
+                        </>
+                      ) : (
+                        c.label
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -416,16 +429,16 @@ function CaseRow({ item, columns }: { item: CaseListItem; columns: Column[] }) {
   const hearingDay = tiraneDateOf(item.nextHearingAt)
   const when = hearingDay === today ? t.today : hearingDay === addDays(today, 1) ? t.tomorrow : null
   const hearing = item.nextHearingAt ? formatDateTime(item.nextHearingAt) : t.none
-  const status = sq.cases.status[item.status] ?? item.status
-  const priority = sq.cases.priority[item.priority] ?? item.priority
-
   const cell: Record<Column['key'], ReactNode> = {
     code: (
       <>
-        <Box sx={{ fontFamily: 'monospace', fontWeight: 600, ...TRUNCATE }}>{item.caseCode}</Box>
-        <Box sx={{ display: { xs: 'block', md: 'none' }, color: 'text.secondary', fontSize: '0.8125rem' }}>
-          {item.courtName}
+        {/* the row is the link: the code is styled as one, not a nested <a> */}
+        <Box sx={TRUNCATE}>
+          <CaseCode code={item.caseCode} />
         </Box>
+        <Typography variant="caption" component="p" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' } }}>
+          {item.courtName}
+        </Typography>
       </>
     ),
     act: <Box sx={TRUNCATE}>{item.actNumber}</Box>,
@@ -439,30 +452,18 @@ function CaseRow({ item, columns }: { item: CaseListItem; columns: Column[] }) {
         <Box sx={TRUNCATE}>{item.primaryLawyerName ?? t.none}</Box>
       </Tooltip>
     ),
-    hearing: (
-      <Box sx={when ? { fontWeight: 700, color: hearingDay === today ? 'error.main' : 'warning.dark' } : undefined}>
-        {when ? `${when} ${hearing.slice(11)}` : hearing}
-      </Box>
+    // today / tomorrow stand out as tinted chips (red / orange)
+    hearing: when ? (
+      <Chip size="small" color={hearingDay === today ? 'error' : 'warning'} label={`${when} ${hearing.slice(11)}`} />
+    ) : (
+      hearing
     ),
-    priority: (
-      <Chip
-        size="small"
-        label={priority}
-        color={item.priority === 'HIGH' ? 'error' : item.priority === 'MEDIUM' ? 'warning' : 'default'}
-        variant={item.priority === 'NONE' ? 'outlined' : 'filled'}
-      />
-    ),
-    status: (
-      <Chip
-        size="small"
-        label={status}
-        color={item.status === 'ACTIVE' ? 'success' : item.status === 'REGISTERED' ? 'info' : 'default'}
-      />
-    ),
+    priority: <StatusChip kind="priority" value={item.priority} />,
+    status: <StatusChip kind="status" value={item.status} />,
     suspended: item.isSuspended ? (
       <Tooltip title={t.suspendedTooltip}>
-        <Box component="span" role="img" aria-label={t.suspendedTooltip} sx={{ fontSize: 18 }}>
-          ⏸
+        <Box component="span" role="img" aria-label={t.suspendedTooltip} sx={{ display: 'inline-flex', color: 'warning.dark' }}>
+          <CirclePause size={20} aria-hidden />
         </Box>
       </Tooltip>
     ) : null,

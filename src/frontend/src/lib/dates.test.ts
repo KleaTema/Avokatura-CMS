@@ -3,6 +3,7 @@ import {
   addDays,
   formatDate,
   formatDateTime,
+  formatLongDate,
   formatTiraneDate,
   parseDisplayDate,
   tiraneDateOf,
@@ -28,6 +29,17 @@ describe('formatDate (DateOnly, no time zone)', () => {
     expect(formatDate(undefined)).toBe('')
     expect(formatDate('2026-11-05T10:00:00Z')).toBe('')
     expect(formatDate('05.11.2026')).toBe('')
+  })
+})
+
+describe('formatLongDate', () => {
+  it('writes the Tirane date in Albanian with capitalised weekday and month', () => {
+    expect(formatLongDate(new Date('2026-10-30T10:00:00Z'))).toBe('E premte, 30 Tetor 2026')
+  })
+
+  it('uses the Tirane day, not the UTC one', () => {
+    // 23:30 UTC on 14 July is 01:30 on 15 July in Tirane (a Wednesday)
+    expect(formatLongDate(new Date('2026-07-14T23:30:00Z'))).toBe('E mërkurë, 15 Korrik 2026')
   })
 })
 

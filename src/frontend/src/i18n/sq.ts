@@ -1,5 +1,42 @@
 export const sq = {
   appName: 'Avokatura e Shtetit',
+  brand: {
+    title: 'Avokatura e Shtetit',
+    subtitle: 'Sistemi Elektronik i Menaxhimit të Çështjeve',
+    emblemAlt: 'Stema e Republikës së Shqipërisë',
+  },
+  shell: {
+    search: 'Kërko çështje (kodi, nr. i aktit, pala)…',
+    searchLabel: 'Kërko çështje',
+    notifications: 'Njoftimet',
+    userMenu: 'Menyja e përdoruesit',
+    profile: 'Profili',
+    logout: 'Dil',
+    menu: 'Menyja',
+    mainNav: 'Menyja kryesore',
+  },
+  /** system roles as users read them (me.roles holds the codes) */
+  roleNames: {
+    ADMIN: 'Administrator',
+    PROTOCOL: 'Protokolli',
+    OFFICE_HEAD: 'Kryetar i zyrës',
+    STATE_LAWYER: 'Avokat i shtetit',
+    LEGAL_ASSISTANT: 'Ndihmës ligjor',
+    MONITOR: 'Monitorues',
+    INSTITUTION_USER: 'Përdorues i institucionit',
+    INSTITUTION_JURIST: 'Jurist i institucionit',
+  } as Record<string, string>,
+  dashboard: {
+    greeting: (firstName: string) => `Mirëdita, ${firstName}`,
+    subtitle: 'Përmbledhja e punës suaj',
+  },
+  ui: {
+    viewAll: 'Shiko të gjitha',
+    moreActions: 'Më shumë veprime',
+    emptyTitle: 'Nuk ka të dhëna',
+    deadlineSoon: 'Afati i afërt',
+    suspended: 'Pezulluar',
+  },
   menu: {
     dashboard: 'Dashboard',
     cases: 'Çështje',
@@ -526,6 +563,7 @@ export const sq = {
         court: 'Gjykata',
         lawyer: 'Avokati primar',
         nextHearing: 'Seanca e radhës',
+        hearingShort: 'Seanca',
         priority: 'Prioriteti',
         status: 'Statusi',
       },

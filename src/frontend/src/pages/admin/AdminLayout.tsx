@@ -29,7 +29,7 @@ export function AdminLayout() {
   const current = items.find((i) => pathname.startsWith(i.path))?.path ?? false
   return (
     <Box>
-      <Tabs value={current} aria-label={sq.menu.admin} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+      <Tabs value={current} aria-label={sq.menu.admin} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 3 }}>
         {items.map((i) => (
           <Tab key={i.path} value={i.path} label={i.label} component={NavLink} to={i.path} />
         ))}

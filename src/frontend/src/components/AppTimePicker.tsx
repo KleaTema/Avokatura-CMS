@@ -1,4 +1,4 @@
-import { Box } from '@mui/material'
+import { Box, type SxProps, type Theme } from '@mui/material'
 import { TimePicker } from '@mui/x-date-pickers'
 import { renderMultiSectionDigitalClockTimeView } from '@mui/x-date-pickers/timeViewRenderers'
 import type { Ref } from 'react'
@@ -21,7 +21,13 @@ export function AppTimePicker({
   autoFocus,
   minTime,
   maxTime,
+  fullWidth,
+  sx,
 }: {
+  /** fill the parent's width */
+  fullWidth?: boolean
+  /** layout of the picker's box in its parent (e.g. full width on a phone, fixed width in a row) */
+  sx?: SxProps<Theme>
   value: PickerValue
   onChange: (value: PickerValue) => void
   label: string
@@ -35,7 +41,7 @@ export function AppTimePicker({
 }) {
   const { anchorRef, onClick, pickerProps } = useClickToOpen()
   return (
-    <Box ref={anchorRef} onClick={onClick}>
+    <Box ref={anchorRef} onClick={onClick} sx={[fullWidth ? { width: '100%' } : {}, ...(Array.isArray(sx) ? sx : [sx])]}>
       <TimePicker
         {...pickerProps}
         value={value}
@@ -49,7 +55,7 @@ export function AppTimePicker({
         minTime={minTime?.isValid() ? minTime : undefined}
         maxTime={maxTime?.isValid() ? maxTime : undefined}
         viewRenderers={{ hours: renderMultiSectionDigitalClockTimeView, minutes: renderMultiSectionDigitalClockTimeView }}
-        slotProps={{ textField: { required, error, helperText, inputRef, autoFocus } }}
+        slotProps={{ textField: { required, error, helperText, inputRef, autoFocus, fullWidth } }}
       />
     </Box>
   )

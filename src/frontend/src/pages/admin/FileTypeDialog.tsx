@@ -17,6 +17,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useSaveFileType, type AdminFileType } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
+import { tokens } from '../../theme/tokens'
 import { problemMessage } from '../../lib/problem'
 import { BYTES_PER_MB, MAX_SIZE_MB, megabytesToBytes, parseMegabytes } from './fileTypeSize'
 import { useForbiddenRedirect } from './lists/helpers'
@@ -156,7 +157,7 @@ export function FileTypeDialog({ fileType, onClose }: { fileType: AdminFileType 
                   required
                   error={!!errors.magicHex}
                   helperText={errors.magicHex?.message ?? t.magicHexHint}
-                  slotProps={{ htmlInput: { style: { fontFamily: 'monospace' } } }}
+                  slotProps={{ htmlInput: { style: { fontFamily: tokens.font.mono } } }}
                 />
               )}
             />

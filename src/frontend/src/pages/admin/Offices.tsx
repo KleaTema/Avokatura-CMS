@@ -1,21 +1,10 @@
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { Alert, Box, Button, TableCell, TableRow, TextField } from '@mui/material'
 import { useState } from 'react'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
+import { CodeText } from '../../components/ui/CodeText'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminOffices, useSetOfficeActive, type AdminOffice } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { isForbidden, problemMessage } from '../../lib/problem'
@@ -48,14 +37,14 @@ export function OfficesPage() {
 
   return (
     <Box>
-      <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4" component="h1">
-          {t.title}
-        </Typography>
-        <Button variant="contained" onClick={() => setEditing({ office: null })}>
-          {t.add}
-        </Button>
-      </Stack>
+      <PageHeader
+        title={t.title}
+        actions={
+          <Button variant="contained" color="secondary" onClick={() => setEditing({ office: null })}>
+            {t.add}
+          </Button>
+        }
+      />
 
       <TextField
         label={t.search}
@@ -77,27 +66,26 @@ export function OfficesPage() {
         </Alert>
       )}
 
-      {offices.isPending ? (
-        <CircularProgress aria-label={sq.errors.loading} />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table size="small" aria-label={t.title}>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t.columns.code}</TableCell>
-                <TableCell>{t.columns.name}</TableCell>
-                <TableCell>{t.columns.officeType}</TableCell>
-                <TableCell>{t.columns.parent}</TableCell>
-                <TableCell>{t.columns.head}</TableCell>
-                <TableCell align="right">{t.columns.activeUsers}</TableCell>
-                <TableCell>{t.columns.status}</TableCell>
-                <TableCell align="right">{sq.common.actions}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+      <DataTable
+        label={t.title}
+        loading={offices.isPending}
+        columns={[
+          { key: 'code', label: t.columns.code },
+          { key: 'name', label: t.columns.name },
+          { key: 'type', label: t.columns.officeType },
+          { key: 'parent', label: t.columns.parent },
+          { key: 'head', label: t.columns.head },
+          { key: 'users', label: t.columns.activeUsers, align: 'right' },
+          { key: 'status', label: t.columns.status },
+          { key: 'actions', label: sq.common.actions, align: 'right' },
+        ]}
+        empty={offices.isSuccess && offices.data.length === 0 && <EmptyState title={t.empty} />}
+      >
               {rows.map((office) => (
                 <TableRow key={office.publicId} hover sx={rowSx(office.isActive)}>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{office.code}</TableCell>
+                  <TableCell>
+                    <CodeText>{office.code}</CodeText>
+                  </TableCell>
                   <TableCell>{office.name}</TableCell>
                   <TableCell>{t.officeTypes[office.officeType] ?? office.officeType}</TableCell>
                   <TableCell>{office.parent?.name ?? ''}</TableCell>
@@ -125,18 +113,10 @@ export function OfficesPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {offices.isSuccess && offices.data.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8}>{t.empty}</TableCell>
-                </TableRow>
-              )}
               {offices.isSuccess && offices.data.length > 0 && rows.length === 0 && (
                 <SearchEmptyRow q={q} colSpan={8} onClear={() => setQ('')} />
               )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      </DataTable>
 
       {editing && (
         <OfficeDialog office={editing.office} offices={offices.data ?? []} onClose={() => setEditing(null)} />

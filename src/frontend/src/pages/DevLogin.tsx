@@ -1,10 +1,12 @@
-import { Alert, Autocomplete, Box, Button, CircularProgress, Paper, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { useAuth } from '../app/authContext'
 import { authMode, devUsers, oidcConfigured, userManager } from '../app/authConfig'
+import { BrandImage } from '../app/shell/BrandImage'
 import { sq } from '../i18n/sq'
+import { tokens } from '../theme/tokens'
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase()
 
@@ -41,9 +43,52 @@ export function DevLogin() {
   }
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-      <Paper sx={{ p: 4, width: 400 }}>
-        <Typography variant="h5" gutterBottom>
+    <Box
+      component="main"
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        p: 2,
+        background: `linear-gradient(160deg, ${tokens.color.navy800} 0%, ${tokens.color.navy900} 100%)`,
+      }}
+    >
+      {/* large, subtle white emblem behind the card (decorative; hidden if the file cannot be loaded) */}
+      <BrandImage
+        src="/brand/emblem-white.webp"
+        alt=""
+        decorative
+        sx={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          height: { xs: '90vh', sm: '110vh' },
+          width: 'auto',
+          maxWidth: 'none',
+          opacity: tokens.effect.loginEmblemOpacity,
+          mixBlendMode: tokens.effect.loginEmblemBlend,
+          filter: `blur(${tokens.effect.loginEmblemBlur})`,
+          pointerEvents: 'none',
+          userSelect: 'none',
+          zIndex: 0,
+        }}
+      />
+      <Paper variant="outlined" sx={{ position: 'relative', zIndex: 1, p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 420 }}>
+        <Stack spacing={1} sx={{ alignItems: 'center', textAlign: 'center', mb: 3 }}>
+          <BrandImage
+            src="/brand/emblem-navy.webp"
+            alt={sq.brand.emblemAlt}
+            sx={{ height: tokens.layout.emblemSize, width: 'auto' }}
+          />
+          <Typography variant="h3" component="p" sx={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {sq.brand.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {sq.brand.subtitle}
+          </Typography>
+        </Stack>
+        <Typography variant="h2" component="h1" gutterBottom>
           {sq.login.title}
         </Typography>
         {authMode === 'dev' ? (
@@ -66,12 +111,19 @@ export function DevLogin() {
               )}
               sx={{ mb: 2 }}
             />
-            <Button type="submit" variant="contained" fullWidth disabled={checking || !normalizeEmail(email)}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="secondary"
+              size="large"
+              fullWidth
+              disabled={checking || !normalizeEmail(email)}
+            >
               {sq.login.submit}
             </Button>
           </form>
         ) : oidcConfigured ? (
-          <Button variant="contained" fullWidth onClick={() => void loginOidc()}>
+          <Button variant="contained" color="secondary" size="large" fullWidth onClick={() => void loginOidc()}>
             {sq.login.oidcSubmit}
           </Button>
         ) : (

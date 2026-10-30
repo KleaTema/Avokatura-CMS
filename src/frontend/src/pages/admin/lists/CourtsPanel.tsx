@@ -48,10 +48,8 @@ export function CourtsPanel() {
   return (
     <>
       <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" component="h2">
-          {t.lists.courts}
-        </Typography>
-        <Button variant="contained" onClick={() => setEditing({ court: null })}>
+        <Typography variant="h2">{t.lists.courts}</Typography>
+        <Button variant="contained" color="secondary" onClick={() => setEditing({ court: null })}>
           {t.add}
         </Button>
       </Stack>

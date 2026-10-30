@@ -1,3 +1,6 @@
+import dayjs from 'dayjs'
+import 'dayjs/locale/sq'
+
 const TIME_ZONE = 'Europe/Tirane'
 
 const formatter = new Intl.DateTimeFormat('en-GB', {
@@ -75,6 +78,17 @@ export function tiraneLocalToUtcIso(date: string, time: string): string | null {
     .filter((utc) => tiraneWallMs(utc) === wall)
     .sort((a, b) => a - b)
   return candidates.length > 0 ? new Date(candidates[0]).toISOString().replace('.000Z', 'Z') : null
+}
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+
+/**
+ * "E premte, 30 Tetor 2026": a long date in Albanian, the Tirane calendar day (page headers). Names come from the
+ * bundled dayjs "sq" locale, not Intl: browsers' locale data often lacks Albanian and falls back to English.
+ */
+export function formatLongDate(when: Date = new Date()): string {
+  const day = dayjs(todayInTirane(when)).locale('sq')
+  return `${capitalize(day.format('dddd'))}, ${day.format('D')} ${capitalize(day.format('MMMM'))} ${day.format('YYYY')}`
 }
 
 /** The Tirane calendar date (dd.MM.yyyy) of a UTC instant (an ISO date-time, e.g. closedAt) — not for DateOnly fields. */

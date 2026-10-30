@@ -421,7 +421,9 @@ export function LivePartyEditor({
           <Paper key={party.publicId} variant="outlined" sx={{ p: 2 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
               <Box sx={{ flex: 1 }}>
-                <Typography sx={{ fontWeight: 600 }}>{party.displayName}</Typography>
+                <Typography variant="h5" component="p">
+                  {party.displayName}
+                </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {party.role.name} · {t.kinds[party.kind] ?? party.kind}
                   {party.identifier ? ` · ${t.nipt} ${party.identifier}` : ''}

@@ -46,6 +46,9 @@ import { formatDateTime } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { isFilled, todayValue, type PickerValue } from '../../lib/pickerValues'
 import { CourtPicker } from '../CourtPicker'
+import { CaseCode } from '../ui/CaseCode'
+import { PageHeader } from '../ui/PageHeader'
+import { SectionCard } from '../ui/SectionCard'
 import { AppDatePicker } from '../AppDatePicker'
 import { AppTimePicker } from '../AppTimePicker'
 import type { DraftPartyErrors } from '../draftParty'
@@ -280,9 +283,7 @@ export function RegistrationForm({
   return (
     <Box component="form" onSubmit={onSubmit} onKeyDown={submitOnCtrlEnter} noValidate sx={{ maxWidth: 960 }}>
       <Stack spacing={3}>
-        <Typography variant="h4" component="h1">
-          {title}
-        </Typography>
+        <PageHeader title={title} />
         {above}
         {formErrors.length > 0 && (
           <Alert severity="error" data-form-error>
@@ -469,6 +470,8 @@ export function RegistrationForm({
                   inputRef={field.ref}
                   label={t.fields.hearingTime}
                   required
+                  fullWidth
+                  sx={{ width: { xs: '100%', md: 150 }, flexShrink: 0 }}
                   error={!!errors.hearingTime}
                   helperText={errors.hearingTime?.message}
                 />
@@ -556,7 +559,7 @@ export function RegistrationForm({
         )}
 
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-          <Button type="submit" variant="contained" size="large" disabled={busy}>
+          <Button type="submit" variant="contained" color="secondary" size="large" disabled={busy}>
             {busy ? t.submitting : t.submit}
           </Button>
           <Typography variant="body2" color="text.secondary">
@@ -598,12 +601,9 @@ export function RegistrationForm({
 
 export function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Paper variant="outlined" component="section" sx={{ p: 2 }}>
-      <Typography variant="h6" component="h2" gutterBottom>
-        {title}
-      </Typography>
+    <SectionCard title={title}>
       <Stack spacing={2}>{children}</Stack>
-    </Paper>
+    </SectionCard>
   )
 }
 
@@ -637,6 +637,8 @@ function DateField({
           error={!!error}
           helperText={error}
           maxDate={maxDate}
+          fullWidth
+          sx={{ width: { xs: '100%', md: 200 }, flexShrink: 0 }}
         />
       )}
     />
@@ -658,26 +660,24 @@ function RegistrationSuccess({
 }) {
   return (
     <Stack spacing={3} sx={{ maxWidth: 720 }}>
-      <Typography variant="h4" component="h1">
-        {t.success.title}
-      </Typography>
+      <PageHeader title={t.success.title} />
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Typography color="text.secondary">{t.success.codeLabel}</Typography>
-        <Typography variant="h2" component="p" sx={{ fontWeight: 700, fontFamily: 'monospace', wordBreak: 'break-all', my: 1 }}>
-          {created.caseCode}
-        </Typography>
+        <Box sx={{ my: 1 }}>
+          <CaseCode code={created.caseCode} size="large" />
+        </Box>
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
           <Button variant="outlined" onClick={onCopy}>
             {t.success.copy}
           </Button>
-          <Typography role="status" color="success.main">
+          <Typography role="status" color="success.dark">
             {copied ? t.success.copied : ''}
           </Typography>
         </Stack>
       </Paper>
       {created.warnings.length > 0 && (
         <Stack spacing={1}>
-          <Typography variant="h6" component="h2">
+          <Typography variant="h3" component="h2">
             {t.success.warnings}
           </Typography>
           {created.warnings.map((w, i) => (
@@ -688,7 +688,7 @@ function RegistrationSuccess({
         </Stack>
       )}
       <Stack direction="row" spacing={2}>
-        <Button variant="contained" onClick={onAnother} autoFocus>
+        <Button variant="contained" color="secondary" onClick={onAnother} autoFocus>
           {anotherLabel}
         </Button>
         <Button variant="outlined" component={Link} to={`/cases/${created.casePublicId}`}>

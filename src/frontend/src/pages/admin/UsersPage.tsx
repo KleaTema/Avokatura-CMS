@@ -1,20 +1,7 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { Alert, Box, Button, Chip, CircularProgress, Stack, TableCell, TableRow, TextField } from '@mui/material'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { useState } from 'react'
 import { useActivateUser, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
@@ -45,14 +32,14 @@ export function UsersPage() {
 
   return (
     <Box>
-      <Stack direction="row" sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4" component="h1">
-          {t.title}
-        </Typography>
-        <Button variant="contained" onClick={() => setCreating(true)}>
-          {t.addUser}
-        </Button>
-      </Stack>
+      <PageHeader
+        title={t.title}
+        actions={
+          <Button variant="contained" color="secondary" onClick={() => setCreating(true)}>
+            {t.addUser}
+          </Button>
+        }
+      />
 
       <TextField
         label={t.search}
@@ -74,20 +61,20 @@ export function UsersPage() {
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
-        <Table size="small" aria-label={t.title}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t.columns.name}</TableCell>
-              <TableCell>{t.columns.email}</TableCell>
-              <TableCell>{t.columns.organization}</TableCell>
-              <TableCell>{t.columns.roles}</TableCell>
-              <TableCell>{t.columns.status}</TableCell>
-              <TableCell>{t.columns.lastLogin}</TableCell>
-              <TableCell align="right">{sq.common.actions}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      <DataTable
+        label={t.title}
+        loading={users.isPending}
+        columns={[
+          { key: 'name', label: t.columns.name },
+          { key: 'email', label: t.columns.email },
+          { key: 'organization', label: t.columns.organization },
+          { key: 'roles', label: t.columns.roles },
+          { key: 'status', label: t.columns.status },
+          { key: 'lastLogin', label: t.columns.lastLogin },
+          { key: 'actions', label: sq.common.actions, align: 'right' },
+        ]}
+        empty={users.isSuccess && rows.length === 0 && !q && <EmptyState title={t.empty} />}
+      >
             {rows.map((u) => {
               const fullName = `${u.firstName} ${u.lastName}`
               return (
@@ -137,20 +124,13 @@ export function UsersPage() {
                 </TableRow>
               )
             })}
-            {users.isSuccess && rows.length === 0 && !q && (
-              <TableRow>
-                <TableCell colSpan={7}>{t.empty}</TableCell>
-              </TableRow>
-            )}
             {users.isSuccess && rows.length === 0 && q && (
               <SearchEmptyRow q={search} colSpan={7} onClear={() => setSearch('')} />
             )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      </DataTable>
 
       <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        {users.isPending || users.isFetchingNextPage ? (
+        {users.isFetchingNextPage ? (
           <CircularProgress aria-label={sq.errors.loading} />
         ) : (
           users.hasNextPage && <Button onClick={() => void users.fetchNextPage()}>{sq.common.loadMore}</Button>
