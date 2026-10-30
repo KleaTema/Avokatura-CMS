@@ -19,7 +19,9 @@ export function CourtPicker({
   error,
   helperText,
   inputRef,
+  size,
 }: {
+  size?: 'small' | 'medium'
   courts: Court[]
   levels: { code: string; name: string }[]
   levelCode: string
@@ -49,6 +51,7 @@ export function CourtPicker({
       isOptionEqualToValue={(a, b) => a.id === b.id}
       filterOptions={(all, state) => all.filter((c) => matches(state.inputValue, c.name, c.city))}
       noOptionsText={sq.cases.register.noCourts}
+      size={size}
       renderInput={(params) => (
         <TextField
           {...params}

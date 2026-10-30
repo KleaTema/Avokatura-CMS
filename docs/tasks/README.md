@@ -45,10 +45,10 @@ Rules
 | 016 | [Register a new case from a summons (X/1)](016-register-new-case.md) | 007, 009, 012 |  | done |
 | 017 | [Parties: add, edit, delete](017-case-parties.md) | 016 |  | done |
 | 018 | [Continue a closed case at the next level (X/n+1)](018-register-next-level.md) | 016, 017 | yes | done |
-| 019 | [Case list with scopes and filters](019-case-list.md) | 007 |  | todo |
-| 020 | [Case detail (quick view and tabs)](020-case-detail.md) | 017, 019 |  | todo |
-| 021 | [UI: registration form and party editor](021-ui-registration.md) | 011, 016, 017, 018 |  | todo |
-| 022 | [UI: case list and case page](022-ui-case-list-detail.md) | 011, 019, 020 |  | todo |
+| 019 | [Case list with scopes and filters](019-case-list.md) | 007 |  | done |
+| 020 | [Case detail (quick view and tabs)](020-case-detail.md) | 017, 019 |  | done |
+| 021 | [UI: registration form and party editor](021-ui-registration.md) | 011, 016, 017, 018 |  | done |
+| 022 | [UI: case list and case page](022-ui-case-list-detail.md) | 011, 019, 020 |  | done |
 
 ### Phase 3 — Assignment & case data
 

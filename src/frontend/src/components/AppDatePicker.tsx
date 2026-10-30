@@ -21,7 +21,12 @@ export function AppDatePicker({
   autoFocus,
   minDate,
   maxDate,
+  size,
+  fullWidth,
 }: {
+  size?: 'small' | 'medium'
+  /** fill the parent's width (e.g. inside a sized filter box) */
+  fullWidth?: boolean
   value: PickerValue
   onChange: (value: PickerValue) => void
   label: string
@@ -44,7 +49,7 @@ export function AppDatePicker({
         format="DD.MM.YYYY"
         minDate={minDate?.isValid() ? minDate : undefined}
         maxDate={maxDate?.isValid() ? maxDate : undefined}
-        slotProps={{ textField: { required, error, helperText, inputRef, autoFocus } }}
+        slotProps={{ textField: { required, error, helperText, inputRef, autoFocus, size, fullWidth } }}
       />
     </Box>
   )

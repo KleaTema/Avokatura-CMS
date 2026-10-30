@@ -249,6 +249,7 @@ export const sq = {
     redirecting: 'Po ju ridrejtojmë…',
   },
   topBar: {
+    menu: 'Menyja',
     roles: 'Rolet',
   },
   errors: {
@@ -511,6 +512,12 @@ export const sq = {
       no: 'Jo',
       hearingFrom: 'Seanca nga',
       hearingTo: 'Seanca deri',
+      moreFilters: 'Filtra',
+      hearingRange: 'Seanca',
+      from: 'nga',
+      to: 'deri',
+      searchChip: 'Kërkimi',
+      activeFilters: 'Filtrat aktivë',
       clearFilters: 'Pastro filtrat',
       clearSearch: 'Pastro kërkimin',
       columns: {

@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{previousCasePublicId}/next-level/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PreviewNextLevel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{previousCasePublicId}/notify-not-closed": {
         parameters: {
             query?: never;
@@ -1566,6 +1582,24 @@ export interface components {
             publicId: string;
             name: string;
         };
+        NextLevelPreviewLink: {
+            institution: string;
+            mode: string;
+        };
+        NextLevelPreviewParty: {
+            role: string;
+            kind: string;
+            displayName: string;
+            identifier: null | string;
+        };
+        NextLevelPreviewResponse: {
+            caseCode: string;
+            courtLevelName: string;
+            courtName: string;
+            objectText: string;
+            parties: components["schemas"]["NextLevelPreviewParty"][];
+            institutionLinks: components["schemas"]["NextLevelPreviewLink"][];
+        };
         NotifyNotClosedRequest: {
             summonsNumber: null | string;
             /** Format: int32 */
@@ -2015,6 +2049,46 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PreviewNextLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previousCasePublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NextLevelPreviewResponse"];
                 };
             };
             /** @description Not Found */
