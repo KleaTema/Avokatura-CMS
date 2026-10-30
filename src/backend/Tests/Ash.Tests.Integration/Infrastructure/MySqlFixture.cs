@@ -12,7 +12,7 @@ public sealed class MySqlFixture : IAsyncLifetime
 {
     private const string RootPassword = "ash_test_root";
 
-    // Business tables, truncated between tests. Lookup and seed tables (users, roles, offices, courts, lists...) are kept.
+    // Business tables, emptied between tests (children before parents). Lookup and seed tables (users, roles, offices, courts, lists...) are kept.
     private static readonly string[] BusinessTables =
     [
         "ash_core.case_reminders",
@@ -34,6 +34,9 @@ public sealed class MySqlFixture : IAsyncLifetime
         "ash_audit.audit_daily_digests",
         "ash_audit.audit_log",
     ];
+
+    // Append-only tables whose triggers block DELETE.
+    private static readonly HashSet<string> TruncateOnly = ["ash_core.case_history_events"];
 
     private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
         .WithUsername("root")
@@ -84,7 +87,11 @@ public sealed class MySqlFixture : IAsyncLifetime
             await using var connection = new MySqlConnection(RootConnectionString);
             await connection.OpenAsync();
 
-            // TRUNCATE is slow (drops/recreates tablespaces), so only touch tables that actually have rows.
+            // Only touch tables that actually have rows. DELETE, not TRUNCATE: TRUNCATE is DDL (drops and recreates the
+            // tablespace, ~200 ms per table, more with FULLTEXT) and was two thirds of the suite's time; a test leaves
+            // few rows, so DELETE takes milliseconds. Every table here has a BIGINT AUTO_INCREMENT key or none, so not
+            // resetting the counters is harmless (no test may depend on id values). case_history_events keeps
+            // TRUNCATE: its append-only trigger blocks DELETE (TRUNCATE fires no triggers).
             var dirty = new List<string>();
             await using (var probe = new MySqlCommand(ProbeSql, connection))
             await using (var reader = await probe.ExecuteReaderAsync())
@@ -98,7 +105,7 @@ public sealed class MySqlFixture : IAsyncLifetime
             if (dirty.Count > 0)
             {
                 var sql = "SET FOREIGN_KEY_CHECKS=0; "
-                    + string.Join(" ", dirty.Select(t => $"TRUNCATE TABLE {t};"))
+                    + string.Join(" ", dirty.Select(t => TruncateOnly.Contains(t) ? $"TRUNCATE TABLE {t};" : $"DELETE FROM {t};"))
                     + " SET FOREIGN_KEY_CHECKS=1;";
                 await ExecuteAsync(connection, sql);
             }
