@@ -143,20 +143,33 @@ buttons of five users on a REGISTERED and an ACTIVE case. By hand:
 5. At 390 px width every dialog fills the screen; no horizontal scrolling anywhere on the case page.
 6. Every successful save shows a toast (also the Kryetar's priority in the header: "Prioriteti u ndryshua: …").
 
-## 030 — Hearings (backend; the screens come with task 035)
-Until 035 the hearings are checked through what already shows them — the case list (*Seanca e radhës*) and the case
-page header — after calling the API (e.g. from Swagger at http://localhost:5004/swagger with the `X-Dev-User` header).
-**User:** avokat1 (primary of an ACTIVE case)
-1. `POST /api/cases/{id}/hearings` with a time next week. → 201; the case list and the case header show it as *Seanca
-   e radhës*.
-2. Add one 20 minutes later. → 201 with the warning "Kjo çështje ka një seancë tjetër të planifikuar brenda 30
-   minutave (…)"; *Seanca e radhës* stays the earlier one.
-3. Add one with a time yesterday. → 201 with the warning about the past; it becomes *Seanca e radhës* and the API marks
-   it overdue (`nextHearingIsOverdue`) until it is completed.
-4. `POST …/hearings/{hearingId}/complete` with HELD, a description and `next` in a month. → *Seanca e radhës* moves to
-   the new one; *Historiku* shows "Seanca e … u zhvillua; seanca e radhës: …".
-5. HELD without a description → 400; type *Tjetër* without its text → 400 "Plotësoni llojin e seancës.".
-6. Complete the same hearing again. → 409 "Seanca është përfunduar tashmë; statusi i saj nuk ndryshon më.".
-7. As institucion (the ministry monitors the case): adding works, editing or completing → 403.
-8. After any hearing change, editing the claim (task 025) with the case's rowVersion still works: hearings never
-   change the case's rowVersion.
+## 030 — Hearings
+**User:** avokat1 (primary of an ACTIVE case), tab *Seancat*.
+1. The card *Seanca e radhës* shows the earliest planned hearing (date and time, type, court); below, *Të gjitha
+   seancat* lists every hearing newest first with its chip (E planifikuar / U zhvillua / U shty / U anulua), the
+   description ("Pa përshkrim." when none) and "Shtuar nga … · ndryshuar nga …".
+2. *Shto seancë*: a time next week, type *Seancë gjyqësore*. → Toast "Seanca u shtua."; the case header and the case
+   list show it as *Seanca e radhës* if it is the earliest.
+3. *Shto seancë* again, 20 minutes later. → Saved, with a yellow box on the tab: "Kjo çështje ka një seancë tjetër të
+   planifikuar brenda 30 minutave (…)". Type *Tjetër* → a text field appears; empty → "Plotësoni llojin e seancës.".
+4. *Shto seancë* with yesterday's date. → Saved with the warning about the past. It becomes *Seanca e radhës*, shown in
+   red with "(kaloi)" in the card, the case header, *Të dhënat → Datat* and the case list; the card has the red banner
+   "Seanca kaloi më {data} – përditësoni statusin" with the gold *Përfundo seancën* (the only gold button of the tab).
+5. *Përfundo seancën*: choose *U zhvillua*. → *Cakto seancën e radhës* is switched on with date, time and type (the
+   type of the completed hearing); *U anulua* switches it off and makes the description optional. Without a
+   description for *U zhvillua* / *U shty* → "Përshkrimi i seancës është i detyrueshëm.". If the hearing had no
+   description, the latest written one is filled in with the hint "Plotësuar nga seanca e mëparshme; përditësojeni.".
+6. Confirm with a next date. → One request; toast "Seanca u përfundua; seanca e radhës: …"; the banner is gone; the
+   hearing shows *U zhvillua*, the new one *E planifikuar*; *Historiku*: "Seanca e … u zhvillua; seanca e radhës: …".
+7. *U shty* without a next hearing (switch off). → Saved with the warning "Shtyrja zakonisht ka datë të re.".
+8. *U anulua*: the row is struck through and grey; the chip still says "U anulua".
+9. *Ndrysho* on a planned hearing: date, time, type and notes, pre-filled in Tirane time. *Ndrysho* on a completed one:
+   only the description ("Seanca është përfunduar: ndryshohet vetëm përshkrimi.").
+10. Open *Ndrysho* on the same hearing in two tabs; save in one, then in the other. → "Të dhënat u ndryshuan nga një
+    përdorues tjetër." with *Rifresko*; the typed values stay; after *Rifresko* the save goes through.
+11. As institucion (the ministry monitors the case): *Shto seancë* is there, no *Ndrysho* and no *Përfundo seancën*.
+    As monitor: no buttons at all.
+12. After a hearing change, editing the claim (task 025) still works without a conflict: hearings never change the
+    case's rowVersion.
+13. At 390 px: the dialogs fill the screen, no horizontal scrolling; keyboard: the focus starts in the first field,
+    Esc closes, Enter in a one-line field does not submit.

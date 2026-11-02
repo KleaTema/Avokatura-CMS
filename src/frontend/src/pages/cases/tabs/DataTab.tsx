@@ -164,7 +164,14 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
       </Box>
 
       <Section title={d.dates}>
-        <Field label={t.nextHearing} value={data.nextHearingAt ? formatDateTime(data.nextHearingAt) : null} />
+        <Field
+          label={t.nextHearing}
+          value={
+            data.nextHearingAt
+              ? `${formatDateTime(data.nextHearingAt)}${data.nextHearingIsOverdue ? ` (${sq.cases.hearings.overdueShort})` : ''}`
+              : null
+          }
+        />
         <Field label={t.registeredAt} value={formatDateTime(data.registeredAt)} />
         <Field label={d.registeredBy} value={data.registeredBy?.name} />
         <Field label={d.closedAt} value={data.closedAt ? formatDateTime(data.closedAt) : null} />

@@ -60,13 +60,13 @@ Rules
 | 026 | [Primary lawyer adds or removes the legal assistant](026-legal-assistant.md) | 023 | yes | done |
 | 027 | [Institution: assign jurist; lawyer delegates the case](027-institution-jurist-delegation.md) | 017, 023 | yes | done |
 | 028 | [Change judge and object with history](028-change-judge-object.md) | 020 |  | done |
-| 029 | [UI: assignment, transfer and case data](029-ui-assignment-case-data.md) | 022, 023, 024, 025, 026, 027, 028 |  | todo |
+| 029 | [UI: assignment, transfer and case data](029-ui-assignment-case-data.md) | 022, 023, 024, 025, 026, 027, 028 |  | done |
 
 ### Phase 4 — Hearings, agenda & documents
 
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
-| 030 | [Hearings (Seancat)](030-hearings.md) | 020 |  | todo |
+| 030 | [Hearings (Seancat)](030-hearings.md) | 020 |  | done |
 | 031 | [Agenda (Agjenda)](031-agenda.md) | 030 | yes | todo |
 | 032 | [File storage abstraction (S3)](032-file-storage.md) | 004 | yes | todo |
 | 033 | [Document upload pipeline](033-document-upload.md) | 032, 030 |  | todo |

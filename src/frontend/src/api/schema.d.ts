@@ -1444,6 +1444,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/hearings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListHearings"];
+        put?: never;
+        post: operations["AddHearing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/hearings/new-defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetNewHearingDefaults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/hearings/{hearingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["UpdateHearing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/hearings/{hearingId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CompleteHearing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1453,6 +1517,12 @@ export interface components {
             userPublicId: null | string;
             /** Format: uint32 */
             rowVersion: null | number | string;
+        };
+        AddHearingRequest: {
+            at: null | string;
+            hearingTypeCode: null | string;
+            otherTypeText: null | string;
+            description: null | string;
         };
         AllowedFileTypeResponse: {
             extension: string;
@@ -1548,6 +1618,7 @@ export interface components {
             suspendedAt: null | string;
             /** Format: date-time */
             nextHearingAt: null | string;
+            nextHearingIsOverdue: boolean;
             /** Format: date-time */
             registeredAt: string;
             registeredBy: null | components["schemas"]["UserView"];
@@ -1620,6 +1691,7 @@ export interface components {
             registeredAt: string;
             /** Format: date-time */
             closedAt: null | string;
+            nextHearingIsOverdue: boolean;
         };
         CaseSubcategoryResponse: {
             code: string;
@@ -1673,6 +1745,18 @@ export interface components {
         CodeName: {
             code: string;
             name: string;
+        };
+        CompleteHearingRequest: {
+            outcome: null | string;
+            description: null | string;
+            next: null | components["schemas"]["NextHearingRequest"];
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        CompleteHearingResponse: {
+            hearing: components["schemas"]["HearingView"];
+            next: null | components["schemas"]["HearingView"];
+            warnings: components["schemas"]["RegistrationWarning"][];
         };
         CourtAdminResponse: {
             /** Format: int32 */
@@ -1883,6 +1967,10 @@ export interface components {
             permissions: string[];
             menus: string[];
         };
+        HearingSaveResponse: {
+            hearing: components["schemas"]["HearingView"];
+            warnings: components["schemas"]["RegistrationWarning"][];
+        };
         HearingTypeAdminResponse: {
             code: string;
             name: string;
@@ -1895,6 +1983,21 @@ export interface components {
             code: string;
             name: string;
             isOther: boolean;
+        };
+        HearingView: {
+            /** Format: uuid */
+            publicId: string;
+            type: components["schemas"]["CodeName"];
+            otherTypeText: null | string;
+            /** Format: date-time */
+            scheduledAt: string;
+            status: string;
+            description: null | string;
+            createdBy: null | string;
+            updatedBy: null | string;
+            /** Format: uint32 */
+            rowVersion: number | string;
+            isOverdue: boolean;
         };
         HttpValidationProblemDetails: {
             type?: null | string;
@@ -1996,6 +2099,16 @@ export interface components {
             /** Format: uuid */
             publicId: string;
             name: string;
+        };
+        NewHearingDefaults: {
+            type: null | components["schemas"]["CodeName"];
+            otherTypeText: null | string;
+            description: null | string;
+        };
+        NextHearingRequest: {
+            at: null | string;
+            hearingTypeCode: null | string;
+            otherTypeText: null | string;
         };
         NextLevelPreviewLink: {
             institution: string;
@@ -2304,6 +2417,14 @@ export interface components {
             maxSizeBytes: number | string;
             isActive: boolean;
             appliesTo: string;
+        };
+        UpdateHearingRequest: {
+            at: null | string;
+            hearingTypeCode: null | string;
+            otherTypeText: null | string;
+            description: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
         };
         UpdateHearingTypeRequest: {
             name: string;
@@ -6015,6 +6136,229 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListHearings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HearingView"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AddHearing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddHearingRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HearingSaveResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetNewHearingDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewHearingDefaults"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateHearing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                hearingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHearingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HearingSaveResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    CompleteHearing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                hearingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteHearingRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompleteHearingResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
             /** @description Not Found */

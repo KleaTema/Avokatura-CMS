@@ -14,7 +14,8 @@ import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { DataTab } from './tabs/DataTab'
-import { DecisionTab, DocumentsTab, HearingsTab } from './tabs/SummaryTabs'
+import { HearingsTab } from './tabs/HearingsTab'
+import { DecisionTab, DocumentsTab } from './tabs/SummaryTabs'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PartiesTab } from './tabs/PartiesTab'
 
@@ -115,7 +116,15 @@ export function CasePage() {
           <Typography variant="body2" color="text.secondary">
             <strong>{t.court}:</strong> {data.courtName}
             {' · '}
-            <strong>{t.nextHearing}:</strong> {data.nextHearingAt ? formatDateTime(data.nextHearingAt) : t.none}
+            <strong>{t.nextHearing}:</strong>{' '}
+            {data.nextHearingAt ? (
+              <Box component="span" sx={data.nextHearingIsOverdue ? { color: 'error.main', fontWeight: 600 } : undefined}>
+                {formatDateTime(data.nextHearingAt)}
+                {data.nextHearingIsOverdue && ` (${sq.cases.hearings.overdueShort})`}
+              </Box>
+            ) : (
+              t.none
+            )}
             {' · '}
             <strong>{t.registeredAt}:</strong> {formatDateTime(data.registeredAt)}
           </Typography>

@@ -5,11 +5,6 @@ import { formatDate } from '../../../lib/dates'
 
 const t = sq.cases.page
 
-/** Seancat — the count from the case; the list comes with task 030. */
-export function HearingsTab({ detail }: { detail: CaseDetail }) {
-  return <Summary text={t.hearingsCount(Number(detail.hearingsCount))} />
-}
-
 /** Dokumentet — the count from the case; the list comes with task 034. */
 export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   return <Summary text={t.documentsCount(Number(detail.documentsCount))} />

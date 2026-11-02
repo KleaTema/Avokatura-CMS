@@ -564,8 +564,12 @@ function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Col
         </Tooltip>
       </Box>
     ) : null,
-    // today / tomorrow stand out as tinted chips (red / orange)
-    hearing: when ? (
+    // passed without an outcome (task 030): red, with the word; today / tomorrow as tinted chips (red / orange)
+    hearing: item.nextHearingIsOverdue ? (
+      <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+        {`${hearing} (${sq.cases.hearings.overdueShort})`}
+      </Box>
+    ) : when ? (
       <Chip size="small" color={hearingDay === today ? 'error' : 'warning'} label={`${when} ${hearing.slice(11)}`} />
     ) : (
       hearing

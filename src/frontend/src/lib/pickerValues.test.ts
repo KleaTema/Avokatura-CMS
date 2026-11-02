@@ -1,6 +1,28 @@
 import dayjs from 'dayjs'
 import { describe, expect, it } from 'vitest'
-import { isoDateOf, TIME_REFERENCE, timeOf, utcIsoOf } from './pickerValues'
+import { isoDateOf, pickerValuesOfUtc, TIME_REFERENCE, timeOf, utcIsoOf } from './pickerValues'
+
+describe('UTC hearing time → picker values (editing a hearing, task 030)', () => {
+  it('shows the Tirane wall clock, in winter and in summer', () => {
+    const winter = pickerValuesOfUtc('2026-11-12T08:30:00Z')
+    expect(isoDateOf(winter.date)).toBe('2026-11-12')
+    expect(timeOf(winter.time)).toBe('09:30')
+    const summer = pickerValuesOfUtc('2026-07-01T22:15:00Z') // after midnight in Tirane: the next day
+    expect(isoDateOf(summer.date)).toBe('2026-07-02')
+    expect(timeOf(summer.time)).toBe('00:15')
+  })
+
+  it('round-trips through utcIsoOf', () => {
+    for (const utc of ['2026-11-12T08:30:00Z', '2027-03-28T07:00:00Z', '2026-10-25T00:30:00Z']) {
+      const { date, time } = pickerValuesOfUtc(utc)
+      expect(utcIsoOf(date, time)).toBe(utc)
+    }
+  })
+
+  it('is empty for nothing', () => {
+    expect(pickerValuesOfUtc(null)).toEqual({ date: null, time: null })
+  })
+})
 
 // what the pickers hand to the form: a local date at midnight, and a time on the reference day
 const date = (iso: string) => dayjs(iso)

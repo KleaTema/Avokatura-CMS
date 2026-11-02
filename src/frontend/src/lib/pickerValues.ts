@@ -1,5 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs'
-import { tiraneLocalToUtcIso, todayInTirane } from './dates'
+import { formatDateTime, tiraneLocalToUtcIso, todayInTirane } from './dates'
 
 /** A picker value: null when empty; an invalid Dayjs while a typed date is incomplete or wrong. */
 export type PickerValue = Dayjs | null
@@ -22,6 +22,18 @@ export const todayValue = (): Dayjs => dayjs(todayInTirane())
  * browser-side DST change day is never shifted. Only HH:mm of the value is used.
  */
 export const TIME_REFERENCE = dayjs('2000-01-15T12:00')
+
+/**
+ * The other way: a UTC instant from the API → the date and time pickers' values (Tirane wall clock), e.g. to edit a
+ * hearing. Both null for a missing or invalid value.
+ */
+export function pickerValuesOfUtc(utcIso: string | null | undefined): { date: PickerValue; time: PickerValue } {
+  const shown = formatDateTime(utcIso) // dd.MM.yyyy HH:mm in Tirane
+  if (!shown) return { date: null, time: null }
+  const date = dayjs(`${shown.slice(6, 10)}-${shown.slice(3, 5)}-${shown.slice(0, 2)}`)
+  const time = TIME_REFERENCE.hour(Number(shown.slice(11, 13))).minute(Number(shown.slice(14, 16))).second(0)
+  return { date, time }
+}
 
 /** Date picker + time picker (Tirane wall clock) → UTC ISO, or null (empty, invalid, or skipped by the DST change). */
 export function utcIsoOf(date: PickerValue, time: PickerValue): string | null {

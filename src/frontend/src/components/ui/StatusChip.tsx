@@ -21,7 +21,11 @@ const LINK: Record<string, { color: ChipColor; variant: 'filled' | 'outlined' }>
   RELATIM: { color: 'primary', variant: 'filled' },
 }
 
+/** A hearing (task 030): planned in blue, held in green, postponed in amber, cancelled in grey. */
+const HEARING: Record<string, ChipColor> = { SCHEDULED: 'primary', HELD: 'success', POSTPONED: 'warning', CANCELLED: 'default' }
+
 export type StatusChipProps =
+  | { kind: 'hearing'; value: string }
   | { kind: 'link'; value: string }
   | { kind: 'status'; value: string }
   | { kind: 'priority'; value: string }
@@ -30,7 +34,7 @@ export type StatusChipProps =
   | { kind: 'deadlineSoon' }
 
 /**
- * Status (REGISTERED / ACTIVE / CLOSED), priority (NONE / LOW / MEDIUM / HIGH), role in the case, "Pezulluar" and "Afati i afërt" as
+ * Status (REGISTERED / ACTIVE / CLOSED), hearing status (SCHEDULED / HELD / POSTPONED / CANCELLED), priority (NONE / LOW / MEDIUM / HIGH), role in the case, "Pezulluar" and "Afati i afërt" as
  * tinted pill chips. Unknown codes show the raw code in neutral grey.
  */
 export function StatusChip(props: StatusChipProps & { size?: 'small' | 'medium'; label?: string }) {
@@ -51,6 +55,15 @@ export function StatusChip(props: StatusChipProps & { size?: 'small' | 'medium';
           color={PRIORITY[props.value] ?? 'default'}
           variant={props.value === 'NONE' ? 'outlined' : 'filled'}
           label={props.label ?? sq.cases.priority[props.value] ?? props.value}
+        />
+      )
+    case 'hearing':
+      return (
+        <Chip
+          size={size}
+          color={HEARING[props.value] ?? 'default'}
+          variant={props.value === 'CANCELLED' ? 'outlined' : 'filled'}
+          label={props.label ?? sq.cases.hearings.status[props.value] ?? props.value}
         />
       )
     case 'link':

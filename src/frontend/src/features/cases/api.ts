@@ -108,13 +108,19 @@ export const caseKeys = {
   /** every picker of a case (lawyers, assistants, jurists): one prefix, so one invalidation covers them all */
   pickers: (id: string) => ['case-pickers', id] as const,
   picker: (id: string, kind: 'lawyers' | 'assistants' | 'jurists') => ['case-pickers', id, kind] as const,
+  hearings: (id: string) => ['case-hearings', id] as const,
+  hearingDefaults: (id: string) => ['case-hearing-defaults', id] as const,
 }
+
+/** The agenda (task 031) shows hearings: every hearing change reloads it, whatever its later keys look like. */
+export const agendaKeys = { all: ['agenda'] as const }
 
 /**
  * The one thing every case change of tasks 023–028 does on success (task 029): the response's rowVersion — and,
  * with `apply`, the changed fields — go into the cached case at once, so the next save of the same user sends the
  * latest rowVersion (one source, never a copy in a screen); then the case (with its team), its history, the case
- * lists with their tab counts and the case's pickers reload.
+ * lists with their tab counts and the case's pickers reload. Since task 030 also its hearings (with the defaults for
+ * a new one) and the agenda: the next hearing is part of the case header and the lists.
  */
 export function afterCaseChange(
   qc: QueryClient,
@@ -131,6 +137,9 @@ export function afterCaseChange(
     qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
     qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
     qc.invalidateQueries({ queryKey: caseKeys.pickers(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.hearings(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.hearingDefaults(caseId) }),
+    qc.invalidateQueries({ queryKey: agendaKeys.all }),
     invalidateCaseLists(qc),
   ])
 }
@@ -417,6 +426,83 @@ export const useUndelegateCase = (caseId: string) => {
     onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
+
+// ---------------------------------------------------------------- hearings (task 030)
+
+export type HearingView = components['schemas']['HearingView']
+export type HearingWarning = components['schemas']['RegistrationWarning']
+export type AddHearingRequest = components['schemas']['AddHearingRequest']
+export type UpdateHearingRequest = components['schemas']['UpdateHearingRequest']
+export type CompleteHearingRequest = components['schemas']['CompleteHearingRequest']
+
+/** "Përgatitore", or "Tjetër: <text>". */
+export const hearingTypeName = (h: Pick<HearingView, 'type' | 'otherTypeText'>) =>
+  h.otherTypeText ? `${h.type.name}: ${h.otherTypeText}` : h.type.name
+
+/** The level's hearings, newest first (as the API sends them). */
+export const useHearings = (caseId: string) =>
+  useQuery({
+    queryKey: caseKeys.hearings(caseId),
+    queryFn: () => api.GET('/api/cases/{id}/hearings', path(caseId)).then(unwrap),
+  })
+
+/** The type and description to start a new hearing with (from the last one). */
+export const useHearingDefaults = (caseId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: caseKeys.hearingDefaults(caseId),
+    enabled,
+    queryFn: () => api.GET('/api/cases/{id}/hearings/new-defaults', path(caseId)).then(unwrap),
+  })
+
+/**
+ * A hearing save: the saved hearing(s) replace their copy in the cache at once (so the next edit sends the latest
+ * rowVersion), then the shared afterCaseChange. A hearing never changes the case's rowVersion.
+ */
+function useHearingSave<TBody, TResult>(
+  caseId: string,
+  send: (body: TBody) => Promise<TResult>,
+  saved: (result: TResult) => HearingView[],
+) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: send,
+    onSuccess: (result) => {
+      const changed = saved(result)
+      qc.setQueryData<HearingView[]>(caseKeys.hearings(caseId), (list) =>
+        list?.map((h) => changed.find((c) => c.publicId === h.publicId) ?? h),
+      )
+      return afterCaseChange(qc, caseId)
+    },
+  })
+}
+
+export const useAddHearing = (caseId: string) =>
+  useHearingSave(
+    caseId,
+    (body: AddHearingRequest) => api.POST('/api/cases/{id}/hearings', { ...path(caseId), body }).then(unwrap),
+    (r) => [r.hearing],
+  )
+
+export const useUpdateHearing = (caseId: string) =>
+  useHearingSave(
+    caseId,
+    ({ hearingId, body }: { hearingId: string; body: UpdateHearingRequest }) =>
+      api
+        .PUT('/api/cases/{id}/hearings/{hearingId}', { params: { path: { id: caseId, hearingId } }, body })
+        .then(unwrap),
+    (r) => [r.hearing],
+  )
+
+/** Completes a hearing and, with `next`, schedules the next one — one request, one transaction. */
+export const useCompleteHearing = (caseId: string) =>
+  useHearingSave(
+    caseId,
+    ({ hearingId, body }: { hearingId: string; body: CompleteHearingRequest }) =>
+      api
+        .POST('/api/cases/{id}/hearings/{hearingId}/complete', { params: { path: { id: caseId, hearingId } }, body })
+        .then(unwrap),
+    (r) => (r.next ? [r.hearing, r.next] : [r.hearing]),
+  )
 
 export type RegistrationSearchItem = components['schemas']['RegistrationSearchItem']
 export type NextLevelPreview = components['schemas']['NextLevelPreviewResponse']
