@@ -333,6 +333,7 @@ public sealed class CaseAssignmentRow
 {
     public const string PrimaryLawyer = "PRIMARY_LAWYER";
     public const string SecondaryLawyer = "SECONDARY_LAWYER";
+    public const string LegalAssistant = "LEGAL_ASSISTANT";
     public const string Transferred = "TRANSFERRED";
     public const string Removed = "REMOVED";
 

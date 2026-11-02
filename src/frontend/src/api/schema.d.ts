@@ -260,6 +260,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/assignable-assistants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAssignableAssistants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/assistants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AddAssistant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/assistants/{userPublicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["RemoveAssistant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/claim": {
         parameters: {
             query?: never;
@@ -1304,12 +1352,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddAssistantRequest: {
+            /** Format: uuid */
+            userPublicId: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
         AllowedFileTypeResponse: {
             extension: string;
             contentType: string;
             /** Format: uint64 */
             maxSizeBytes: number | string;
             appliesTo: string;
+        };
+        AssignableAssistant: {
+            /** Format: uuid */
+            publicId: string;
+            fullName: string;
+            /** Format: int32 */
+            activeAssignments: number | string;
         };
         AssignableLawyer: {
             /** Format: uuid */
@@ -1337,6 +1398,16 @@ export interface components {
             /** Format: uint32 */
             rowVersion: number | string;
         };
+        AssistantChangeResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            assistant: components["schemas"]["AssistantRef"];
+        };
+        AssistantRef: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
         CaseCategoryResponse: {
             code: string;
             name: string;
@@ -1358,6 +1429,9 @@ export interface components {
             subcategory: null | components["schemas"]["CodeName"];
             claim: null | components["schemas"]["ClaimView"];
             hasSecurityMeasure: boolean;
+            securityMeasure: null | components["schemas"]["SecurityMeasureView"];
+            /** Format: date-time */
+            suspendedAt: null | string;
             /** Format: date-time */
             nextHearingAt: null | string;
             /** Format: date-time */
@@ -2711,6 +2785,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferLawyerResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListAssignableAssistants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignableAssistant"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AddAssistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddAssistantRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantChangeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    RemoveAssistant: {
+        parameters: {
+            query?: {
+                rowVersion?: number | string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                userPublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantChangeResponse"];
                 };
             };
             /** @description Bad Request */

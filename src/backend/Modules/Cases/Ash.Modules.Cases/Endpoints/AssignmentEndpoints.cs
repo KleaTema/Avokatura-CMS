@@ -1,6 +1,7 @@
 using Ash.AspNetCore.Authorization;
 using Ash.AspNetCore.Http;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.Assistants;
 using Ash.Modules.Cases.Application.TransferLawyer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -60,6 +61,45 @@ public static class AssignmentEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("TransferLawyer");
+
+        // Task 026: legal assistants, managed by the primary lawyer (assistant.manage is a CASE permission: checked
+        // in the handlers through the effective permissions).
+        endpoints.MapGet("/api/cases/{id:guid}/assignable-assistants",
+                async (Guid id, AssignableAssistantsHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<IReadOnlyList<AssignableAssistant>>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("ListAssignableAssistants");
+
+        endpoints.MapPost("/api/cases/{id:guid}/assistants",
+                async (Guid id, AddAssistantRequest req, AddAssistantHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<AssistantChangeResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("AddAssistant");
+
+        endpoints.MapDelete("/api/cases/{id:guid}/assistants/{userPublicId:guid}",
+                async (Guid id, Guid userPublicId, uint? rowVersion, RemoveAssistantHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, userPublicId, rowVersion, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<AssistantChangeResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("RemoveAssistant");
 
         return endpoints;
     }

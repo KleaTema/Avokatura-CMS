@@ -1,5 +1,6 @@
 using Ash.Modules.Cases.Application;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.Assistants;
 using Ash.Modules.Cases.Application.SetCategory;
 using Ash.Modules.Cases.Application.SetPriority;
 using Ash.Modules.Cases.Application.SetSecurityMeasure;
@@ -65,6 +66,9 @@ public static class CasesModule
 		services.AddScoped<SetSuspensionHandler>();
 		services.AddScoped<SetSecurityMeasureHandler>();
 		services.AddScoped<SetPriorityHandler>();
+		services.AddScoped<AssignableAssistantsHandler>();
+		services.AddScoped<AddAssistantHandler>();
+		services.AddScoped<RemoveAssistantHandler>();
 		return services;
 	}
 

@@ -19,6 +19,8 @@ export const tokens = {
     navy700: '#15335E',
     /** end of the header gradient */
     navyHeaderEnd: '#16365F',
+    /** the login page: one flat colour over the whole viewport (close to the emblem image's own navy, 16/44/82) */
+    loginBg: '#142D4E',
     navActive: '#1E5AA8',
     primary: '#1F5FC2',
     primaryLight: '#7FB2EE',
@@ -67,15 +69,16 @@ export const tokens = {
     card: '0 2px 8px rgba(15, 40, 80, 0.06)',
   },
   effect: {
-    /** the large white emblem behind the login card (tune here only) */
-    loginEmblemOpacity: 0.4,
+    /** the emblem watermark behind the login card: subtle, the card stays dominant (tune here only) */
+    loginEmblemOpacity: 0.1,
     /**
-     * 'normal': compared with 'soft-light' on emblem-white.webp — soft-light shows the image's solid navy rectangle
-     * clearly and flattens the eagle, normal keeps the rectangle edge faint
+     * 'lighten': emblem-white.webp has no transparency — its eagle sits on a solid navy (16/44/82). Lighten keeps only
+     * what is lighter than the page (the white lines), so the image's rectangle never shows as a second colour.
      */
-    loginEmblemBlend: 'normal',
-    /** the 640×704 emblem is upscaled ~1.6× behind the card: a slight blur hides the rough edges (an SVG would be sharp) */
-    loginEmblemBlur: '1px',
+    loginEmblemBlend: 'lighten',
+    /** the emblem's largest size on wide screens (it is a 640×704 image; beyond this it only gets blurrier) */
+    loginEmblemMaxWidth: 1000,
+    loginEmblemMaxHeight: 1100,
   },
   layout: {
     headerHeight: 86,

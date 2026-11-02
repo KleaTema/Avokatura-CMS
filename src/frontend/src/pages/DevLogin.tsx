@@ -46,34 +46,52 @@ export function DevLogin() {
     <Box
       component="main"
       sx={{
-        minHeight: '100vh',
+        // one flat colour over the whole viewport; the page grows with the card, never scrolls because of the emblem
+        position: 'relative',
+        minHeight: '100dvh',
         display: 'grid',
         placeItems: 'center',
         p: 2,
-        background: `linear-gradient(160deg, ${tokens.color.navy800} 0%, ${tokens.color.navy900} 100%)`,
+        bgcolor: tokens.color.loginBg,
+        overflow: 'hidden',
       }}
     >
-      {/* large, subtle white emblem behind the card (decorative; hidden if the file cannot be loaded) */}
-      <BrandImage
-        src="/brand/emblem-white.webp"
-        alt=""
-        decorative
+      {/*
+        The watermark layer: fills the page minus a margin, and the emblem is fitted INSIDE it (object-fit: contain),
+        so the whole eagle — crest, wings, lower feathers — is always visible, never cropped or stretched; it shrinks
+        on small screens and stops growing at the max size on wide ones. Opacity and blend only on the image.
+        Decorative (alt="", aria-hidden); nothing is shown if the file cannot be loaded.
+      */}
+      <Box
+        aria-hidden
         sx={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          height: { xs: '90vh', sm: '110vh' },
-          width: 'auto',
-          maxWidth: 'none',
-          opacity: tokens.effect.loginEmblemOpacity,
-          mixBlendMode: tokens.effect.loginEmblemBlend,
-          filter: `blur(${tokens.effect.loginEmblemBlur})`,
+          position: 'absolute',
+          inset: 0,
+          p: { xs: 2, sm: 4, md: 6 },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           pointerEvents: 'none',
           userSelect: 'none',
           zIndex: 0,
         }}
-      />
+      >
+        <BrandImage
+          src="/brand/emblem-white.webp"
+          alt=""
+          decorative
+          sx={{
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            maxWidth: tokens.effect.loginEmblemMaxWidth,
+            maxHeight: tokens.effect.loginEmblemMaxHeight,
+            objectFit: 'contain',
+            opacity: tokens.effect.loginEmblemOpacity,
+            mixBlendMode: tokens.effect.loginEmblemBlend,
+          }}
+        />
+      </Box>
       <Paper variant="outlined" sx={{ position: 'relative', zIndex: 1, p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 420 }}>
         <Stack spacing={1} sx={{ alignItems: 'center', textAlign: 'center', mb: 3 }}>
           <BrandImage

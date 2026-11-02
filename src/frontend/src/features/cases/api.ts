@@ -313,6 +313,56 @@ export const useSetPriority = (caseId: string) =>
     (c, r) => ({ ...c, header: { ...c.header, priority: r.priority } }),
   )
 
+// ---------------------------------------------------------------- legal assistants (task 026)
+
+export type AssignableAssistant = components['schemas']['AssignableAssistant']
+
+/** Legal assistants of the case's office not yet on the case, least loaded first. */
+export const useAssignableAssistants = (caseId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['assignable-assistants', caseId] as const,
+    enabled,
+    retry: false,
+    queryFn: () =>
+      api.GET('/api/cases/{id}/assignable-assistants', { params: { path: { id: caseId } } }).then(unwrap),
+  })
+
+/**
+ * After adding or removing an assistant: the new rowVersion goes into the cached case at once (the next save uses
+ * it), then the case (team), its history, the lists and the picker reload.
+ */
+const afterAssistantChange = (qc: QueryClient, caseId: string, rowVersion: number | string) => {
+  qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) => (c ? { ...c, header: { ...c.header, rowVersion } } : c))
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
+    qc.invalidateQueries({ queryKey: ['assignable-assistants', caseId] }),
+    invalidateCaseLists(qc),
+  ])
+}
+
+export const useAddAssistant = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { userPublicId: string; rowVersion: number }) =>
+      api.POST('/api/cases/{id}/assistants', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: (r) => afterAssistantChange(qc, caseId, r.rowVersion),
+  })
+}
+
+export const useRemoveAssistant = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userPublicId, rowVersion }: { userPublicId: string; rowVersion: number }) =>
+      api
+        .DELETE('/api/cases/{id}/assistants/{userPublicId}', {
+          params: { path: { id: caseId, userPublicId }, query: { rowVersion } },
+        })
+        .then(unwrap),
+    onSuccess: (r) => afterAssistantChange(qc, caseId, r.rowVersion),
+  })
+}
+
 export type RegistrationSearchItem = components['schemas']['RegistrationSearchItem']
 export type NextLevelPreview = components['schemas']['NextLevelPreviewResponse']
 export type NotifyNotClosedRequest = components['schemas']['NotifyNotClosedRequest']
