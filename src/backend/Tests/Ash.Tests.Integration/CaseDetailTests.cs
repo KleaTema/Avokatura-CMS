@@ -296,7 +296,7 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
         data.GetProperty("judgeName").ValueKind.ShouldBe(JsonValueKind.Null);
         data.GetProperty("category").GetProperty("code").GetString().ShouldBe("NDJEKJE");
         data.GetProperty("subcategory").GetProperty("code").GetString().ShouldBe("KOD_A_AVSH");
-        data.GetProperty("claim").GetProperty("amount").GetDecimal().ShouldBe(2500000m);
+        data.GetProperty("claim").GetProperty("amount").GetString().ShouldBe("2500000.00"); // money as a string (task 025)
         data.GetProperty("receivedDate").GetString().ShouldBe("2026-06-10");
         data.GetProperty("registeredBy").GetProperty("name").GetString().ShouldBe("Protokoll Dev");
 

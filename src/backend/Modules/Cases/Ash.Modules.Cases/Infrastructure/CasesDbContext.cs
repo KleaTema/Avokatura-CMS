@@ -15,6 +15,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CaseHistoryEvent> CaseHistoryEvents => Set<CaseHistoryEvent>();
     public DbSet<CaseAssignmentRow> CaseAssignments => Set<CaseAssignmentRow>();
     public DbSet<CaseDecision> CaseDecisions => Set<CaseDecision>();
+    public DbSet<CaseSecurityMeasure> CaseSecurityMeasures => Set<CaseSecurityMeasure>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +58,8 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.SubcategoryId).HasColumnName("subcategory_id");
             b.Property(x => x.Priority).HasColumnName("priority");
             b.Property(x => x.IsSuspended).HasColumnName("is_suspended");
+            b.Property(x => x.SuspendedAt).HasColumnName("suspended_at");
+            b.Property(x => x.FirstDataEntryAt).HasColumnName("first_data_entry_at");
             b.Property(x => x.HasSecurityMeasure).HasColumnName("has_security_measure");
             b.Property(x => x.ClaimAmount).HasColumnName("claim_amount");
             b.Property(x => x.ClaimCurrency).HasColumnName("claim_currency");
@@ -147,6 +150,18 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.RecordedAt).HasColumnName("recorded_at");
         });
 
+        modelBuilder.Entity<CaseSecurityMeasure>(b =>
+        {
+            b.ToTable("case_security_measures");
+            b.HasKey(x => x.CaseId);
+            b.Property(x => x.CaseId).HasColumnName("case_id").ValueGeneratedNever();
+            b.Property(x => x.DecisionNumber).HasColumnName("decision_number");
+            b.Property(x => x.DecisionDate).HasColumnName("decision_date").HasColumnType("date");
+            b.Property(x => x.Dispositive).HasColumnName("dispositive");
+            b.Property(x => x.RecordedBy).HasColumnName("recorded_by");
+            b.Property(x => x.RecordedAt).HasColumnName("recorded_at");
+        });
+
         modelBuilder.Entity<CaseAccessRow>(b =>
         {
             b.HasNoKey();
@@ -229,6 +244,10 @@ public sealed class Case
     /// <summary>NONE | LOW | MEDIUM | HIGH (database default NONE).</summary>
     public string Priority { get; set; } = "NONE";
     public bool IsSuspended { get; set; }
+    /// <summary>Set when suspending, NULL when resuming.</summary>
+    public DateTime? SuspendedAt { get; set; }
+    /// <summary>The team's first data entry: stops the 30-day reminder (FirstDataEntry.MarkAsync).</summary>
+    public DateTime? FirstDataEntryAt { get; set; }
     /// <summary>Masë sigurimi po/jo; details in case_security_measures.</summary>
     public bool HasSecurityMeasure { get; set; }
     /// <summary>Vlera e padisë: money (with currency, CHECK) and/or square metres.</summary>
@@ -345,6 +364,21 @@ public sealed class CaseDecision
     public bool IsRecursed { get; set; }
     /// <summary>Formë e prerë.</summary>
     public bool IsFinal { get; set; }
+    public DateTime RecordedAt { get; set; }
+}
+
+/// <summary>
+/// Masa e sigurimit, 1:1 with the case. Never deleted: lifting sets cases.has_security_measure = 0 and keeps the row;
+/// setting it again updates the row. TODO(task-033): link the decision document (no document_id column yet).
+/// </summary>
+public sealed class CaseSecurityMeasure
+{
+    public ulong CaseId { get; set; }
+    public string DecisionNumber { get; set; } = string.Empty;
+    /// <summary>Calendar date (DATE), never converted to UTC.</summary>
+    public DateOnly DecisionDate { get; set; }
+    public string? Dispositive { get; set; }
+    public uint RecordedBy { get; set; }
     public DateTime RecordedAt { get; set; }
 }
 

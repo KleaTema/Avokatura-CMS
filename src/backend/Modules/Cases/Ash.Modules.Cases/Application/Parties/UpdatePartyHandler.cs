@@ -13,7 +13,7 @@ namespace Ash.Modules.Cases.Application.Parties;
 /// </summary>
 internal sealed class UpdatePartyHandler(
     CasesDbContext db, PartyCaseGate gate, IReferenceData reference, IInstitutionDirectory institutions,
-    PartyWriter writer, PartyViews views)
+    PartyWriter writer, PartyViews views, FirstDataEntry firstEntry)
 {
     public async Task<Result<PartyResponse>> Handle(Guid casePublicId, Guid partyPublicId, PartyRequest req, CancellationToken ct)
     {
@@ -90,6 +90,7 @@ internal sealed class UpdatePartyHandler(
 
         var oldRole = (await reference.ListPartyRolesAsync(ct)).Single(r => r.Id == party.PartyRoleId);
         await writer.UpdateAsync(c.Value, party, oldRole, newRole!, displayName, identifier, ct);
+        await firstEntry.MarkAsync(c.Value, ct);
         return await views.ToResponseAsync(party, ct);
     }
 

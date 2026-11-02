@@ -1,4 +1,10 @@
+using Ash.Modules.Cases.Application;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.SetCategory;
+using Ash.Modules.Cases.Application.SetPriority;
+using Ash.Modules.Cases.Application.SetSecurityMeasure;
+using Ash.Modules.Cases.Application.SetSuspension;
+using Ash.Modules.Cases.Application.UpdateCaseData;
 using Ash.Modules.Cases.Application.GetCase;
 using Ash.Modules.Cases.Application.GetHistory;
 using Ash.Modules.Cases.Application.ListCases;
@@ -52,11 +58,19 @@ public static class CasesModule
 		services.AddScoped<OfficeLawyersHandler>();
 		services.AddScoped<AssignLawyersHandler>();
 		services.AddScoped<TransferLawyerHandler>();
+		services.AddScoped<FirstDataEntry>();
+		services.AddScoped<CaseDataGate>();
+		services.AddScoped<UpdateClaimHandler>();
+		services.AddScoped<SetCategoryHandler>();
+		services.AddScoped<SetSuspensionHandler>();
+		services.AddScoped<SetSecurityMeasureHandler>();
+		services.AddScoped<SetPriorityHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment();
+		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
+			.MapCaseData();
 	}
 }

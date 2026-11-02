@@ -31,7 +31,8 @@ internal sealed class AssignLawyersHandler(
 {
     public const string SetPriorityPermission = "case.set_priority_any";
 
-    private static readonly Dictionary<string, string> PriorityNames = new()
+    /// <summary>The Albanian names of the priorities, for history summaries (also used by SetPriorityHandler).</summary>
+    internal static readonly Dictionary<string, string> PriorityNames = new()
     {
         ["NONE"] = "Pa prioritet",
         ["LOW"] = "I ulët",

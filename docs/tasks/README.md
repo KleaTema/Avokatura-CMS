@@ -56,7 +56,7 @@ Rules
 | --- | --- | --- | --- | --- |
 | 023 | [Kryetar assigns primary and secondary lawyer](023-assign-lawyers.md) | 020 |  | done |
 | 024 | [Transfer the primary lawyer](024-transfer-primary-lawyer.md) | 023 | yes | done |
-| 025 | [Edit case data, status and classification](025-edit-case-data.md) | 023 |  | todo |
+| 025 | [Edit case data, status and classification](025-edit-case-data.md) | 023 |  | done |
 | 026 | [Primary lawyer adds or removes the legal assistant](026-legal-assistant.md) | 023 | yes | todo |
 | 027 | [Institution: assign jurist; lawyer delegates the case](027-institution-jurist-delegation.md) | 017, 023 | yes | todo |
 | 028 | [Change judge and object with history](028-change-judge-object.md) | 020 |  | todo |

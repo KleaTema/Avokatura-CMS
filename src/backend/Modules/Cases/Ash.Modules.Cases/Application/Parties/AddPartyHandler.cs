@@ -5,7 +5,8 @@ namespace Ash.Modules.Cases.Application.Parties;
 
 /// <summary>Adds a party; an institution party gets a MONITORING link unless one is already active (PartyWriter).</summary>
 internal sealed class AddPartyHandler(
-    Infrastructure.CasesDbContext db, PartyCaseGate gate, PartyResolver resolver, PartyWriter writer, PartyViews views)
+    Infrastructure.CasesDbContext db, PartyCaseGate gate, PartyResolver resolver, PartyWriter writer, PartyViews views,
+    FirstDataEntry firstEntry)
 {
     public async Task<Result<PartyResponse>> Handle(Guid casePublicId, PartyRequest req, CancellationToken ct)
     {
@@ -30,6 +31,7 @@ internal sealed class AddPartyHandler(
         }
 
         var row = await writer.AddAsync(c.Value, party, ct);
+        await firstEntry.MarkAsync(c.Value, ct);
         return await views.ToResponseAsync(row, ct);
     }
 }

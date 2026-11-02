@@ -25,7 +25,8 @@ public sealed record CodeName(string Code, string Name);
 
 public sealed record UserView(Guid UserPublicId, string Name);
 
-public sealed record ClaimView(decimal? Amount, string? Currency, decimal? AreaM2);
+/// <summary>Amount and m² as decimal strings with two decimals ("1250000.50"), never JSON numbers.</summary>
+public sealed record ClaimView(string? Amount, string? Currency, string? AreaM2);
 
 public sealed record CaseData(
     string SummonsNumber,

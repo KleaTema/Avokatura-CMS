@@ -34,6 +34,8 @@ public static class HistoryEventCodes
         HistoryEventType.DocumentUploaded => "DOCUMENT_UPLOADED",
         HistoryEventType.DocumentRemoved => "DOCUMENT_REMOVED",
         HistoryEventType.SecurityMeasureSet => "SECURITY_MEASURE_SET",
+        HistoryEventType.SecurityMeasureLifted => "SECURITY_MEASURE_LIFTED",
+        HistoryEventType.ClaimChanged => "CLAIM_CHANGED",
         HistoryEventType.DecisionRecorded => "DECISION_RECORDED",
         HistoryEventType.DecisionUpdated => "DECISION_UPDATED",
         HistoryEventType.CaseClosed => "CASE_CLOSED",

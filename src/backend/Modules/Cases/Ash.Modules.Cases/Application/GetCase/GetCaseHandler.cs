@@ -107,7 +107,7 @@ internal sealed class GetCaseHandler(
             c.ObjectText,
             category is null ? null : new CodeName(category.Code, category.Name),
             subcategory is null ? null : new CodeName(subcategory.Code, subcategory.Name),
-            c.ClaimAmount is null && c.ClaimAreaM2 is null ? null : new ClaimView(c.ClaimAmount, c.ClaimCurrency, c.ClaimAreaM2),
+            c.ClaimAmount is null && c.ClaimAreaM2 is null ? null : new ClaimView(DecimalText.Format(c.ClaimAmount), c.ClaimCurrency, DecimalText.Format(c.ClaimAreaM2)),
             c.HasSecurityMeasure,
             c.NextHearingAt,
             c.RegisteredAt,

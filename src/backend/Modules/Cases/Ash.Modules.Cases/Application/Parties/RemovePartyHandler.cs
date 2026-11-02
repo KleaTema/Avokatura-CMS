@@ -6,7 +6,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Ash.Modules.Cases.Application.Parties;
 
 /// <summary>Soft-deletes a party; for an institution's last party, see <see cref="PartyWriter.RemoveAsync"/>.</summary>
-internal sealed class RemovePartyHandler(CasesDbContext db, PartyCaseGate gate, IReferenceData reference, PartyWriter writer)
+internal sealed class RemovePartyHandler(
+    CasesDbContext db, PartyCaseGate gate, IReferenceData reference, PartyWriter writer, FirstDataEntry firstEntry)
 {
     public async Task<Result<RemovePartyResponse>> Handle(
         Guid casePublicId, Guid partyPublicId, bool? endInstitutionLink, CancellationToken ct)
@@ -26,6 +27,7 @@ internal sealed class RemovePartyHandler(CasesDbContext db, PartyCaseGate gate, 
 
         var role = (await reference.ListPartyRolesAsync(ct)).Single(r => r.Id == party.PartyRoleId);
         var removal = await writer.RemoveAsync(c.Value, party, role, endInstitutionLink, ct);
+        await firstEntry.MarkAsync(c.Value, ct);
         IReadOnlyList<PartyWarning> warnings = removal.Warning is { } w ? [new PartyWarning("institution.delegated", w)] : [];
         return new RemovePartyResponse(removal.LastInstitutionParty, removal.InstitutionLinkEnded, warnings);
     }

@@ -38,6 +38,10 @@ public enum HistoryEventType
     DocumentUploaded,
     DocumentRemoved,
     SecurityMeasureSet,
+    /// <summary>SECURITY_MEASURE_LIFTED (task 025): the security measure was lifted (the row is kept).</summary>
+    SecurityMeasureLifted,
+    /// <summary>CLAIM_CHANGED (task 025): claim amount / currency / m² changed.</summary>
+    ClaimChanged,
     DecisionRecorded,
     DecisionUpdated,
     CaseClosed,
