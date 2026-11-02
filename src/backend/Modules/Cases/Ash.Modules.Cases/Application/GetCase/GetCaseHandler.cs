@@ -1,5 +1,6 @@
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Cases.Application.Parties;
+using Ash.Modules.Cases.Application.SetSecurityMeasure;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Documents.Contracts;
@@ -94,6 +95,10 @@ internal sealed class GetCaseHandler(
             ? (await reference.ListCaseSubcategoriesAsync(ct)).FirstOrDefault(x => x.Id == subcategoryId)
             : null;
         var registeredBy = people.GetValueOrDefault(c.RegisteredBy);
+        // the row stays after lifting (task 025); it is shown only while the measure is active
+        var measure = c.HasSecurityMeasure
+            ? await db.CaseSecurityMeasures.AsNoTracking().SingleOrDefaultAsync(m => m.CaseId == c.Id, ct)
+            : null;
 
         return new CaseData(
             c.SummonsNumber,
@@ -109,6 +114,8 @@ internal sealed class GetCaseHandler(
             subcategory is null ? null : new CodeName(subcategory.Code, subcategory.Name),
             c.ClaimAmount is null && c.ClaimAreaM2 is null ? null : new ClaimView(DecimalText.Format(c.ClaimAmount), c.ClaimCurrency, DecimalText.Format(c.ClaimAreaM2)),
             c.HasSecurityMeasure,
+            measure is null ? null : new SecurityMeasureView(measure.DecisionNumber, measure.DecisionDate, measure.Dispositive),
+            c.SuspendedAt,
             c.NextHearingAt,
             c.RegisteredAt,
             registeredBy is null ? null : new UserView(registeredBy.PublicId, registeredBy.Name),

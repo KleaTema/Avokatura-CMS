@@ -69,6 +69,14 @@ export const useCaseCategories = () =>
     queryFn: () => api.GET('/api/reference/case-categories').then(unwrap),
   })
 
+/** Subcategories with their category's code (only NDJEKJE has any). */
+export const useCaseSubcategories = () =>
+  useQuery({
+    queryKey: referenceKeys.list('case-subcategories'),
+    staleTime: LIST_STALE_MS,
+    queryFn: () => api.GET('/api/reference/case-subcategories').then(unwrap),
+  })
+
 export const useCourtLevels = () =>
   useQuery({
     queryKey: referenceKeys.list('court-levels'),

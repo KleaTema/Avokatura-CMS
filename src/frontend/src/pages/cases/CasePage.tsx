@@ -1,6 +1,7 @@
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
 import { UserPlus } from 'lucide-react'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
+import { HeaderPrioritySelect } from '../../components/caseData/HeaderPrioritySelect'
 import { CaseCode } from '../../components/ui/CaseCode'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { SuccessToast } from '../../components/ui/SuccessToast'
@@ -96,14 +97,19 @@ export function CasePage() {
               </Button>
             )}
           </Stack>
-          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
             <StatusChip kind="status" value={header.status} size="medium" />
-            <StatusChip
-              kind="priority"
-              value={header.priority}
-              size="medium"
-              label={`${sq.cases.list.columns.priority}: ${sq.cases.priority[header.priority] ?? header.priority}`}
-            />
+            {/* the Kryetar sets the priority right here (case.set_priority_any); everyone else sees the chip */}
+            {c.permissions.includes('case.set_priority_any') ? (
+              <HeaderPrioritySelect detail={c} />
+            ) : (
+              <StatusChip
+                kind="priority"
+                value={header.priority}
+                size="medium"
+                label={`${sq.cases.list.columns.priority}: ${sq.cases.priority[header.priority] ?? header.priority}`}
+              />
+            )}
             {header.isSuspended && <StatusChip kind="suspended" size="medium" />}
           </Stack>
           <Typography variant="body2" color="text.secondary">

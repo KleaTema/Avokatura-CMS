@@ -1,4 +1,5 @@
 using Ash.Modules.Cases.Application.Parties;
+using Ash.Modules.Cases.Application.SetSecurityMeasure;
 
 namespace Ash.Modules.Cases.Application.GetCase;
 
@@ -42,6 +43,10 @@ public sealed record CaseData(
     CodeName? Subcategory,
     ClaimView? Claim,
     bool HasSecurityMeasure,
+    /// <summary>The measure's decision while it is active; null when there is none or it was lifted.</summary>
+    SecurityMeasureView? SecurityMeasure,
+    /// <summary>Since when the case is suspended (null when it is not).</summary>
+    DateTime? SuspendedAt,
     DateTime? NextHearingAt,
     DateTime RegisteredAt,
     UserView? RegisteredBy,

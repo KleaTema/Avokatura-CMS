@@ -214,6 +214,11 @@ public class CaseDataTests(MySqlFixture db) : IntegrationTest(db)
         resumed.GetProperty("suspendedAt").ValueKind.ShouldBe(JsonValueKind.Null);
         (await Scalar($"SELECT suspended_at {row}")).ShouldBeNull();
         (await Events(seed.ActiveCaseId)).ShouldBe("SUSPENSION_CHANGED,SUSPENSION_CHANGED");
+
+        // the case page shows since when (frontend 025)
+        await Patch(primary, id, "suspension", new { suspended = true, rowVersion = await RowVersion(seed.ActiveCaseId) });
+        var data = (await Json(await primary.GetAsync($"/api/cases/{id}", Ct))).GetProperty("data");
+        data.GetProperty("suspendedAt").GetDateTime().ShouldBe(DateTime.UtcNow, TimeSpan.FromMinutes(1));
     }
 
     [Fact]
@@ -243,6 +248,8 @@ public class CaseDataTests(MySqlFixture db) : IntegrationTest(db)
         lifted.GetProperty("measure").ValueKind.ShouldBe(JsonValueKind.Null);
         (await Scalar($"SELECT has_security_measure = 0 FROM cases WHERE id = {seed.ActiveCaseId}")).ShouldBe(1L);
         (await Scalar($"SELECT decision_number {measure}")).ShouldBe("12/2026"); // the row stays
+        (await Json(await primary.GetAsync($"/api/cases/{id}", Ct))).GetProperty("data").GetProperty("securityMeasure")
+            .ValueKind.ShouldBe(JsonValueKind.Null); // lifted: the case page shows none
 
         (await NewRowVersion(await PutMeasure(primary, id, new
         {
@@ -251,6 +258,9 @@ public class CaseDataTests(MySqlFixture db) : IntegrationTest(db)
         (await Scalar($"SELECT COUNT(*) {measure}")).ShouldBe(1L);
         (await Scalar($"SELECT CONCAT(decision_number, ' ', decision_date, ' ', COALESCE(dispositive, '-')) {measure}"))
             .ShouldBe("40/2026 2026-10-15 -");
+        var shown = (await Json(await primary.GetAsync($"/api/cases/{id}", Ct))).GetProperty("data").GetProperty("securityMeasure");
+        shown.GetProperty("decisionNumber").GetString().ShouldBe("40/2026");
+        shown.GetProperty("decisionDate").GetString().ShouldBe("2026-10-15");
 
         (await Events(seed.ActiveCaseId)).ShouldBe("SECURITY_MEASURE_SET,SECURITY_MEASURE_LIFTED,SECURITY_MEASURE_SET");
         var history = $"FROM case_history_events WHERE case_id = {seed.ActiveCaseId}";

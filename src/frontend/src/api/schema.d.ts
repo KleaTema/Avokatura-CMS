@@ -260,6 +260,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["UpdateCaseClaim"];
+        trace?: never;
+    };
+    "/api/cases/{id}/category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["SetCaseCategory"];
+        trace?: never;
+    };
+    "/api/cases/{id}/suspension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["SetCaseSuspension"];
+        trace?: never;
+    };
+    "/api/cases/{id}/security-measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["SetCaseSecurityMeasure"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["SetCasePriority"];
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -1376,11 +1456,9 @@ export interface components {
             assignedAt: string;
         };
         ClaimView: {
-            /** Format: double */
-            amount: null | number | string;
+            amount: null | string;
             currency: null | string;
-            /** Format: double */
-            areaM2: null | number | string;
+            areaM2: null | string;
         };
         CodeName: {
             code: string;
@@ -1860,9 +1938,65 @@ export interface components {
             /** Format: uuid */
             userPublicId: null | string;
         };
+        SecurityMeasureView: {
+            decisionNumber: string;
+            /** Format: date */
+            decisionDate: string;
+            dispositive: null | string;
+        };
+        SetCategoryRequest: {
+            categoryCode: null | string;
+            subcategoryCode: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        SetCategoryResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            category: components["schemas"]["CodeName"];
+            subcategory: null | components["schemas"]["CodeName"];
+        };
         SetOfficeHeadRequest: {
             /** Format: uuid */
             userPublicId: null | string;
+        };
+        SetPriorityRequest: {
+            priority: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        SetPriorityResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            priority: string;
+        };
+        SetSecurityMeasureRequest: {
+            active: null | boolean;
+            decisionNumber: null | string;
+            /** Format: date */
+            decisionDate: null | string;
+            dispositive: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        SetSecurityMeasureResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            hasSecurityMeasure: boolean;
+            measure: null | components["schemas"]["SecurityMeasureView"];
+        };
+        SetSuspensionRequest: {
+            suspended: null | boolean;
+            reason: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        SetSuspensionResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            isSuspended: boolean;
+            /** Format: date-time */
+            suspendedAt: null | string;
         };
         SummonsTypeAdminResponse: {
             code: string;
@@ -1888,6 +2022,20 @@ export interface components {
             secondary: null | components["schemas"]["LawyerRef"];
             /** Format: uint32 */
             rowVersion: number | string;
+        };
+        UpdateClaimRequest: {
+            claimAmount: null | string;
+            claimCurrency: null | string;
+            claimAreaM2: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        UpdateClaimResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            claimAmount: null | string;
+            claimCurrency: null | string;
+            claimAreaM2: null | string;
         };
         UpdateCourtRequest: {
             name: string;
@@ -2563,6 +2711,271 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferLawyerResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateCaseClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClaimRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateClaimResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SetCaseCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCategoryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetCategoryResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SetCaseSuspension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSuspensionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetSuspensionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SetCaseSecurityMeasure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSecurityMeasureRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetSecurityMeasureResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SetCasePriority: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPriorityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetPriorityResponse"];
                 };
             };
             /** @description Bad Request */

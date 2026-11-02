@@ -232,6 +232,87 @@ export const useTransferLawyer = (caseId: string) => {
   })
 }
 
+// ---------------------------------------------------------------- case data (task 025)
+
+export type UpdateClaimRequest = components['schemas']['UpdateClaimRequest']
+export type SetCategoryRequest = components['schemas']['SetCategoryRequest']
+export type SetSuspensionRequest = components['schemas']['SetSuspensionRequest']
+export type SetSecurityMeasureRequest = components['schemas']['SetSecurityMeasureRequest']
+export type SetPriorityRequest = components['schemas']['SetPriorityRequest']
+
+/**
+ * One save of the case's data. The response's rowVersion (and changed fields) go straight into the case in the query
+ * cache: the case page then shows them, and the next save sends that rowVersion — consecutive saves of the same user
+ * never conflict with each other. The history and the lists (priority, suspension) reload.
+ */
+function useCaseDataSave<TBody, TResult extends { rowVersion: number | string }>(
+  caseId: string,
+  send: (body: TBody) => Promise<TResult>,
+  apply: (c: CaseDetail, result: TResult) => CaseDetail,
+) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: send,
+    onSuccess: (result) => {
+      qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) =>
+        c ? apply({ ...c, header: { ...c.header, rowVersion: result.rowVersion } }, result) : c,
+      )
+      return Promise.all([qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }), invalidateCaseLists(qc)])
+    },
+  })
+}
+
+const path = (id: string) => ({ params: { path: { id } } })
+
+export const useUpdateClaim = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: UpdateClaimRequest) => api.PATCH('/api/cases/{id}/claim', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({
+      ...c,
+      data: {
+        ...c.data,
+        claim:
+          r.claimAmount === null && r.claimAreaM2 === null
+            ? null
+            : { amount: r.claimAmount, currency: r.claimCurrency, areaM2: r.claimAreaM2 },
+      },
+    }),
+  )
+
+export const useSetCategory = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: SetCategoryRequest) => api.PATCH('/api/cases/{id}/category', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({ ...c, data: { ...c.data, category: r.category, subcategory: r.subcategory } }),
+  )
+
+export const useSetSuspension = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: SetSuspensionRequest) => api.PATCH('/api/cases/{id}/suspension', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({
+      ...c,
+      header: { ...c.header, isSuspended: r.isSuspended },
+      data: { ...c.data, suspendedAt: r.suspendedAt },
+    }),
+  )
+
+export const useSetSecurityMeasure = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: SetSecurityMeasureRequest) =>
+      api.PUT('/api/cases/{id}/security-measure', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({ ...c, data: { ...c.data, hasSecurityMeasure: r.hasSecurityMeasure, securityMeasure: r.measure } }),
+  )
+
+export const useSetPriority = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: SetPriorityRequest) => api.PATCH('/api/cases/{id}/priority', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({ ...c, header: { ...c.header, priority: r.priority } }),
+  )
+
 export type RegistrationSearchItem = components['schemas']['RegistrationSearchItem']
 export type NextLevelPreview = components['schemas']['NextLevelPreviewResponse']
 export type NotifyNotClosedRequest = components['schemas']['NotifyNotClosedRequest']

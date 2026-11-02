@@ -1,5 +1,6 @@
 import { sq } from '../i18n/sq'
 import { formatDate, formatDateTime } from './dates'
+import { formatDecimal } from './money'
 
 const h = sq.cases.page.history
 
@@ -44,6 +45,8 @@ export function displayValue(key: string, value: unknown): string {
   if (last === 'kind' || last === 'partyKind') return sq.partyEditor.kinds[text] ?? text
   if (last === 'mode') return sq.cases.page.data.modes[text] ?? text
   if (last === 'priority') return sq.cases.priority[text] ?? text
+  // money and m² are decimal strings: Albanian notation, never through a JS number
+  if (last === 'claimAmount' || last === 'claimAreaM2') return formatDecimal(text)
   if (ISO_DATE_TIME.test(text)) return formatDateTime(text)
   if (ISO_DATE.test(text)) return formatDate(text)
   return text
