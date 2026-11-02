@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TransferLawyer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -1651,6 +1667,11 @@ export interface components {
             items: components["schemas"]["UserResponse"][];
             nextCursor: null | string;
         };
+        LawyerRef: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
         LawyerWorkload: {
             /** Format: int32 */
             activePrimary: number | string;
@@ -1834,6 +1855,11 @@ export interface components {
             name: string;
             scope: string;
         };
+        SecondaryChangeRequest: {
+            action: null | string;
+            /** Format: uuid */
+            userPublicId: null | string;
+        };
         SetOfficeHeadRequest: {
             /** Format: uuid */
             userPublicId: null | string;
@@ -1846,6 +1872,22 @@ export interface components {
         SummonsTypeResponse: {
             code: string;
             name: string;
+        };
+        TransferLawyerRequest: {
+            /** Format: uuid */
+            newPrimaryUserPublicId: null | string;
+            secondary: null | components["schemas"]["SecondaryChangeRequest"];
+            reason: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        TransferLawyerResponse: {
+            /** Format: uuid */
+            casePublicId: string;
+            primary: components["schemas"]["LawyerRef"];
+            secondary: null | components["schemas"]["LawyerRef"];
+            /** Format: uint32 */
+            rowVersion: number | string;
         };
         UpdateCourtRequest: {
             name: string;
@@ -2468,6 +2510,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssignLawyersResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    TransferLawyer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferLawyerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferLawyerResponse"];
                 };
             };
             /** @description Bad Request */

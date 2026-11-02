@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
+import { TeamCard } from '../../../components/TeamCard'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import type { CaseDetail } from '../../../features/cases/api'
 import { sq } from '../../../i18n/sq'
@@ -13,7 +14,7 @@ const money = (amount: number | string, currency: string | null) =>
 
 /** Të dhënat — read-only (editing comes with task 025). DateOnly fields with formatDate, moments with formatDateTime. */
 export function DataTab({ detail }: { detail: CaseDetail }) {
-  const { data, team, institutions } = detail
+  const { data, institutions } = detail
   const claim = data.claim
   const claimText = claim
     ? [
@@ -55,17 +56,7 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
         <Field label={d.closedAt} value={data.closedAt ? formatDateTime(data.closedAt) : null} />
       </Section>
 
-      <Section title={d.team}>
-        {team.length === 0 ? (
-          <Typography color="text.secondary" sx={{ gridColumn: '1 / -1' }}>
-            {d.noTeam}
-          </Typography>
-        ) : (
-          team.map((member) => (
-            <Field key={`${member.role}-${member.userPublicId}`} label={d.roles[member.role] ?? member.role} value={member.name} />
-          ))
-        )}
-      </Section>
+      <TeamCard detail={detail} />
 
       {institutions.length > 0 && (
         <Section title={d.institutions}>

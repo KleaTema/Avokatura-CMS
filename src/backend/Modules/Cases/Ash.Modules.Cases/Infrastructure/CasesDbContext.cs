@@ -127,6 +127,8 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.AssignedBy).HasColumnName("assigned_by");
             b.Property(x => x.AssignedAt).HasColumnName("assigned_at").ValueGeneratedOnAdd();
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
+            b.Property(x => x.EndedBy).HasColumnName("ended_by");
+            b.Property(x => x.EndReason).HasColumnName("end_reason");
         });
 
         modelBuilder.Entity<CaseDecision>(b =>
@@ -312,6 +314,8 @@ public sealed class CaseAssignmentRow
 {
     public const string PrimaryLawyer = "PRIMARY_LAWYER";
     public const string SecondaryLawyer = "SECONDARY_LAWYER";
+    public const string Transferred = "TRANSFERRED";
+    public const string Removed = "REMOVED";
 
     public ulong Id { get; set; }
     public ulong CaseId { get; set; }
@@ -321,6 +325,9 @@ public sealed class CaseAssignmentRow
     /// <summary>Database default on insert when not set.</summary>
     public DateTime AssignedAt { get; set; }
     public DateTime? EndedAt { get; set; }
+    public uint? EndedBy { get; set; }
+    /// <summary>TRANSFERRED | REMOVED | CASE_CLOSED; set together with EndedAt (ck_ca_end).</summary>
+    public string? EndReason { get; set; }
 }
 
 /// <summary>Vendimi of a level (1:1 with the case). Read here for the case page; written by the decision task.</summary>

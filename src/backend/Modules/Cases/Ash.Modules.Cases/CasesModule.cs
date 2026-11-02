@@ -6,6 +6,7 @@ using Ash.Modules.Cases.Application.Parties;
 using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Application.RegisterNextLevel;
 using Ash.Modules.Cases.Application.RegistrationSearch;
+using Ash.Modules.Cases.Application.TransferLawyer;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Endpoints;
 using Ash.Modules.Cases.Infrastructure;
@@ -50,6 +51,7 @@ public static class CasesModule
 		services.AddScoped<AssignableLawyersHandler>();
 		services.AddScoped<OfficeLawyersHandler>();
 		services.AddScoped<AssignLawyersHandler>();
+		services.AddScoped<TransferLawyerHandler>();
 		return services;
 	}
 

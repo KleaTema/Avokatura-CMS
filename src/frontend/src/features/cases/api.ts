@@ -213,6 +213,25 @@ export const useAssignLawyers = (caseId: string) => {
   })
 }
 
+export type TransferLawyerRequest = components['schemas']['TransferLawyerRequest']
+export type CaseTeamMember = components['schemas']['CaseTeamMember']
+
+/** POST transfer (task 024): the team (part of the case), its history, the lists ("mine" tabs) and the workloads change. */
+export const useTransferLawyer = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: TransferLawyerRequest) =>
+      api.POST('/api/cases/{id}/transfer', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: () =>
+      Promise.all([
+        invalidateCaseLists(qc),
+        qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
+        qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
+        qc.invalidateQueries({ queryKey: ['assignable-lawyers'] }),
+      ]),
+  })
+}
+
 export type RegistrationSearchItem = components['schemas']['RegistrationSearchItem']
 export type NextLevelPreview = components['schemas']['NextLevelPreviewResponse']
 export type NotifyNotClosedRequest = components['schemas']['NotifyNotClosedRequest']

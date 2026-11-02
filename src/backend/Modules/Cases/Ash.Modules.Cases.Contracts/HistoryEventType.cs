@@ -15,6 +15,8 @@ public enum HistoryEventType
     LawyerAssigned,
     LawyerTransferred,
     SecondaryAssigned,
+    /// <summary>SECONDARY_REMOVED (task 024): the secondary lawyer left the case (removed, or moved up to primary).</summary>
+    SecondaryRemoved,
     AssistantAdded,
     AssistantRemoved,
     PriorityChanged,

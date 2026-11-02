@@ -14,6 +14,7 @@ public static class HistoryEventCodes
         HistoryEventType.LawyerAssigned => "LAWYER_ASSIGNED",
         HistoryEventType.LawyerTransferred => "LAWYER_TRANSFERRED",
         HistoryEventType.SecondaryAssigned => "SECONDARY_ASSIGNED",
+        HistoryEventType.SecondaryRemoved => "SECONDARY_REMOVED",
         HistoryEventType.AssistantAdded => "ASSISTANT_ADDED",
         HistoryEventType.AssistantRemoved => "ASSISTANT_REMOVED",
         HistoryEventType.PriorityChanged => "PRIORITY_CHANGED",

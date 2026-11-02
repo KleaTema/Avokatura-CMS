@@ -1,6 +1,7 @@
 using Ash.AspNetCore.Authorization;
 using Ash.AspNetCore.Http;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.TransferLawyer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -45,6 +46,20 @@ public static class AssignmentEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("AssignLawyers");
+
+        // Task 024: replace the primary and/or change the secondary of an ACTIVE case.
+        endpoints.MapPost("/api/cases/{id:guid}/transfer",
+                async (Guid id, TransferLawyerRequest req, TransferLawyerHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission("case.transfer")
+            .Produces<TransferLawyerResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("TransferLawyer");
 
         return endpoints;
     }
