@@ -32,6 +32,7 @@ public static class HistoryEventCodes
         HistoryEventType.PartyRemoved => "PARTY_REMOVED",
         HistoryEventType.HearingAdded => "HEARING_ADDED",
         HistoryEventType.HearingUpdated => "HEARING_UPDATED",
+        HistoryEventType.HearingCompleted => "HEARING_COMPLETED",
         HistoryEventType.DocumentUploaded => "DOCUMENT_UPLOADED",
         HistoryEventType.DocumentRemoved => "DOCUMENT_REMOVED",
         HistoryEventType.SecurityMeasureSet => "SECURITY_MEASURE_SET",

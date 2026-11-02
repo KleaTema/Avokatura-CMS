@@ -7,6 +7,7 @@ using Ash.Modules.Documents.Contracts;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Reference.Contracts;
 using Ash.SharedKernel.Results;
+using Ash.SharedKernel.Time;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ash.Modules.Cases.Application.GetCase;
@@ -23,7 +24,8 @@ internal sealed class GetCaseHandler(
     IUserDirectory users,
     IInstitutionDirectory institutions,
     IDocumentCounts documents,
-    IAuditLog audit)
+    IAuditLog audit,
+    IClock clock)
 {
     public const string JuristRole = "INSTITUTION_JURIST";
 
@@ -117,6 +119,7 @@ internal sealed class GetCaseHandler(
             measure is null ? null : new SecurityMeasureView(measure.DecisionNumber, measure.DecisionDate, measure.Dispositive),
             c.SuspendedAt,
             c.NextHearingAt,
+            c.NextHearingAt < clock.UtcNow,
             c.RegisteredAt,
             registeredBy is null ? null : new UserView(registeredBy.PublicId, registeredBy.Name),
             c.ClosedAt);

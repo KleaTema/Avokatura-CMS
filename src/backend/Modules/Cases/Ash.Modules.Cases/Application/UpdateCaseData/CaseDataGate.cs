@@ -52,6 +52,28 @@ internal sealed class CaseDataGate(CasesDbContext db, ICaseAccessService access)
         return c;
     }
 
+    /// <summary>
+    /// For changes of rows that keep their OWN row_version (hearings, task 030): no view → 404; CLOSED → 409; none of
+    /// the permissions → 403. The case is read without tracking and its row_version is neither checked nor changed —
+    /// derived columns (next_hearing_at, last_hearing_id) are written with their own UPDATE.
+    /// </summary>
+    public async Task<Result<Case>> ForActionAsync(Guid casePublicId, string[] anyOf, CancellationToken ct)
+    {
+        var c = await db.Cases.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == casePublicId, ct);
+        if (c is null || !await access.CanViewAsync((long)c.Id, ct))
+        {
+            return AssignLawyersHandler.NotFound();
+        }
+
+        if (c.LifecycleStatus == Case.Closed)
+        {
+            return Error.Conflict("case.closed", "Çështja është mbyllur; të dhënat e saj nuk ndryshohen më.");
+        }
+
+        var effective = await access.GetEffectivePermissionsAsync((long)c.Id, ct);
+        return anyOf.Any(effective.Contains) ? c : AssignLawyersHandler.Forbidden();
+    }
+
     /// <summary>Increments row_version and saves everything tracked; null on success, the 409 otherwise.</summary>
     public async Task<Error?> SaveAsync(Case c, CancellationToken ct)
     {

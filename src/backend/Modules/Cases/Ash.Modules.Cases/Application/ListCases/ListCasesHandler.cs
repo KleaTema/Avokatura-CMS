@@ -36,7 +36,9 @@ public sealed record CaseListItem(
     DateTime? NextHearingAt,
     bool IsSuspended,
     DateTime RegisteredAt,
-    DateTime? ClosedAt);
+    DateTime? ClosedAt,
+    /// <summary>The next hearing's time has passed and it was not completed yet (task 030): the UI marks it.</summary>
+    bool NextHearingIsOverdue);
 
 /// <summary>
 /// The case list (task 019): one endpoint, a tab per kind of user, keyset paging. A tab the user may not use → 403;
@@ -47,7 +49,8 @@ internal sealed class ListCasesHandler(
     CaseListQueryBuilder builder,
     IReferenceData reference,
     IUserDirectory users,
-    ICurrentUser user)
+    ICurrentUser user,
+    IClock clock)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
@@ -105,7 +108,7 @@ internal sealed class ListCasesHandler(
             var court = await reference.GetCourt(c.CourtId, ct); // cached lookup
             items.Add(new CaseListItem(c.PublicId, c.CaseCode, c.ActNumber, court?.Name ?? string.Empty,
                 lawyers.GetValueOrDefault(c.Id), c.Priority, c.LifecycleStatus, c.NextHearingAt, c.IsSuspended,
-                c.RegisteredAt, c.ClosedAt));
+                c.RegisteredAt, c.ClosedAt, c.NextHearingAt < clock.UtcNow));
         }
 
         var next = hasMore ? CaseListQueryBuilder.CursorAfter(rows[^1], filter.Sort).Encode(filter) : null;

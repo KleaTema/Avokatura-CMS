@@ -65,6 +65,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.ClaimCurrency).HasColumnName("claim_currency");
             b.Property(x => x.ClaimAreaM2).HasColumnName("claim_area_m2");
             b.Property(x => x.NextHearingAt).HasColumnName("next_hearing_at");
+            b.Property(x => x.LastHearingId).HasColumnName("last_hearing_id");
             b.Property(x => x.RegisteredBy).HasColumnName("registered_by");
             b.Property(x => x.RegisteredAt).HasColumnName("registered_at");
             b.Property(x => x.AssignedAt).HasColumnName("assigned_at");
@@ -78,13 +79,18 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.ToTable("case_hearings");
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
             b.Property(x => x.CaseId).HasColumnName("case_id");
             b.Property(x => x.HearingTypeId).HasColumnName("hearing_type_id");
             b.Property(x => x.OtherTypeText).HasColumnName("other_type_text");
             b.Property(x => x.ScheduledAt).HasColumnName("scheduled_at");
             b.Property(x => x.Status).HasColumnName("status");
+            b.Property(x => x.Description).HasColumnName("description");
             b.Property(x => x.CreatedBy).HasColumnName("created_by");
-            b.Property(x => x.RowVersion).HasColumnName("row_version");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at").ValueGeneratedOnAdd();
+            b.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            // UPDATE … WHERE row_version = <read value>: a hearing changed in between is a 409, never overwritten
+            b.Property(x => x.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
         });
 
         modelBuilder.Entity<CaseParty>(b =>
@@ -254,7 +260,10 @@ public sealed class Case
     public decimal? ClaimAmount { get; set; }
     public string? ClaimCurrency { get; set; }
     public decimal? ClaimAreaM2 { get; set; }
+    /// <summary>Derived: earliest SCHEDULED hearing, past ones included (HearingWriter.RecalculateAsync).</summary>
     public DateTime? NextHearingAt { get; set; }
+    /// <summary>Derived: the HELD hearing with the latest scheduled_at — its description feeds the reports.</summary>
+    public ulong? LastHearingId { get; set; }
     public uint RegisteredBy { get; set; }
     public DateTime RegisteredAt { get; set; }
     /// <summary>First primary lawyer assigned: the start of the 30-day reminder.</summary>
@@ -266,15 +275,26 @@ public sealed class Case
 public sealed class CaseHearing
 {
     public const string Scheduled = "SCHEDULED";
+    public const string Held = "HELD";
+    public const string Postponed = "POSTPONED";
+    public const string Cancelled = "CANCELLED";
 
     public ulong Id { get; set; }
+    /// <summary>The id the API uses (013_case_hearings_public_id.sql); set on insert.</summary>
+    public Guid PublicId { get; set; }
     public ulong CaseId { get; set; }
     public byte HearingTypeId { get; set; }
     public string? OtherTypeText { get; set; }
     /// <summary>UTC.</summary>
     public DateTime ScheduledAt { get; set; }
+    /// <summary>SCHEDULED → HELD | POSTPONED | CANCELLED only (task 030); never back.</summary>
     public string Status { get; set; } = Scheduled;
+    /// <summary>Përshkrimi i seancës (TEXT).</summary>
+    public string? Description { get; set; }
     public uint CreatedBy { get; set; }
+    /// <summary>Database default on insert.</summary>
+    public DateTime CreatedAt { get; set; }
+    public uint? UpdatedBy { get; set; }
     public uint RowVersion { get; set; }
 }
 

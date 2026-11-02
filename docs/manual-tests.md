@@ -142,3 +142,21 @@ buttons of five users on a REGISTERED and an ACTIVE case. By hand:
    it; Enter in a one-line field does not submit.
 5. At 390 px width every dialog fills the screen; no horizontal scrolling anywhere on the case page.
 6. Every successful save shows a toast (also the Kryetar's priority in the header: "Prioriteti u ndryshua: …").
+
+## 030 — Hearings (backend; the screens come with task 035)
+Until 035 the hearings are checked through what already shows them — the case list (*Seanca e radhës*) and the case
+page header — after calling the API (e.g. from Swagger at http://localhost:5004/swagger with the `X-Dev-User` header).
+**User:** avokat1 (primary of an ACTIVE case)
+1. `POST /api/cases/{id}/hearings` with a time next week. → 201; the case list and the case header show it as *Seanca
+   e radhës*.
+2. Add one 20 minutes later. → 201 with the warning "Kjo çështje ka një seancë tjetër të planifikuar brenda 30
+   minutave (…)"; *Seanca e radhës* stays the earlier one.
+3. Add one with a time yesterday. → 201 with the warning about the past; it becomes *Seanca e radhës* and the API marks
+   it overdue (`nextHearingIsOverdue`) until it is completed.
+4. `POST …/hearings/{hearingId}/complete` with HELD, a description and `next` in a month. → *Seanca e radhës* moves to
+   the new one; *Historiku* shows "Seanca e … u zhvillua; seanca e radhës: …".
+5. HELD without a description → 400; type *Tjetër* without its text → 400 "Plotësoni llojin e seancës.".
+6. Complete the same hearing again. → 409 "Seanca është përfunduar tashmë; statusi i saj nuk ndryshon më.".
+7. As institucion (the ministry monitors the case): adding works, editing or completing → 403.
+8. After any hearing change, editing the claim (task 025) with the case's rowVersion still works: hearings never
+   change the case's rowVersion.

@@ -7,6 +7,8 @@ One row per question to the client (Avokatura e Shtetit / AKSHI). Until a questi
 Keep this file up to date in every task (see `.github/skills/ash-task-done-check/SKILL.md`).
 
 **Task 029** (review of the assignment and case-data screens) raised no new client question.
+**Task 030** (hearings) raised no new client question: the rules it follows (an overdue hearing stays the next one
+until completed, a warning within ±30 minutes, a description required for HELD and POSTPONED) were set in the task.
 
 **Numbering note.** The task files use "Client question N" inconsistently: *Q1* stands both for the identity-provider
 claims (005) and for the registration search fields (018), and *Q6* both for the 30-day reminder after a transfer (024)

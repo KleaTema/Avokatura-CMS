@@ -37,6 +37,8 @@ public enum HistoryEventType
     PartyRemoved,
     HearingAdded,
     HearingUpdated,
+    /// <summary>HEARING_COMPLETED (task 030): a hearing was HELD, POSTPONED or CANCELLED (with the next one, if set).</summary>
+    HearingCompleted,
     DocumentUploaded,
     DocumentRemoved,
     SecurityMeasureSet,

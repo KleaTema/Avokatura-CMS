@@ -183,6 +183,7 @@ internal sealed class CaseRegistrationSupport(
     public void AddFirstHearing(Case target, RegistrationLookups lookups, FirstHearingRequest hearing, DateTime hearingUtc) =>
         db.CaseHearings.Add(new CaseHearing
         {
+            PublicId = Guid.NewGuid(),
             CaseId = target.Id,
             HearingTypeId = lookups.HearingType.Id,
             OtherTypeText = lookups.HearingType.IsOther ? hearing.OtherTypeText!.Trim() : null,

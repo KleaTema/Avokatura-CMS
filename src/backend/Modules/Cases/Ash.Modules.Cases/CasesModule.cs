@@ -11,6 +11,7 @@ using Ash.Modules.Cases.Application.SetSecurityMeasure;
 using Ash.Modules.Cases.Application.SetSuspension;
 using Ash.Modules.Cases.Application.UpdateCaseData;
 using Ash.Modules.Cases.Application.GetCase;
+using Ash.Modules.Cases.Application.Hearings;
 using Ash.Modules.Cases.Application.GetHistory;
 using Ash.Modules.Cases.Application.ListCases;
 using Ash.Modules.Cases.Application.Parties;
@@ -80,12 +81,18 @@ public static class CasesModule
 		services.AddScoped<UndelegateCaseHandler>();
 		services.AddScoped<ChangeJudgeHandler>();
 		services.AddScoped<ChangeObjectHandler>();
+		services.AddScoped<HearingWriter>();
+		services.AddScoped<ListHearingsHandler>();
+		services.AddScoped<NewHearingDefaultsHandler>();
+		services.AddScoped<AddHearingHandler>();
+		services.AddScoped<UpdateHearingHandler>();
+		services.AddScoped<CompleteHearingHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
-			.MapCaseData().MapCaseInstitutions();
+			.MapCaseData().MapCaseInstitutions().MapCaseHearings();
 	}
 }

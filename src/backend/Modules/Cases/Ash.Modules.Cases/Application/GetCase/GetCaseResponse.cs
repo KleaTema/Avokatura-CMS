@@ -48,6 +48,8 @@ public sealed record CaseData(
     /// <summary>Since when the case is suspended (null when it is not).</summary>
     DateTime? SuspendedAt,
     DateTime? NextHearingAt,
+    /// <summary>The next hearing's time has passed and it was not completed yet (task 030): the UI marks it.</summary>
+    bool NextHearingIsOverdue,
     DateTime RegisteredAt,
     UserView? RegisteredBy,
     DateTime? ClosedAt);
