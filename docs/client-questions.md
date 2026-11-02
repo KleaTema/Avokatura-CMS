@@ -9,6 +9,7 @@ Keep this file up to date in every task (see `.github/skills/ash-task-done-check
 **Task 029** (review of the assignment and case-data screens) raised no new client question.
 **Task 030** (hearings) raised no new client question: the rules it follows (an overdue hearing stays the next one
 until completed, a warning within ±30 minutes, a description required for HELD and POSTPONED) were set in the task.
+**Task 031** (agenda) implements Q4 with its default (only hearings) and adds *agenda-ics* (calendar subscription).
 
 **Numbering note.** The task files use "Client question N" inconsistently: *Q1* stands both for the identity-provider
 claims (005) and for the registration search fields (018), and *Q6* both for the 30-day reminder after a transfer (024)
@@ -37,6 +38,8 @@ and for report access (042/044). The ids below are unique; the old number is kep
 | assistants-on-transfer | Kur transferohet avokati primar, a mbeten ndihmësit ligjorë në çështje? | When the primary lawyer is transferred, do the legal assistants stay on the case? | They stay; the new primary may remove them (task 026). | `TODO(client-q-assistants-on-transfer)` in `TransferLawyer/TransferLawyerHandler.cs` | 024 |
 | assistants-count (Q5) | Një ndihmës ligjor për çështje apo disa? | One legal assistant per case or several? | Several. | `TODO(client-q5)` in `Assistants/AssistantHandlers.cs`, `Assistants/AssistantRequests.cs` | 026 |
 | relatim-rights | A i jep RELATIMI institucionit të njëjtat të drejta si DELEGIMI? | Does RELATIM give the institution the same rights as DELEGIM? | Yes, the same rights (INSTITUTION_DELEGATED profile). | `TODO(client-q-relatim-rights)` in `DelegateCase/DelegateCaseHandlers.cs` | 027 |
+| agenda-content (Q4) | Çfarë tjetër duhet të ketë agjenda (afate, kujtesa, ngjarje personale)? | What else belongs in the agenda (deadlines, reminders, personal events)? | Only hearings. | `TODO(client-q4)` in `Agenda/GetAgendaHandler.cs` | 031 |
+| agenda-ics | A duhet që agjenda të shihet edhe në Outlook ose në telefon (abonim kalendari)? Nëse po, si mbrohet lidhja (token personal, skadim)? | Should the agenda also show in Outlook or on the phone (calendar subscription)? If so, how is the link protected (personal token, expiry)? | Not built; the agenda is only in the application. | `TODO(client-q-ics)` in `Agenda/GetAgendaHandler.cs` | 031 |
 
 ## Open — for tasks not built yet
 
@@ -45,7 +48,6 @@ No code yet; the default is decided when the task is implemented.
 | Id | Question (sq) | Question (en) | Planned default | Task |
 |---|---|---|---|---|
 | file-storage | AKSHI: a ofron ruajtja object lock, versione, enkriptim dhe URL të nënshkruara? | AKSHI: does the storage support object lock, versioning, encryption and signed URLs? | — | 032 |
-| agenda-content (Q4) | Çfarë tjetër duhet të ketë agjenda (afate, kujtesa, ngjarje personale)? | What else belongs in the agenda (deadlines, reminders, personal events)? | — | 031 |
 | notifications-email | A duhet që njoftimet të dërgohen edhe me email? | Should notifications also be sent by e-mail? | — | 040 |
 | report-access (Q6) | Cilat raporte dhe statistika mund të shohë secili rol? | Which reports and statistics may each role see? | — | 042, 044 |
 | dashboard-widgets | Cilat elemente do të shohë secili rol në faqen kryesore? | Which widgets does each role want on the dashboard? | — | 046 |

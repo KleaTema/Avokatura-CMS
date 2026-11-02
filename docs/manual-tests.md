@@ -173,3 +173,21 @@ buttons of five users on a REGISTERED and an ACTIVE case. By hand:
     case's rowVersion.
 13. At 390 px: the dialogs fill the screen, no horizontal scrolling; keyboard: the focus starts in the first field,
     Esc closes, Enter in a one-line field does not submit.
+
+## 031 — Agenda (backend; the screen comes with the frontend task)
+Until the screen exists, call the API (Swagger at http://localhost:5004/swagger with the `X-Dev-User` header, or
+`curl -H "X-Dev-User: avokat1@ash.local" "http://localhost:5004/api/agenda?from=…&to=…"`). Dates are Tirane calendar
+days, both included. Prepare: two ACTIVE cases of avokat1 with hearings in the same week, 30 minutes apart.
+1. As avokat1, `from`/`to` = that week. → Only the hearings of avokat1's current cases, sorted by time then case code;
+   each with case code, type, court, primary lawyer; the two hearings 30 minutes apart have `conflict: true` and each
+   other's case code in `conflictWith`.
+2. Transfer one of the cases to avokat2 (task 024), repeat. → Its hearings are gone from avokat1's agenda.
+3. Complete a hearing as *U anulua* (task 030). → Gone; with `includeCancelled=true` it is back, never in conflict.
+4. A range of 63 days (e.g. `from=2026-11-01&to=2027-01-02`). → 400 "Periudha mund të jetë deri në 62 ditë."; 62 days → 200.
+5. As kryetar: all hearings of TR's cases; `lawyerId=<avokat2's public id>` → only the cases avokat2 works on (any
+   role); the conflict is computed per primary lawyer.
+6. As kryetar, `officeId` of another office or `lawyerId` of a lawyer of another office → 403.
+7. As monitor: every office; `officeId=<TR's public id>` narrows to TR.
+8. As institucion: only the hearings of the cases the ministry is actively linked to; any `lawyerId`/`officeId` → 403.
+9. A hearing at 00:30 Tirane time on the first day appears in the range; one at 00:30 the day after `to` does not
+   (also across the clock change of the last Sunday of October/March).

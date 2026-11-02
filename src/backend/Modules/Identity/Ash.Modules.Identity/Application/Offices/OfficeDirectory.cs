@@ -22,4 +22,7 @@ public sealed class OfficeDirectory(IdentityDbContext db) : IOfficeDirectory
             : null;
         return new OfficeRouting(office.Id, office.Name, office.IsActive, head);
     }
+
+    public async Task<long?> GetIdAsync(Guid officePublicId, CancellationToken ct = default) =>
+        await db.Offices.AsNoTracking().Where(o => o.PublicId == officePublicId).Select(o => (long?)o.Id).SingleOrDefaultAsync(ct);
 }

@@ -1,4 +1,5 @@
 using Ash.Modules.Cases.Application;
+using Ash.Modules.Cases.Application.Agenda;
 using Ash.Modules.Cases.Application.AssignJurist;
 using Ash.Modules.Cases.Application.AssignLawyers;
 using Ash.Modules.Cases.Application.ChangeJudge;
@@ -87,12 +88,14 @@ public static class CasesModule
 		services.AddScoped<AddHearingHandler>();
 		services.AddScoped<UpdateHearingHandler>();
 		services.AddScoped<CompleteHearingHandler>();
+		services.AddScoped<AgendaQueryBuilder>();
+		services.AddScoped<GetAgendaHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
-			.MapCaseData().MapCaseInstitutions().MapCaseHearings();
+			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda();
 	}
 }

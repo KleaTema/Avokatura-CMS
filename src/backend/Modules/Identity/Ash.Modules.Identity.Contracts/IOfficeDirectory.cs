@@ -9,4 +9,7 @@ public interface IOfficeDirectory
 {
     /// <summary>Null when the office does not exist.</summary>
     Task<OfficeRouting?> GetRoutingAsync(long officeId, CancellationToken ct = default);
+
+    /// <summary>The internal id of an office known by public id (filters that arrive with a public id); null when unknown.</summary>
+    Task<long?> GetIdAsync(Guid officePublicId, CancellationToken ct = default);
 }
