@@ -170,10 +170,17 @@ internal sealed class RegisterNextLevelHandler(
             var mode = link.LinkMode;
             if (mode == CaseInstitution.Delegated && !newLevel.AllowsDelegation)
             {
+                // converted to MONITORING: the new level's category stays NULL (the lawyer sets it)
                 mode = CaseInstitution.Monitoring;
                 warnings.Add(new RegistrationWarning("institution.delegation_not_allowed",
                     $"Institucioni {institution.Name} kishte delegim; në shkallën {newLevel.Name} delegimi nuk lejohet, " +
                     "prandaj u lidh si monitorues."));
+            }
+            else if (mode == CaseInstitution.Delegated)
+            {
+                // the delegation continues: so does its category (DELEGIM / RELATIM), as task 027 sets them together
+                next.CategoryId = previous.CategoryId;
+                next.SubcategoryId = null;
             }
 
             await parties.LinkAsync(next, institution, mode, ct);

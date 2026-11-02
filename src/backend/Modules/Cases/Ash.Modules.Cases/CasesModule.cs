@@ -1,5 +1,7 @@
 using Ash.Modules.Cases.Application;
+using Ash.Modules.Cases.Application.AssignJurist;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.DelegateCase;
 using Ash.Modules.Cases.Application.Assistants;
 using Ash.Modules.Cases.Application.SetCategory;
 using Ash.Modules.Cases.Application.SetPriority;
@@ -69,12 +71,17 @@ public static class CasesModule
 		services.AddScoped<AssignableAssistantsHandler>();
 		services.AddScoped<AddAssistantHandler>();
 		services.AddScoped<RemoveAssistantHandler>();
+		services.AddScoped<InstitutionJurists>();
+		services.AddScoped<AssignableJuristsHandler>();
+		services.AddScoped<AssignJuristHandler>();
+		services.AddScoped<DelegateCaseHandler>();
+		services.AddScoped<UndelegateCaseHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
-			.MapCaseData();
+			.MapCaseData().MapCaseInstitutions();
 	}
 }

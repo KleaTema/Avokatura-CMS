@@ -42,6 +42,9 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
     public const string ViewPermission = "case.view";
     public const string EditRegistrationPermission = "case.edit_registration";
 
+    /// <summary>The institution user assigns its jurist — only where the user's institution has an active link.</summary>
+    public const string AssignJuristPermission = "institution.assign_jurist";
+
     /// <summary>The registering office's Protokoll corrects the registration while the case waits for a lawyer.</summary>
     private static readonly string[] RegistrationDeskActions = [EditRegistrationPermission, "party.add", "party.edit", "party.delete"];
 
@@ -111,17 +114,29 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
             return CaseAccess.None;
         }
 
-        return new CaseAccess(true, Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus));
+        // institution.assign_jurist acts only on cases its user's institution is linked to (task 027)
+        var institutionLinked = user.InstitutionId is { } institutionId && user.HasPermission(AssignJuristPermission)
+            && await db.CaseInstitutions.AnyAsync(
+                l => l.CaseId == id && l.EndedAt == null && l.InstitutionId == (uint)institutionId, cancellationToken);
+
+        return new CaseAccess(true,
+            Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked));
     }
 
     /// <summary>
-    /// Case permissions ∪ system permissions that apply to this case in its current state. A CLOSED case keeps only
+    /// Case permissions ∪ system permissions that apply to this case in its current state (office head actions in
+    /// the own office; institution.assign_jurist where the user's institution is linked). A CLOSED case keeps only
     /// what is in <see cref="ActionsAllowedWhenClosed"/>.
     /// </summary>
-    private HashSet<string> Effective(IEnumerable<string?> casePermissions, ushort officeId, string status)
+    private HashSet<string> Effective(IEnumerable<string?> casePermissions, ushort officeId, string status, bool institutionLinked)
     {
         var effective = casePermissions.Where(p => p is not null).Select(p => p!).ToHashSet();
         effective.Add(ViewPermission); // viewing through the office or view_all is still viewing
+        if (institutionLinked)
+        {
+            effective.Add(AssignJuristPermission);
+        }
+
         if (status == Case.Closed)
         {
             effective.IntersectWith(ActionsAllowedWhenClosed);

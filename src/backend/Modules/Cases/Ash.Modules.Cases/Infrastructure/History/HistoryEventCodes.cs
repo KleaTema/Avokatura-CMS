@@ -21,6 +21,7 @@ public static class HistoryEventCodes
         HistoryEventType.SuspensionChanged => "SUSPENSION_CHANGED",
         HistoryEventType.CategoryChanged => "CATEGORY_CHANGED",
         HistoryEventType.Delegated => "DELEGATED",
+        HistoryEventType.Undelegated => "UNDELEGATED",
         HistoryEventType.InstitutionLinked => "INSTITUTION_LINKED",
         HistoryEventType.InstitutionUnlinked => "INSTITUTION_UNLINKED",
         HistoryEventType.JuristAssigned => "JURIST_ASSIGNED",

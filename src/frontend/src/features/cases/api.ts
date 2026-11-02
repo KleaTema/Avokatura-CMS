@@ -363,6 +363,61 @@ export const useRemoveAssistant = (caseId: string) => {
   })
 }
 
+// ---------------------------------------------------------------- institution jurist and delegation (task 027)
+
+export type AssignableJurist = components['schemas']['AssignableJurist']
+export type CaseInstitutionView = components['schemas']['CaseInstitutionView']
+
+/** The jurists of the user's own institution (institution.assign_jurist), the current one marked. */
+export const useAssignableJurists = (caseId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['assignable-jurists', caseId] as const,
+    enabled,
+    retry: false,
+    queryFn: () => api.GET('/api/cases/{id}/assignable-jurists', { params: { path: { id: caseId } } }).then(unwrap),
+  })
+
+/**
+ * After a jurist or delegation change: the new rowVersion goes into the cached case at once, then the case
+ * (institutions, category, permissions), its history, the lists and the jurist picker reload.
+ */
+const afterInstitutionChange = (qc: QueryClient, caseId: string, rowVersion: number | string) => {
+  qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) => (c ? { ...c, header: { ...c.header, rowVersion } } : c))
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
+    qc.invalidateQueries({ queryKey: ['assignable-jurists', caseId] }),
+    invalidateCaseLists(qc),
+  ])
+}
+
+export const useAssignJurist = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { userPublicId: string; rowVersion: number }) =>
+      api.POST('/api/cases/{id}/jurist', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: (r) => afterInstitutionChange(qc, caseId, r.rowVersion),
+  })
+}
+
+export const useDelegateCase = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { institutionPublicId: string; mode: string; rowVersion: number }) =>
+      api.POST('/api/cases/{id}/delegate', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: (r) => afterInstitutionChange(qc, caseId, r.rowVersion),
+  })
+}
+
+export const useUndelegateCase = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { reason: string | null; rowVersion: number }) =>
+      api.POST('/api/cases/{id}/undelegate', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: (r) => afterInstitutionChange(qc, caseId, r.rowVersion),
+  })
+}
+
 export type RegistrationSearchItem = components['schemas']['RegistrationSearchItem']
 export type NextLevelPreview = components['schemas']['NextLevelPreviewResponse']
 export type NotifyNotClosedRequest = components['schemas']['NotifyNotClosedRequest']

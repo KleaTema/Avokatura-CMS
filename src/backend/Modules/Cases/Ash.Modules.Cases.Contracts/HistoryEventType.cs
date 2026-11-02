@@ -23,6 +23,8 @@ public enum HistoryEventType
     SuspensionChanged,
     CategoryChanged,
     Delegated,
+    /// <summary>UNDELEGATED (task 027): the delegation ended; the institution monitors the case again.</summary>
+    Undelegated,
     InstitutionLinked,
     /// <summary>INSTITUTION_UNLINKED (task 017): a MONITORING link ended when the institution's last party was removed.</summary>
     InstitutionUnlinked,

@@ -14,7 +14,15 @@ const ROLE: Record<string, { color: ChipColor; variant: 'filled' | 'outlined' }>
   INSTITUTION_JURIST: { color: 'default', variant: 'outlined' },
 }
 
+/** An institution's link: monitoring in grey; a delegation (the institution manages the case) in blue. */
+const LINK: Record<string, { color: ChipColor; variant: 'filled' | 'outlined' }> = {
+  MONITORING: { color: 'default', variant: 'outlined' },
+  DELEGIM: { color: 'primary', variant: 'filled' },
+  RELATIM: { color: 'primary', variant: 'filled' },
+}
+
 export type StatusChipProps =
+  | { kind: 'link'; value: string }
   | { kind: 'status'; value: string }
   | { kind: 'priority'; value: string }
   | { kind: 'role'; value: string }
@@ -43,6 +51,15 @@ export function StatusChip(props: StatusChipProps & { size?: 'small' | 'medium';
           color={PRIORITY[props.value] ?? 'default'}
           variant={props.value === 'NONE' ? 'outlined' : 'filled'}
           label={props.label ?? sq.cases.priority[props.value] ?? props.value}
+        />
+      )
+    case 'link':
+      return (
+        <Chip
+          size={size}
+          color={LINK[props.value]?.color ?? 'default'}
+          variant={LINK[props.value]?.variant ?? 'outlined'}
+          label={props.label ?? sq.cases.institutions.modes[props.value] ?? props.value}
         />
       )
     case 'role':

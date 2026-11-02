@@ -8,6 +8,7 @@ import {
   SecurityMeasureEditor,
   SuspensionEditor,
 } from '../../../components/caseData/editors'
+import { InstitutionsCard } from '../../../components/InstitutionsCard'
 import { TeamCard } from '../../../components/TeamCard'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusChip } from '../../../components/ui/StatusChip'
@@ -28,7 +29,7 @@ const e = sq.cases.edit
  * DateOnly fields with formatDate, moments with formatDateTime; money as strings (lib/money), never JS numbers.
  */
 export function DataTab({ detail }: { detail: CaseDetail }) {
-  const { data, institutions, permissions } = detail
+  const { data, permissions } = detail
   const can = (code: string) => permissions.includes(code)
   const categories = useCaseCategories().data ?? []
   const [toast, setToast] = useState<string | null>(null)
@@ -138,19 +139,7 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
 
       <TeamCard detail={detail} />
 
-      {institutions.length > 0 && (
-        <Section title={d.institutions}>
-          {institutions.map((i) => (
-            <Field
-              key={i.institutionPublicId}
-              label={i.name}
-              value={[d.modes[i.mode] ?? i.mode, i.juristNames.length > 0 ? `${d.jurists}: ${i.juristNames.join(', ')}` : null]
-                .filter(Boolean)
-                .join(' · ')}
-            />
-          ))}
-        </Section>
-      )}
+      <InstitutionsCard detail={detail} />
 
       <SuccessToast message={toast} onClose={() => setToast(null)} />
     </Stack>

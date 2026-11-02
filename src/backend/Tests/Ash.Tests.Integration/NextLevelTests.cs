@@ -342,7 +342,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser(Protokoll);
         var first = await RegisterFirstLevel(client);
-        await Scalar($"UPDATE case_institutions SET link_mode = 'DELEGATED' WHERE case_id = {first.Id}");
+        await DelegateWithSql(first.Id, "RELATIM");
 
         var response = await client.PostAsJsonAsync(NextLevelPath(first.PublicId),
             await NextLevelBody("Gjykata e Lartë", "HIGH_COURT", "Fatmir", "Hysëni"), Ct); // HIGH_COURT: allows_delegation = 0
@@ -353,8 +353,37 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
             .ShouldContain(w => w.GetProperty("code").GetString() == "institution.delegation_not_allowed");
         var nextId = Convert.ToInt64(await Scalar($"SELECT id FROM cases WHERE case_code = '{created.GetProperty("caseCode").GetString()}'"));
         (await Scalar($"SELECT link_mode FROM case_institutions WHERE case_id = {nextId}")).ShouldBe("MONITORING");
+        // monitoring again: no delegation category (task 027) — the lawyer sets the category
+        (await Scalar($"SELECT category_id FROM cases WHERE id = {nextId}")).ShouldBe(DBNull.Value);
         (await Scalar($"SELECT link_mode FROM case_institutions WHERE case_id = {first.Id}")).ShouldBe("DELEGATED"); // X/1 unchanged
+        (await Scalar($"SELECT c.code FROM cases x JOIN case_categories c ON c.id = x.category_id WHERE x.id = {first.Id}")).ShouldBe("RELATIM");
     }
+
+    [Fact]
+    public async Task Delegated_link_and_its_category_continue_at_a_level_with_delegation()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var first = await RegisterFirstLevel(client);
+        await DelegateWithSql(first.Id, "DELEGIM");
+
+        var response = await client.PostAsJsonAsync(NextLevelPath(first.PublicId), await NextLevelBody(), Ct); // APPEAL allows it
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await Json(response);
+        created.GetProperty("warnings").EnumerateArray()
+            .ShouldNotContain(w => w.GetProperty("code").GetString() == "institution.delegation_not_allowed");
+        var nextId = Convert.ToInt64(await Scalar($"SELECT id FROM cases WHERE case_code = '{created.GetProperty("caseCode").GetString()}'"));
+        (await Scalar($"SELECT link_mode FROM case_institutions WHERE case_id = {nextId}")).ShouldBe("DELEGATED");
+        (await Scalar($"SELECT c.code FROM cases x JOIN case_categories c ON c.id = x.category_id WHERE x.id = {nextId}")).ShouldBe("DELEGIM");
+        (await Scalar($"SELECT subcategory_id FROM cases WHERE id = {nextId}")).ShouldBe(DBNull.Value);
+    }
+
+    /// <summary>A delegation as task 027 writes it: the link DELEGATED and the category DELEGIM / RELATIM.</summary>
+    private Task<object?> DelegateWithSql(long caseId, string category) => Scalar($"""
+        UPDATE case_institutions SET link_mode = 'DELEGATED' WHERE case_id = {caseId};
+        UPDATE cases SET category_id = (SELECT id FROM case_categories WHERE code = '{category}'), subcategory_id = NULL WHERE id = {caseId};
+        """);
 
     private static async Task<JsonElement> Search(HttpClient client, string q)
     {

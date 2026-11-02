@@ -80,6 +80,20 @@ public sealed class UserDirectory(IdentityDbContext db) : IUserDirectory
         return rows.Select(u => new OfficeUser(u.Id, u.PublicId, u.FirstName, u.LastName)).ToList();
     }
 
+    public async Task<IReadOnlyList<OfficeUser>> GetInstitutionUsersByRoleAsync(
+        long institutionId, string roleCode, CancellationToken ct = default)
+    {
+        var institution = (uint)institutionId;
+        var rows = await (
+                from u in db.Users.AsNoTracking()
+                where u.IsActive && u.InstitutionId == institution
+                where db.UserRoles.Any(ur => ur.UserId == u.Id
+                                             && db.Roles.Any(r => r.Id == ur.RoleId && r.Code == roleCode))
+                select new { u.Id, u.PublicId, u.FirstName, u.LastName })
+            .ToListAsync(ct);
+        return rows.Select(u => new OfficeUser(u.Id, u.PublicId, u.FirstName, u.LastName)).ToList();
+    }
+
     public async Task<IReadOnlyList<UserSummary>> FindUsers(string? query, string? role, CancellationToken ct = default)
     {
         var users = Summaries();
