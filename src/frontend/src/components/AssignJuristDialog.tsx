@@ -13,11 +13,12 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
-import { useAssignableJurists, useAssignJurist, type AssignableJurist, type CaseDetail } from '../features/cases/api'
+import { caseKeys, useAssignableJurists, useAssignJurist, type AssignableJurist, type CaseDetail } from '../features/cases/api'
 import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { matches } from '../lib/search'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.institutions
 
@@ -39,7 +40,9 @@ export function AssignJuristDialog({
   const caseId = detail.header.publicId
   const jurists = useAssignableJurists(caseId, true)
   const assign = useAssignJurist(caseId)
-  const outcome = useSaveOutcome(caseId)
+  // "Rifresko" also reloads the jurists (the current one may have changed); the choice stays
+  const outcome = useSaveOutcome(caseId, undefined, {}, [caseKeys.picker(caseId, 'jurists')])
+  const fullScreen = useFullScreenDialog()
   const [picked, setPicked] = useState<AssignableJurist | null>(null)
   const [missing, setMissing] = useState(false)
   const list = jurists.data ?? []
@@ -61,10 +64,11 @@ export function AssignJuristDialog({
   }
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="jurist-title">
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen} aria-labelledby="jurist-title">
       <Box
         component="form"
         noValidate
+        onKeyDown={preventEnterSubmit}
         onSubmit={(e) => {
           e.preventDefault()
           void submit()

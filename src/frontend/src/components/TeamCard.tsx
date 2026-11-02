@@ -21,7 +21,7 @@ const rank = (m: CaseTeamMember) => {
 
 /**
  * "Ekipi": who works on the case now — name, role and since when. "Transfero" (case.transfer in the case's
- * permissions) opens the transfer dialog; the API refuses it for a case that is not ACTIVE. The primary lawyer
+ * permissions) opens the transfer dialog. The primary lawyer
  * (assistant.manage) adds legal assistants and removes them, after a confirmation (task 026).
  */
 export function TeamCard({ detail }: { detail: CaseDetail }) {
@@ -30,7 +30,8 @@ export function TeamCard({ detail }: { detail: CaseDetail }) {
   const [removing, setRemoving] = useState<CaseTeamMember | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const team = [...detail.team].sort((a, b) => rank(a) - rank(b))
-  const canTransfer = detail.permissions.includes('case.transfer') && detail.header.status === 'ACTIVE'
+  // permissions[] only: case.transfer exists only while ACTIVE (CaseAccessService state rules)
+  const canTransfer = detail.permissions.includes('case.transfer')
   // the primary lawyer (assistant.manage, a case permission: never on a CLOSED case)
   const canManageAssistants = detail.permissions.includes('assistant.manage')
 

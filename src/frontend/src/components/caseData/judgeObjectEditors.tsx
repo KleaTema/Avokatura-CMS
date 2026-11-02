@@ -74,8 +74,9 @@ export function JudgeEditor({
       <Typography variant="body2" color="text.secondary">
         {e.judge.court(detail.data.courtName)}
       </Typography>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'flex-start' } }}>
-        <Box sx={{ flex: 2 }}>
+      {/* one column: the card is narrow (a third of the row next to Objekti) */}
+      <Stack spacing={1}>
+        <Box>
           <Controller
             name="judge"
             control={control}
@@ -100,7 +101,6 @@ export function JudgeEditor({
           control={control}
           render={({ field }) => (
             <FormControlLabel
-              sx={{ flex: 1, mt: { md: 1 } }}
               control={<Checkbox checked={field.value} onChange={(ev) => toggleShowAll(ev.target.checked)} />}
               label={sq.cases.register.fields.showAllJudges}
             />

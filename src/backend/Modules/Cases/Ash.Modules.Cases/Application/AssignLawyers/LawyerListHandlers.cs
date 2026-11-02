@@ -1,5 +1,6 @@
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
+using Ash.Modules.Cases.Infrastructure.Access;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,8 @@ namespace Ash.Modules.Cases.Application.AssignLawyers;
 
 /// <summary>
 /// GET /api/cases/{id}/assignable-lawyers: the lawyers the current user may assign in this case, least loaded first.
-/// No view → 404; case.assign_lawyer missing from the case's effective permissions → 403.
+/// No view → 404; neither case.assign_lawyer (REGISTERED) nor case.transfer (ACTIVE) in the case's effective
+/// permissions → 403.
 /// </summary>
 internal sealed class AssignableLawyersHandler(CasesDbContext db, ICaseAccessService access, OfficeLawyers lawyers)
 {
@@ -23,7 +25,9 @@ internal sealed class AssignableLawyersHandler(CasesDbContext db, ICaseAccessSer
             return AssignLawyersHandler.NotFound();
         }
 
-        if (!(await access.GetEffectivePermissionsAsync((long)c.Id, ct)).Contains(OfficeLawyers.AssignPermission))
+        // the picker of both the assignment (REGISTERED) and the transfer (ACTIVE)
+        var effective = await access.GetEffectivePermissionsAsync((long)c.Id, ct);
+        if (!effective.Contains(OfficeLawyers.AssignPermission) && !effective.Contains(CaseAccessService.TransferPermission))
         {
             return AssignLawyersHandler.Forbidden();
         }

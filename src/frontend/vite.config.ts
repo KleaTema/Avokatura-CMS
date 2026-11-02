@@ -11,5 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // unit tests only; e2e/*.spec.ts are Playwright tests (npm run e2e)
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })

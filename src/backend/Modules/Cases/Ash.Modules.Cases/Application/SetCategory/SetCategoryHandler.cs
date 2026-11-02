@@ -25,14 +25,19 @@ internal sealed class SetCategoryHandler(
             return invalid;
         }
 
-        var found = await gate.ForChangeAsync(casePublicId, req.RowVersion!.Value, [Permission], ct);
+        // a delegated case: the category belongs to the delegation (task 027) — checked before the permission, which
+        // the effective permissions drop in that state
+        var categories = await reference.ListCaseCategoriesAsync(ct);
+        var found = await gate.ForChangeAsync(casePublicId, req.RowVersion!.Value, [Permission], ct,
+            c => Task.FromResult(categories.Any(x => x.Id == c.CategoryId && x.IsDelegation)
+                ? Error.Conflict("case.delegated", "Çështja është e deleguar; ndryshimi bëhet te delegimi.")
+                : null));
         if (found.IsFailure)
         {
             return found.Error!;
         }
 
         var c = found.Value;
-        var categories = await reference.ListCaseCategoriesAsync(ct);
         var subcategories = await reference.ListCaseSubcategoriesAsync(ct);
 
         // the requested pair
@@ -70,13 +75,7 @@ internal sealed class SetCategoryHandler(
             return errors.ToError(SetCategoryValidator.InvalidMessage);
         }
 
-        // the case's current category
         var current = categories.FirstOrDefault(x => x.Id == c.CategoryId);
-        if (current is { IsDelegation: true })
-        {
-            return Error.Conflict("case.delegated", "Çështja është e deleguar; ndryshimi bëhet te delegimi.");
-        }
-
         if (c.CategoryId == category!.Id && c.SubcategoryId == subcategory?.Id)
         {
             return CaseDataGate.NoChange();

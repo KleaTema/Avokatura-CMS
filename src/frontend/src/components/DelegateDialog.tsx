@@ -21,6 +21,7 @@ import { useState } from 'react'
 import { useDelegateCase, useUndelegateCase, type CaseDetail } from '../features/cases/api'
 import { sq } from '../i18n/sq'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.institutions
 const MODES = ['DELEGIM', 'RELATIM']
@@ -42,6 +43,7 @@ export function DelegateDialog({
   const caseId = detail.header.publicId
   const delegate = useDelegateCase(caseId)
   const outcome = useSaveOutcome(caseId)
+  const fullScreen = useFullScreenDialog()
   const monitoring = detail.institutions.filter((i) => i.mode === 'MONITORING')
   const [institution, setInstitution] = useState(monitoring.length === 1 ? monitoring[0].institutionPublicId : '')
   const [mode, setMode] = useState('DELEGIM')
@@ -63,10 +65,11 @@ export function DelegateDialog({
   }
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="delegate-title">
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen} aria-labelledby="delegate-title">
       <Box
         component="form"
         noValidate
+        onKeyDown={preventEnterSubmit}
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
@@ -89,6 +92,7 @@ export function DelegateDialog({
                     setMissing(false)
                   }}
                   required
+                  autoFocus
                   error={missing}
                   helperText={missing ? t.institutionRequired : undefined}
                 >
@@ -148,6 +152,7 @@ export function UndelegateDialog({
   const caseId = detail.header.publicId
   const undelegate = useUndelegateCase(caseId)
   const outcome = useSaveOutcome(caseId)
+  const fullScreen = useFullScreenDialog()
   const [reason, setReason] = useState('')
   const tooLong = reason.trim().length > 500
 
@@ -163,7 +168,7 @@ export function UndelegateDialog({
   }
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="undelegate-title">
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen} aria-labelledby="undelegate-title">
       <DialogTitle id="undelegate-title">{t.undelegateTitle}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>
@@ -173,6 +178,7 @@ export function UndelegateDialog({
             label={t.reason}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
+            autoFocus
             multiline
             minRows={2}
             error={tooLong}

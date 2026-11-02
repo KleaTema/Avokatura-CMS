@@ -426,8 +426,9 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
             rowVersion = await RowVersion(closed)
         }, Ct);
 
-        // nothing may be done in a CLOSED case except what ActionsAllowedWhenClosed keeps
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        // not REGISTERED (the state rule is checked before the permission, task 029): the specific 409
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await ProblemCode(response)).ShouldBe("case.already_assigned");
         (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {closed}")).ShouldBe(0L);
     }
 

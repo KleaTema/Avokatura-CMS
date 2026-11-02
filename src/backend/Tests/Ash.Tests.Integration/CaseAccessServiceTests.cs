@@ -3,6 +3,7 @@ using Ash.Modules.Cases;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
+using Ash.Modules.Reference;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
 using Ash.Tests.Integration.Infrastructure;
@@ -24,6 +25,7 @@ public sealed class CaseAccessFixture(string connectionString) : IAsyncLifetime
         Seed = await CaseSeed.CreateAsync(connectionString);
         var services = new ServiceCollection();
         services.AddAshInfrastructure(connectionString);
+        services.AddReferenceModule(new ConfigurationBuilder().Build()); // the state rules read is_delegation
         services.AddCasesModule(new ConfigurationBuilder().Build());
         services.AddScoped<TestCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<TestCurrentUser>());

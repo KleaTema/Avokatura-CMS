@@ -302,6 +302,12 @@ export const sq = {
   placeholder: {
     comingSoon: 'Kjo faqe do të ndërtohet së shpejti.',
   },
+  /** The one conflict message (409 case.changed), components/ui/ConflictAlert */
+  conflict: {
+    message: 'Të dhënat u ndryshuan nga një përdorues tjetër.',
+    keep: 'Vlerat që shkruat janë ende në fushat më poshtë, që t’i kopjoni ose t’i ruani përsëri.',
+    refresh: 'Rifresko',
+  },
   search: {
     noResults: (q: string) => `Nuk u gjet asnjë rezultat për „${q}“.`,
     clear: 'Pastro kërkimin',
@@ -388,7 +394,6 @@ export const sq = {
       primaryRequired: 'Zgjidhni avokatin primar.',
       noLawyers: 'Nuk ka avokatë që mund të caktohen në këtë çështje.',
       confirm: 'Cakto avokatin',
-      refresh: 'Rifresko',
       success: (name: string) => `Çështja iu caktua ${name}`,
     },
     edit: {
@@ -396,9 +401,7 @@ export const sq = {
       editSection: (section: string) => `Ndrysho: ${section}`,
       save: 'Ruaj',
       cancel: 'Anulo',
-      refresh: 'Rifresko',
       saved: 'Ndryshimi u ruajt.',
-      conflictKeep: 'Vlerat që shkruat janë ende në fushat më poshtë, që t’i kopjoni ose t’i ruani përsëri.',
       claim: {
         title: 'Vlera e padisë',
         amount: 'Shuma',
@@ -438,6 +441,7 @@ export const sq = {
       priority: {
         title: 'Prioriteti',
         label: 'Prioriteti',
+        saved: (name: string) => `Prioriteti u ndryshua: ${name}.`,
       },
       judge: {
         title: 'Gjyqtari',
@@ -468,7 +472,6 @@ export const sq = {
       removeQuestion: (name: string) => `Të hiqet ${name} nga çështja? Nuk do ta shohë më çështjen.`,
       added: (name: string) => `${name} u shtua si ndihmës ligjor.`,
       removed: (name: string) => `${name} u hoq nga çështja.`,
-      refresh: 'Rifresko',
     },
     institutions: {
       title: 'Institucionet',
@@ -533,11 +536,9 @@ export const sq = {
       changed: (from: string, to: string) => `${from} → ${to}`,
       removed: (name: string) => `${name} → hiqet`,
       none: '—',
-      noChange: 'Zgjidhni avokatin e ri primar ose ndryshoni avokatin sekondar.',
       secondaryRequired: 'Zgjidhni avokatin sekondar.',
       reasonTooLong: 'Arsyeja mund të ketë deri në 500 karaktere.',
       confirm: 'Transfero',
-      refresh: 'Rifresko',
       success: 'Ekipi i çështjes u ndryshua.',
     },
     page: {

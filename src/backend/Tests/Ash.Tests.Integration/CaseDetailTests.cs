@@ -145,7 +145,8 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
         await using var factory = new AshApiFactory(Db);
 
         var kryetar = await Permissions(factory, "kryetar@ash.local", s.Registered);
-        kryetar.ShouldBe(["case.assign_lawyer", "case.set_priority_any", "case.transfer", "case.view"]);
+        // no transfer while REGISTERED: there is no lawyer yet (state rules, task 029)
+        kryetar.ShouldBe(["case.assign_lawyer", "case.set_priority_any", "case.view"]);
         var protokoll = await Permissions(factory, "protokoll@ash.local", s.Registered);
         // the registration desk also fixes the judge and the object while REGISTERED (task 028)
         protokoll.ShouldBe(["case.change_judge", "case.change_object", "case.edit_registration", "case.view", "party.add", "party.delete", "party.edit"]);
@@ -153,7 +154,9 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
         await Execute($"UPDATE cases SET lifecycle_status = 'ACTIVE' WHERE id = {s.RegisteredId}");
         using var client = factory.CreateClient().AsUser("protokoll@ash.local");
         (await client.GetAsync($"/api/cases/{s.Registered}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await Permissions(factory, "kryetar@ash.local", s.Registered)).ShouldContain("case.assign_lawyer");
+        var active = await Permissions(factory, "kryetar@ash.local", s.Registered);
+        active.ShouldNotContain("case.assign_lawyer"); // assigned: from now on it is a transfer
+        active.ShouldContain("case.transfer");
     }
 
     [Theory]

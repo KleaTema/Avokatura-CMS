@@ -8,13 +8,19 @@ namespace Ash.Modules.Cases.Application.UpdateCaseData;
 
 /// <summary>
 /// The shared checks of the case-data endpoints (task 025), in this order: no view → 404; CLOSED → 409 (nothing of
-/// ActionsAllowedWhenClosed is edited here); none of the action's permissions in the effective permissions → 403;
-/// stale rowVersion → 409. Returns the TRACKED case; <see cref="SaveAsync"/> increments row_version and saves
+/// ActionsAllowedWhenClosed is edited here); the action's state rule (optional) → its 409; none of the action's
+/// permissions in the effective permissions → 403; stale rowVersion → 409. Returns the TRACKED case; <see cref="SaveAsync"/> increments row_version and saves
 /// (the UPDATE checks the row_version it read, so a change committed in between is a 409 too).
 /// </summary>
 internal sealed class CaseDataGate(CasesDbContext db, ICaseAccessService access)
 {
-    public async Task<Result<Case>> ForChangeAsync(Guid casePublicId, uint rowVersion, string[] anyOf, CancellationToken ct)
+    /// <param name="stateCheck">
+    /// The action's state rule (e.g. "only while ACTIVE"), checked BEFORE the permission: the effective permissions
+    /// drop a state-dependent action outside its state (CaseAccessService.ApplyStateRules), and the API should still
+    /// answer with the specific 409 rather than a 403.
+    /// </param>
+    public async Task<Result<Case>> ForChangeAsync(
+        Guid casePublicId, uint rowVersion, string[] anyOf, CancellationToken ct, Func<Case, Task<Error?>>? stateCheck = null)
     {
         var c = await db.Cases.SingleOrDefaultAsync(x => x.PublicId == casePublicId, ct);
         if (c is null || !await access.CanViewAsync((long)c.Id, ct))
@@ -25,6 +31,11 @@ internal sealed class CaseDataGate(CasesDbContext db, ICaseAccessService access)
         if (c.LifecycleStatus == Case.Closed)
         {
             return Error.Conflict("case.closed", "Çështja është mbyllur; të dhënat e saj nuk ndryshohen më.");
+        }
+
+        if (stateCheck is not null && await stateCheck(c) is { } wrongState)
+        {
+            return wrongState;
         }
 
         var effective = await access.GetEffectivePermissionsAsync((long)c.Id, ct);

@@ -14,15 +14,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
 import { Controller, useForm, useWatch, type Path, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
-import { ApiError } from '../api/client'
-import { useAssignableLawyers, useAssignLawyers, useCase, type AssignableLawyer } from '../features/cases/api'
+import { caseKeys, useAssignableLawyers, useAssignLawyers, useCase, type AssignableLawyer } from '../features/cases/api'
 import { sq } from '../i18n/sq'
 import { matches } from '../lib/search'
 import { problemMessage } from '../lib/problem'
+import { useSaveOutcome } from './caseData/useSaveOutcome'
 import { CaseCode } from './ui/CaseCode'
+import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.assign
 const d = sq.cases.page.data
@@ -67,9 +67,7 @@ export function AssignLawyerDialog({
   const detail = useCase(casePublicId)
   const lawyers = useAssignableLawyers(casePublicId)
   const assign = useAssignLawyers(casePublicId)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [conflict, setConflict] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const fullScreen = useFullScreenDialog()
   const {
     control,
     handleSubmit,
@@ -82,6 +80,8 @@ export function AssignLawyerDialog({
     defaultValues: { primary: null, secondary: null, priority: '' },
   })
   const primary = useWatch({ control, name: 'primary' })
+  // "Rifresko" also reloads the workload; the chosen lawyers stay in the form
+  const outcome = useSaveOutcome(casePublicId, setError, SERVER_FIELDS, [caseKeys.picker(casePublicId, 'lawyers')])
 
   const c = detail.data
   const canSetPriority = c?.permissions.includes(SET_PRIORITY) ?? false
@@ -90,8 +90,7 @@ export function AssignLawyerDialog({
 
   const onSubmit = handleSubmit(async (x) => {
     if (assign.isPending || !c || !x.primary) return
-    setFormError(null)
-    setConflict(null)
+    outcome.reset()
     // the priority is sent only when it was changed (and may be changed)
     const priority = canSetPriority && x.priority !== '' && x.priority !== c.header.priority ? x.priority : null
     try {
@@ -103,32 +102,9 @@ export function AssignLawyerDialog({
       })
       onAssigned(x.primary.fullName)
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        setConflict(problemMessage(error))
-      } else if (error instanceof ApiError && error.status === 400 && error.problem?.errors) {
-        const unmatched: string[] = []
-        for (const [key, messages] of Object.entries(error.problem.errors)) {
-          const path = SERVER_FIELDS[key]
-          if (path) setError(path, { type: 'server', message: messages.join(' ') })
-          else unmatched.push(...messages)
-        }
-        if (unmatched.length > 0) setFormError(unmatched.join(' '))
-      } else {
-        setFormError(problemMessage(error))
-      }
+      outcome.fail(error)
     }
   })
-
-  // reloads the case (new rowVersion, status) and the workload; the chosen lawyers stay in the form
-  const refresh = async () => {
-    setRefreshing(true)
-    try {
-      await Promise.all([detail.refetch(), lawyers.refetch()])
-      setConflict(null)
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   const picker = (name: 'primary' | 'secondary', label: string, required: boolean) => (
     <Controller
@@ -184,8 +160,8 @@ export function AssignLawyerDialog({
   )
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="assign-title">
-      <Box component="form" onSubmit={onSubmit} noValidate>
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen} aria-labelledby="assign-title">
+      <Box component="form" onSubmit={onSubmit} onKeyDown={preventEnterSubmit} noValidate>
         <DialogTitle id="assign-title">{t.title}</DialogTitle>
         <DialogContent>
           {loadError ? (
@@ -209,19 +185,7 @@ export function AssignLawyerDialog({
                 </Typography>
               </Box>
 
-              {conflict && (
-                <Alert
-                  severity="warning"
-                  action={
-                    <Button color="inherit" size="small" onClick={() => void refresh()} disabled={refreshing}>
-                      {t.refresh}
-                    </Button>
-                  }
-                >
-                  {conflict}
-                </Alert>
-              )}
-              {formError && <Alert severity="error">{formError}</Alert>}
+              {outcome.feedback}
               {options.length === 0 && <Alert severity="info">{t.noLawyers}</Alert>}
 
               {picker('primary', t.primary, true)}
@@ -259,7 +223,7 @@ export function AssignLawyerDialog({
             type="submit"
             variant="contained"
             color="secondary"
-            disabled={!c || !!loadError || assign.isPending || refreshing}
+            disabled={!c || !!loadError || assign.isPending || outcome.refreshing}
           >
             {t.confirm}
           </Button>

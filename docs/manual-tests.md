@@ -127,3 +127,18 @@ Keep this file up to date in every task (see `.github/skills/ash-task-done-check
 4. *Objekti → Ndrysho*: the counter shows "N / 4000"; save a change. → *Historiku*: "Objekti u ndryshua" with *Shiko objektin para dhe pas* showing both texts.
 5. As avokat2 (secondary): *Objekti* has *Ndrysho*, *Gjyqtari* does not.
 6. As protokoll on a REGISTERED case of TR: both cards have *Ndrysho*. After the Kryetar assigns a lawyer: the case gives 404 to protokoll.
+
+## 029 — Review of the assignment and case-data screens
+Automated part: `npm run e2e` (docs/e2e.md) — assign in four interactions, the concurrent-edit conflict, and the
+buttons of five users on a REGISTERED and an ACTIVE case. By hand:
+1. As kryetar, on a REGISTERED case: header *Cakto avokatin*; no *Transfero*. On an ACTIVE case: *Transfero*, no
+   *Cakto avokatin*. (The buttons come from `permissions[]` only; the API drops the actions outside their state.)
+2. As avokat1 (primary), on a delegated case: *Kategoria* shows Delegim with the hint and has no *Ndrysho*; after
+   *Anulo delegimin* the *Ndrysho* is back.
+3. Any 409 from another user (edit the same data in two tabs) shows the same warning everywhere — inline editors and
+   all dialogs: "Të dhënat u ndryshuan nga një përdorues tjetër." with *Rifresko*; the typed values stay.
+4. Keyboard, in every dialog (assign, transfer, add/remove assistant, jurist, delegate, undelegate): the focus starts
+   in the first field (on *Anulo* in the remove confirmation); Esc closes; the focus returns to the button that opened
+   it; Enter in a one-line field does not submit.
+5. At 390 px width every dialog fills the screen; no horizontal scrolling anywhere on the case page.
+6. Every successful save shows a toast (also the Kryetar's priority in the header: "Prioriteti u ndryshua: …").

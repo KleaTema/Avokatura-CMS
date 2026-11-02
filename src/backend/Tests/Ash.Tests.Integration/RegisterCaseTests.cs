@@ -364,6 +364,8 @@ public class RegisterCaseTests(MySqlFixture db) : IntegrationTest(db)
         {
             var services = new ServiceCollection();
             Ash.Infrastructure.InfrastructureServiceCollectionExtensions.AddAshInfrastructure(services, Db.AppConnectionString);
+            // CaseAccessService reads is_delegation through IReferenceData (state rules, task 029)
+            Ash.Modules.Reference.ReferenceModule.AddReferenceModule(services, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
             Ash.Modules.Cases.CasesModule.AddCasesModule(services, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
             services.AddScoped<ICurrentUser>(_ => new FixedCurrentUser(userId, officeId));
             await using var provider = services.BuildServiceProvider();

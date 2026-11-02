@@ -15,7 +15,7 @@ namespace Ash.Modules.Cases.Application.AssignLawyers;
 /// <summary>
 /// The Kryetar assigns the primary (and optionally the secondary) lawyer of a REGISTERED case and may set its priority;
 /// the case becomes ACTIVE and assigned_at starts the 30-day reminder. Order of checks: fields → no view 404 →
-/// case.assign_lawyer missing from the effective permissions 403 → not REGISTERED 409 → stale rowVersion 409 →
+/// not REGISTERED 409 → case.assign_lawyer missing from the effective permissions 403 → stale rowVersion 409 →
 /// lawyers not offered for this case 400 → priority without case.set_priority_any 403.
 /// </summary>
 internal sealed class AssignLawyersHandler(
@@ -54,16 +54,17 @@ internal sealed class AssignLawyersHandler(
             return NotFound();
         }
 
-        // A CLOSED case keeps no write action (ActionsAllowedWhenClosed), so it is refused here with 403.
+        // The state rule before the permission: case.assign_lawyer exists only while REGISTERED
+        // (CaseAccessService.ApplyStateRules), and any other state gets the specific 409, CLOSED included.
+        if (c.LifecycleStatus != Case.Registered)
+        {
+            return AlreadyAssigned();
+        }
+
         var effective = await access.GetEffectivePermissionsAsync((long)c.Id, ct);
         if (!effective.Contains(OfficeLawyers.AssignPermission))
         {
             return Forbidden();
-        }
-
-        if (c.LifecycleStatus != Case.Registered)
-        {
-            return AlreadyAssigned();
         }
 
         if (c.RowVersion != req.RowVersion)

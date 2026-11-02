@@ -27,7 +27,9 @@ export function InstitutionsCard({ detail }: { detail: CaseDetail }) {
 
   const can = (code: string) => detail.permissions.includes(code)
   const delegated = detail.institutions.find((i) => i.mode === 'DELEGATED')
-  const canDelegate = can('case.delegate') && detail.header.status === 'ACTIVE'
+  // permissions[] only: case.delegate exists only while ACTIVE (CaseAccessService state rules); which of the two
+  // buttons follows from the data: an active DELEGATED link means "Anulo delegimin"
+  const canDelegate = can('case.delegate')
   const modeOf = (i: CaseInstitutionView) =>
     i.mode === 'DELEGATED' ? (detail.data.category?.code === 'RELATIM' ? 'RELATIM' : 'DELEGIM') : 'MONITORING'
   const isMine = (i: CaseInstitutionView) => me?.institution?.publicId === i.institutionPublicId

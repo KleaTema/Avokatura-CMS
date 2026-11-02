@@ -1,4 +1,5 @@
 using Ash.Modules.Cases.Contracts;
+using Ash.Modules.Reference.Contracts;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Ash.Modules.Cases.Infrastructure.Access;
 
 /// <summary>Scoped: one query per (user, case) per request, then answered from memory.</summary>
-public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : ICaseAccessService
+public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IReferenceData reference) : ICaseAccessService
 {
     private readonly Dictionary<(long UserId, long CaseId), Task<CaseAccess>> _cache = [];
 
@@ -97,6 +98,7 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
                 c.OfficeId,
                 c.LifecycleStatus,
                 c.RegisteredBy,
+                c.CategoryId,
                 HasProfile = db.CaseAccess.Any(a => a.UserId == userId && a.CaseId == c.Id),
                 Permission = p == null ? null : p.PermissionCode
             }).ToListAsync(cancellationToken);
@@ -123,8 +125,47 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
             && await db.CaseInstitutions.AnyAsync(
                 l => l.CaseId == id && l.EndedAt == null && l.InstitutionId == (uint)institutionId, cancellationToken);
 
-        return new CaseAccess(true,
-            Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked));
+        // a DELEGIM / RELATIM category belongs to the delegation (task 027): is_delegation from the lookup table
+        var delegatedCategory = first.CategoryId is { } categoryId
+            && (await reference.ListCaseCategoriesAsync(cancellationToken)).Any(x => x.Id == categoryId && x.IsDelegation);
+
+        var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked);
+        ApplyStateRules(effective, first.LifecycleStatus, delegatedCategory);
+        return new CaseAccess(true, effective);
+    }
+
+    public const string AssignLawyerPermission = "case.assign_lawyer";
+    public const string TransferPermission = "case.transfer";
+    public const string DelegatePermission = "case.delegate";
+    public const string SetCategoryPermission = "case.set_category";
+
+    // Every state-dependent action belongs here, never in the UI or only in a handler.
+    /// <summary>
+    /// Actions that exist only in one state of the case, whoever holds them (task 029): the UI shows a button exactly
+    /// when its code is in the effective permissions. The handlers still check the state first, so the API answers
+    /// with its specific 409 (already assigned, not assigned, not active, delegated) rather than a 403.
+    /// - case.assign_lawyer: only while REGISTERED (afterwards it is a transfer);
+    /// - case.transfer, case.delegate: only while ACTIVE (there is a lawyer and the case is open);
+    /// - case.set_category: not while the category is DELEGIM / RELATIM (it changes through the delegation).
+    /// CLOSED is handled by <see cref="ActionsAllowedWhenClosed"/>.
+    /// </summary>
+    private static void ApplyStateRules(HashSet<string> effective, string status, bool delegatedCategory)
+    {
+        if (status != Case.Registered)
+        {
+            effective.Remove(AssignLawyerPermission);
+        }
+
+        if (status != Case.Active)
+        {
+            effective.Remove(TransferPermission);
+            effective.Remove(DelegatePermission);
+        }
+
+        if (delegatedCategory)
+        {
+            effective.Remove(SetCategoryPermission);
+        }
     }
 
     /// <summary>

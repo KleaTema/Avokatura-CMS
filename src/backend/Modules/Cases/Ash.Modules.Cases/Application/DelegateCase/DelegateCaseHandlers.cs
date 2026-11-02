@@ -24,6 +24,9 @@ internal static class Delegation
     public static Error NotActive() =>
         Error.Conflict("case.not_active", "Delegimi ndryshohet vetëm në një çështje aktive.");
 
+    /// <summary>The state rule, checked before the permission (case.delegate exists only while ACTIVE).</summary>
+    public static Task<Error?> OnlyActive(Case c) => Task.FromResult(c.LifecycleStatus == Case.Active ? null : NotActive());
+
     /// <summary>A parallel change of the links (1062 on uq_ci_active, or a deadlock) → 409, never 500.</summary>
     public static bool LinkSlotTaken(DbUpdateException ex) =>
         ex.InnerException is MySqlException m
@@ -52,18 +55,13 @@ internal sealed class DelegateCaseHandler(
             return invalid;
         }
 
-        var found = await gate.ForChangeAsync(casePublicId, req.RowVersion!.Value, [Delegation.Permission], ct);
+        var found = await gate.ForChangeAsync(casePublicId, req.RowVersion!.Value, [Delegation.Permission], ct, Delegation.OnlyActive);
         if (found.IsFailure)
         {
             return found.Error!;
         }
 
         var c = found.Value;
-        if (c.LifecycleStatus != Case.Active)
-        {
-            return Delegation.NotActive();
-        }
-
         var level = await reference.GetCourtLevel(c.CourtLevelId, ct);
         if (level is not { AllowsDelegation: true })
         {
@@ -159,18 +157,13 @@ internal sealed class UndelegateCaseHandler(
             return invalid;
         }
 
-        var found = await gate.ForChangeAsync(casePublicId, req.RowVersion!.Value, [Delegation.Permission], ct);
+        var found = await gate.ForChangeAsync(casePublicId, req.RowVersion!.Value, [Delegation.Permission], ct, Delegation.OnlyActive);
         if (found.IsFailure)
         {
             return found.Error!;
         }
 
         var c = found.Value;
-        if (c.LifecycleStatus != Case.Active)
-        {
-            return Delegation.NotActive();
-        }
-
         var delegated = await db.CaseInstitutions.SingleOrDefaultAsync(
             l => l.CaseId == c.Id && l.EndedAt == null && l.LinkMode == CaseInstitution.Delegated, ct);
         if (delegated is null)

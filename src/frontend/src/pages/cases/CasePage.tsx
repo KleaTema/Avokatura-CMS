@@ -55,8 +55,8 @@ export function CasePage() {
 
   const c = detail.data
   const { header, data } = c
-  // from the case's permissions and its status as the API sent them; the API refuses anything else
-  const canAssign = c.permissions.includes('case.assign_lawyer') && header.status === 'REGISTERED'
+  // from permissions[] only: case.assign_lawyer exists only while REGISTERED (CaseAccessService state rules)
+  const canAssign = c.permissions.includes('case.assign_lawyer')
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(header.caseCode)

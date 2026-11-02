@@ -105,6 +105,34 @@ export const caseKeys = {
   detail: (id: string) => ['case', id] as const,
   parties: (id: string) => ['case-parties', id] as const,
   history: (id: string) => ['case-history', id] as const,
+  /** every picker of a case (lawyers, assistants, jurists): one prefix, so one invalidation covers them all */
+  pickers: (id: string) => ['case-pickers', id] as const,
+  picker: (id: string, kind: 'lawyers' | 'assistants' | 'jurists') => ['case-pickers', id, kind] as const,
+}
+
+/**
+ * The one thing every case change of tasks 023–028 does on success (task 029): the response's rowVersion — and,
+ * with `apply`, the changed fields — go into the cached case at once, so the next save of the same user sends the
+ * latest rowVersion (one source, never a copy in a screen); then the case (with its team), its history, the case
+ * lists with their tab counts and the case's pickers reload.
+ */
+export function afterCaseChange(
+  qc: QueryClient,
+  caseId: string,
+  rowVersion?: number | string,
+  apply?: (c: CaseDetail) => CaseDetail,
+) {
+  qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) => {
+    if (!c) return c
+    const next = apply ? apply(c) : c
+    return rowVersion === undefined ? next : { ...next, header: { ...next.header, rowVersion } }
+  })
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.pickers(caseId) }),
+    invalidateCaseLists(qc),
+  ])
 }
 
 /** GET /api/cases/{id}; 404 (no access or no case — never told apart) is not retried. */
@@ -183,7 +211,7 @@ export type AssignLawyersRequest = components['schemas']['AssignLawyersRequest']
 /** The lawyers the Kryetar may assign in this case, least loaded first (the Kryetar himself with isSelf). */
 export const useAssignableLawyers = (caseId: string) =>
   useQuery({
-    queryKey: ['assignable-lawyers', caseId] as const,
+    queryKey: caseKeys.picker(caseId, 'lawyers'),
     retry: false,
     queryFn: () => api.GET('/api/cases/{id}/assignable-lawyers', { params: { path: { id: caseId } } }).then(unwrap),
   })
@@ -203,13 +231,7 @@ export const useAssignLawyers = (caseId: string) => {
   return useMutation({
     mutationFn: (body: AssignLawyersRequest) =>
       api.POST('/api/cases/{id}/assignment', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: () =>
-      Promise.all([
-        invalidateCaseLists(qc),
-        qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
-        qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
-        qc.invalidateQueries({ queryKey: ['assignable-lawyers'] }),
-      ]),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 
@@ -222,13 +244,7 @@ export const useTransferLawyer = (caseId: string) => {
   return useMutation({
     mutationFn: (body: TransferLawyerRequest) =>
       api.POST('/api/cases/{id}/transfer', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: () =>
-      Promise.all([
-        invalidateCaseLists(qc),
-        qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
-        qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
-        qc.invalidateQueries({ queryKey: ['assignable-lawyers'] }),
-      ]),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 
@@ -241,9 +257,8 @@ export type SetSecurityMeasureRequest = components['schemas']['SetSecurityMeasur
 export type SetPriorityRequest = components['schemas']['SetPriorityRequest']
 
 /**
- * One save of the case's data. The response's rowVersion (and changed fields) go straight into the case in the query
- * cache: the case page then shows them, and the next save sends that rowVersion — consecutive saves of the same user
- * never conflict with each other. The history and the lists (priority, suspension) reload.
+ * One save of the case's data: the changed fields show at once (`apply`), then the shared afterCaseChange (rowVersion
+ * into the cache, case / history / lists / pickers reload).
  */
 function useCaseDataSave<TBody, TResult extends { rowVersion: number | string }>(
   caseId: string,
@@ -253,12 +268,7 @@ function useCaseDataSave<TBody, TResult extends { rowVersion: number | string }>
   const qc = useQueryClient()
   return useMutation({
     mutationFn: send,
-    onSuccess: (result) => {
-      qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) =>
-        c ? apply({ ...c, header: { ...c.header, rowVersion: result.rowVersion } }, result) : c,
-      )
-      return Promise.all([qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }), invalidateCaseLists(qc)])
-    },
+    onSuccess: (result) => afterCaseChange(qc, caseId, result.rowVersion, (c) => apply(c, result)),
   })
 }
 
@@ -338,33 +348,19 @@ export type AssignableAssistant = components['schemas']['AssignableAssistant']
 /** Legal assistants of the case's office not yet on the case, least loaded first. */
 export const useAssignableAssistants = (caseId: string, enabled: boolean) =>
   useQuery({
-    queryKey: ['assignable-assistants', caseId] as const,
+    queryKey: caseKeys.picker(caseId, 'assistants'),
     enabled,
     retry: false,
     queryFn: () =>
       api.GET('/api/cases/{id}/assignable-assistants', { params: { path: { id: caseId } } }).then(unwrap),
   })
 
-/**
- * After adding or removing an assistant: the new rowVersion goes into the cached case at once (the next save uses
- * it), then the case (team), its history, the lists and the picker reload.
- */
-const afterAssistantChange = (qc: QueryClient, caseId: string, rowVersion: number | string) => {
-  qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) => (c ? { ...c, header: { ...c.header, rowVersion } } : c))
-  return Promise.all([
-    qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
-    qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
-    qc.invalidateQueries({ queryKey: ['assignable-assistants', caseId] }),
-    invalidateCaseLists(qc),
-  ])
-}
-
 export const useAddAssistant = (caseId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { userPublicId: string; rowVersion: number }) =>
       api.POST('/api/cases/{id}/assistants', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: (r) => afterAssistantChange(qc, caseId, r.rowVersion),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 
@@ -377,7 +373,7 @@ export const useRemoveAssistant = (caseId: string) => {
           params: { path: { id: caseId, userPublicId }, query: { rowVersion } },
         })
         .then(unwrap),
-    onSuccess: (r) => afterAssistantChange(qc, caseId, r.rowVersion),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 
@@ -389,32 +385,18 @@ export type CaseInstitutionView = components['schemas']['CaseInstitutionView']
 /** The jurists of the user's own institution (institution.assign_jurist), the current one marked. */
 export const useAssignableJurists = (caseId: string, enabled: boolean) =>
   useQuery({
-    queryKey: ['assignable-jurists', caseId] as const,
+    queryKey: caseKeys.picker(caseId, 'jurists'),
     enabled,
     retry: false,
     queryFn: () => api.GET('/api/cases/{id}/assignable-jurists', { params: { path: { id: caseId } } }).then(unwrap),
   })
-
-/**
- * After a jurist or delegation change: the new rowVersion goes into the cached case at once, then the case
- * (institutions, category, permissions), its history, the lists and the jurist picker reload.
- */
-const afterInstitutionChange = (qc: QueryClient, caseId: string, rowVersion: number | string) => {
-  qc.setQueryData<CaseDetail>(caseKeys.detail(caseId), (c) => (c ? { ...c, header: { ...c.header, rowVersion } } : c))
-  return Promise.all([
-    qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
-    qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
-    qc.invalidateQueries({ queryKey: ['assignable-jurists', caseId] }),
-    invalidateCaseLists(qc),
-  ])
-}
 
 export const useAssignJurist = (caseId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { userPublicId: string; rowVersion: number }) =>
       api.POST('/api/cases/{id}/jurist', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: (r) => afterInstitutionChange(qc, caseId, r.rowVersion),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 
@@ -423,7 +405,7 @@ export const useDelegateCase = (caseId: string) => {
   return useMutation({
     mutationFn: (body: { institutionPublicId: string; mode: string; rowVersion: number }) =>
       api.POST('/api/cases/{id}/delegate', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: (r) => afterInstitutionChange(qc, caseId, r.rowVersion),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 
@@ -432,7 +414,7 @@ export const useUndelegateCase = (caseId: string) => {
   return useMutation({
     mutationFn: (body: { reason: string | null; rowVersion: number }) =>
       api.POST('/api/cases/{id}/undelegate', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: (r) => afterInstitutionChange(qc, caseId, r.rowVersion),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 

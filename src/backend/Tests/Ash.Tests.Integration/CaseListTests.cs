@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Ash.Infrastructure;
 using Ash.Modules.Cases;
 using Ash.Modules.Cases.Application.ListCases;
+using Ash.Modules.Reference;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Ids;
 using Ash.Tests.Integration.Infrastructure;
@@ -410,6 +411,8 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
 
         var services = new ServiceCollection();
         services.AddAshInfrastructure(Db.AppConnectionString);
+        // CaseAccessService reads is_delegation through IReferenceData (state rules, task 029)
+        services.AddReferenceModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
         var currentUser = await LoadUser(user);
         services.AddScoped<ICurrentUser>(_ => currentUser);

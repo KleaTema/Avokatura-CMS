@@ -18,7 +18,7 @@ namespace Ash.Modules.Cases.Application.TransferLawyer;
 /// statistic), and/or sets, replaces or removes the secondary (REMOVED). Combinations: the secondary moves up to primary
 /// (the slot is then empty unless set), the old primary becomes the secondary. Rows are never deleted: changed rows are
 /// ENDED first, then the new rows inserted (the unique slots allow one current primary/secondary and one role per user).
-/// Order of checks: fields → no view 404 → CLOSED 409 → case.transfer missing 403 → REGISTERED 409 → stale rowVersion
+/// Order of checks: fields → no view 404 → CLOSED 409 → REGISTERED 409 → case.transfer missing 403 → stale rowVersion
 /// 409 → people not offered for this case / no change / primary = secondary 400.
 /// Legal assistants stay. TODO(client-q-assistants-on-transfer): default keep; the new primary may remove them (task 026).
 /// TODO(task-040, chat): move the old lawyer's personal reminders for this case; remove the old lawyer from the case chat.
@@ -57,14 +57,15 @@ internal sealed class TransferLawyerHandler(
             return Error.Conflict("case.closed", "Çështja është mbyllur.");
         }
 
-        if (!(await access.GetEffectivePermissionsAsync((long)c.Id, ct)).Contains(TransferPermission))
-        {
-            return AssignLawyersHandler.Forbidden();
-        }
-
+        // the state rule before the permission: case.transfer exists only while ACTIVE (CaseAccessService.ApplyStateRules)
         if (c.LifecycleStatus == Case.Registered)
         {
             return NotAssigned();
+        }
+
+        if (!(await access.GetEffectivePermissionsAsync((long)c.Id, ct)).Contains(TransferPermission))
+        {
+            return AssignLawyersHandler.Forbidden();
         }
 
         if (c.RowVersion != req.RowVersion)

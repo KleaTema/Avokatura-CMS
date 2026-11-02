@@ -13,7 +13,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ApiError } from '../api/client'
 import {
@@ -27,40 +26,10 @@ import {
 import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { matches } from '../lib/search'
+import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.assistants
-
-/** A 409 (another user changed the case): the message and "Rifresko", which reloads the case; the choice stays. */
-function useConflict(caseId: string) {
-  const qc = useQueryClient()
-  const [conflict, setConflict] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const refresh = async () => {
-    setRefreshing(true)
-    try {
-      await Promise.all([
-        qc.refetchQueries({ queryKey: caseKeys.detail(caseId) }),
-        qc.refetchQueries({ queryKey: ['assignable-assistants', caseId] }),
-      ])
-      setConflict(null)
-    } finally {
-      setRefreshing(false)
-    }
-  }
-  const alert = conflict ? (
-    <Alert
-      severity="warning"
-      action={
-        <Button color="inherit" size="small" onClick={() => void refresh()} disabled={refreshing}>
-          {t.refresh}
-        </Button>
-      }
-    >
-      {conflict}
-    </Alert>
-  ) : null
-  return { setConflict, alert, refreshing }
-}
 
 /** "Shto ndihmës": the office's legal assistants not yet on the case, with how many open cases each assists. */
 export function AddAssistantDialog({
@@ -75,15 +44,15 @@ export function AddAssistantDialog({
   const caseId = detail.header.publicId
   const options = useAssignableAssistants(caseId, true)
   const add = useAddAssistant(caseId)
+  const fullScreen = useFullScreenDialog()
+  // "Rifresko" also reloads the picker; the choice stays
+  const outcome = useSaveOutcome(caseId, undefined, {}, [caseKeys.picker(caseId, 'assistants')])
   const [picked, setPicked] = useState<AssignableAssistant | null>(null)
   const [fieldError, setFieldError] = useState<string | null>(null)
-  const [formError, setFormError] = useState<string | null>(null)
-  const { setConflict, alert, refreshing } = useConflict(caseId)
 
   const submit = async () => {
     if (add.isPending) return
-    setFormError(null)
-    setConflict(null)
+    outcome.reset()
     if (!picked) {
       setFieldError(t.required)
       return
@@ -92,19 +61,22 @@ export function AddAssistantDialog({
       await add.mutateAsync({ userPublicId: picked.publicId, rowVersion: Number(detail.header.rowVersion) })
       onAdded(picked.fullName)
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) setConflict(problemMessage(error))
-      else if (error instanceof ApiError && error.status === 400 && error.problem?.errors?.userPublicId) {
+      // the one field error belongs under the picker; everything else goes through the shared outcome
+      if (error instanceof ApiError && error.status === 400 && error.problem?.errors?.userPublicId) {
         setFieldError(error.problem.errors.userPublicId.join(' '))
-      } else setFormError(problemMessage(error))
+      } else {
+        outcome.fail(error)
+      }
     }
   }
 
   const list = options.data ?? []
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="add-assistant-title">
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen} aria-labelledby="add-assistant-title">
       <Box
         component="form"
         noValidate
+        onKeyDown={preventEnterSubmit}
         onSubmit={(ev) => {
           ev.preventDefault()
           void submit()
@@ -118,8 +90,7 @@ export function AddAssistantDialog({
             <CircularProgress aria-label={sq.errors.loading} />
           ) : (
             <Stack spacing={2} sx={{ pt: 1 }}>
-              {alert}
-              {formError && <Alert severity="error">{formError}</Alert>}
+              {outcome.feedback}
               {list.length === 0 && <Alert severity="info">{t.none}</Alert>}
               <Autocomplete<AssignableAssistant>
                 options={list}
@@ -158,7 +129,12 @@ export function AddAssistantDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>{sq.common.cancel}</Button>
-          <Button type="submit" variant="contained" color="secondary" disabled={add.isPending || refreshing || options.isError}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="secondary"
+            disabled={add.isPending || outcome.refreshing || options.isError}
+          >
             {t.confirm}
           </Button>
         </DialogActions>
@@ -167,7 +143,7 @@ export function AddAssistantDialog({
   )
 }
 
-/** Confirmation before removing an assistant (destructive: red). */
+/** Confirmation before removing an assistant (destructive: red; the focus starts on "Anulo"). */
 export function RemoveAssistantDialog({
   detail,
   assistant,
@@ -181,35 +157,35 @@ export function RemoveAssistantDialog({
 }) {
   const caseId = detail.header.publicId
   const remove = useRemoveAssistant(caseId)
-  const [formError, setFormError] = useState<string | null>(null)
-  const { setConflict, alert, refreshing } = useConflict(caseId)
+  const fullScreen = useFullScreenDialog()
+  const outcome = useSaveOutcome(caseId)
 
   const confirm = async () => {
     if (remove.isPending) return
-    setFormError(null)
-    setConflict(null)
+    outcome.reset()
     try {
       await remove.mutateAsync({ userPublicId: assistant.userPublicId, rowVersion: Number(detail.header.rowVersion) })
       onRemoved()
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) setConflict(problemMessage(error))
-      else setFormError(problemMessage(error))
+      outcome.fail(error)
     }
   }
 
   return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth aria-labelledby="remove-assistant-title">
+    <Dialog open onClose={onClose} maxWidth="xs" fullWidth fullScreen={fullScreen} aria-labelledby="remove-assistant-title">
       <DialogTitle id="remove-assistant-title">{t.removeTitle}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>
-          {alert}
-          {formError && <Alert severity="error">{formError}</Alert>}
+          {outcome.feedback}
           <DialogContentText>{t.removeQuestion(assistant.name)}</DialogContentText>
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{sq.common.cancel}</Button>
-        <Button variant="contained" color="error" onClick={() => void confirm()} disabled={remove.isPending || refreshing}>
+        {/* no field to focus: the safe choice gets the focus */}
+        <Button onClick={onClose} autoFocus>
+          {sq.common.cancel}
+        </Button>
+        <Button variant="contained" color="error" onClick={() => void confirm()} disabled={remove.isPending || outcome.refreshing}>
           {t.remove}
         </Button>
       </DialogActions>

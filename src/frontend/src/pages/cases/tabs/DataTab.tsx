@@ -41,7 +41,8 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
     setToast(e.saved)
   }
 
-  // DELEGIM/RELATIM is set and changed only through the delegation (task 027)
+  // DELEGIM/RELATIM is set and changed only through the delegation (task 027): shown as a hint; the "Ndrysho" comes
+  // from permissions[] (case.set_category is dropped while delegated, CaseAccessService state rules)
   const delegated = categories.some((c) => c.code === data.category?.code && c.isDelegation)
   const claim = data.claim
 
@@ -106,7 +107,7 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
 
         <EditableSection
           title={e.category.title}
-          canEdit={can('case.set_category') && !delegated}
+          canEdit={can('case.set_category')}
           view={
             <Stack spacing={1.5}>
               <Fields>

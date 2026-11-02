@@ -20,11 +20,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
 import { Controller, useForm, useWatch, type Path, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
-import { ApiError } from '../api/client'
 import {
+  caseKeys,
   useAssignableLawyers,
   useCase,
   useTransferLawyer,
@@ -34,7 +33,9 @@ import {
 import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { matches } from '../lib/search'
+import { useSaveOutcome } from './caseData/useSaveOutcome'
 import { CaseCode } from './ui/CaseCode'
+import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.transfer
 const MAX_REASON = 500
@@ -96,9 +97,7 @@ export function TransferDialog({
   const detail = useCase(casePublicId)
   const lawyers = useAssignableLawyers(casePublicId)
   const transfer = useTransferLawyer(casePublicId)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [conflict, setConflict] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const fullScreen = useFullScreenDialog()
   const {
     control,
     handleSubmit,
@@ -113,6 +112,12 @@ export function TransferDialog({
     control,
     name: ['newPrimary', 'secondaryAction', 'newSecondary', 'oldPrimaryToSecondary'],
   })
+  // with "the current primary becomes secondary" there is no secondary picker to put its error under
+  const serverFields: Record<string, Path<TransferValues>> = oldPrimaryToSecondary
+    ? { newPrimaryUserPublicId: 'newPrimary', reason: 'reason' }
+    : SERVER_FIELDS
+  // "Rifresko" also reloads the workload; the choices stay in the form
+  const outcome = useSaveOutcome(casePublicId, setError, serverFields, [caseKeys.picker(casePublicId, 'lawyers')])
 
   const c = detail.data
   const all = lawyers.data ?? []
@@ -160,13 +165,9 @@ export function TransferDialog({
   const changes = newPrimary !== null || (currentSecondary?.userPublicId ?? null) !== (finalSecondary?.id ?? null)
 
   const onSubmit = handleSubmit(async (x) => {
-    if (transfer.isPending || !c || !currentPrimary) return
-    setFormError(null)
-    setConflict(null)
-    if (!changes) {
-      setFormError(t.noChange)
-      return
-    }
+    // nothing to change: the confirm button is disabled then
+    if (transfer.isPending || !c || !currentPrimary || !changes) return
+    outcome.reset()
 
     const secondary: TransferLawyerRequest['secondary'] =
       x.oldPrimaryToSecondary && x.newPrimary
@@ -183,41 +184,15 @@ export function TransferDialog({
       })
       onTransferred()
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        setConflict(problemMessage(error))
-      } else if (error instanceof ApiError && error.status === 400 && error.problem?.errors) {
-        const unmatched: string[] = []
-        for (const [key, messages] of Object.entries(error.problem.errors)) {
-          const path = SERVER_FIELDS[key]
-          if (path && !(path === 'newSecondary' && x.oldPrimaryToSecondary)) {
-            setError(path, { type: 'server', message: messages.join(' ') })
-          } else {
-            unmatched.push(...messages)
-          }
-        }
-        if (unmatched.length > 0) setFormError(unmatched.join(' '))
-      } else {
-        setFormError(problemMessage(error))
-      }
+      outcome.fail(error)
     }
   })
-
-  // reloads the case (team, rowVersion) and the workload; the choices stay in the form
-  const refresh = async () => {
-    setRefreshing(true)
-    try {
-      await Promise.all([detail.refetch(), lawyers.refetch()])
-      setConflict(null)
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   const loadError = detail.error ?? lawyers.error
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="transfer-title">
-      <Box component="form" onSubmit={onSubmit} noValidate>
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={fullScreen} aria-labelledby="transfer-title">
+      <Box component="form" onSubmit={onSubmit} onKeyDown={preventEnterSubmit} noValidate>
         <DialogTitle id="transfer-title">{t.title}</DialogTitle>
         <DialogContent>
           {loadError ? (
@@ -230,19 +205,7 @@ export function TransferDialog({
                 <CaseCode code={c.header.caseCode} />
               </Box>
 
-              {conflict && (
-                <Alert
-                  severity="warning"
-                  action={
-                    <Button color="inherit" size="small" onClick={() => void refresh()} disabled={refreshing}>
-                      {t.refresh}
-                    </Button>
-                  }
-                >
-                  {conflict}
-                </Alert>
-              )}
-              {formError && <Alert severity="error">{formError}</Alert>}
+              {outcome.feedback}
 
               {/* the new primary */}
               <Controller
@@ -415,7 +378,7 @@ export function TransferDialog({
             type="submit"
             variant="contained"
             color="secondary"
-            disabled={!c || !!loadError || transfer.isPending || refreshing || !changes}
+            disabled={!c || !!loadError || transfer.isPending || outcome.refreshing || !changes}
           >
             {t.confirm}
           </Button>
