@@ -22,6 +22,7 @@ export function OptionPicker({
   helperText,
   autoFocus,
   noOptionsText = sq.search.noOptions,
+  size,
 }: {
   options: PickerOption[]
   value: string
@@ -33,6 +34,7 @@ export function OptionPicker({
   helperText?: string
   autoFocus?: boolean
   noOptionsText?: string
+  size?: 'small' | 'medium'
 }) {
   const selected = options.find((o) => o.value === value) ?? null
   return (
@@ -44,6 +46,7 @@ export function OptionPicker({
       isOptionEqualToValue={(a, b) => a.value === b.value}
       filterOptions={(all, state) => all.filter((o) => matches(state.inputValue, o.label))}
       disabled={disabled}
+      size={size}
       noOptionsText={noOptionsText}
       renderInput={(params) => (
         <TextField

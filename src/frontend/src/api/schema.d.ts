@@ -196,6 +196,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/assignable-lawyers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAssignableLawyers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/office-lawyers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListOfficeLawyers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AssignLawyers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -1167,6 +1215,32 @@ export interface components {
             maxSizeBytes: number | string;
             appliesTo: string;
         };
+        AssignableLawyer: {
+            /** Format: uuid */
+            publicId: string;
+            fullName: string;
+            isSelf: boolean;
+            workload: components["schemas"]["LawyerWorkload"];
+        };
+        AssignLawyersRequest: {
+            /** Format: uuid */
+            primaryUserPublicId: null | string;
+            /** Format: uuid */
+            secondaryUserPublicId: null | string;
+            priority: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        AssignLawyersResponse: {
+            /** Format: uuid */
+            casePublicId: string;
+            status: string;
+            priority: string;
+            /** Format: date-time */
+            assignedAt: string;
+            /** Format: uint32 */
+            rowVersion: number | string;
+        };
         CaseCategoryResponse: {
             code: string;
             name: string;
@@ -1577,6 +1651,12 @@ export interface components {
             items: components["schemas"]["UserResponse"][];
             nextCursor: null | string;
         };
+        LawyerWorkload: {
+            /** Format: int32 */
+            activePrimary: number | string;
+            /** Format: int32 */
+            activeSecondary: number | string;
+        };
         NamedRef: {
             /** Format: uuid */
             publicId: string;
@@ -1622,6 +1702,12 @@ export interface components {
             isActive: boolean;
             /** Format: int32 */
             activeUsers: number | string;
+        };
+        OfficeLawyer: {
+            /** Format: uuid */
+            publicId: string;
+            fullName: string;
+            isSelf: boolean;
         };
         PartyInstitutionRef: {
             /** Format: uuid */
@@ -2300,6 +2386,110 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListAssignableLawyers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignableLawyer"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListOfficeLawyers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficeLawyer"][];
+                };
+            };
+        };
+    };
+    AssignLawyers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignLawyersRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignLawyersResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

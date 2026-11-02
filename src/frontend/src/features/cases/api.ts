@@ -40,6 +40,8 @@ export interface CaseListFilters {
   /** Tirane calendar dates, yyyy-MM-dd */
   hearingFrom: string
   hearingTo: string
+  /** public id of a lawyer (current primary or secondary) */
+  lawyerId: string
 }
 
 const LIST_PAGE_SIZE = 50
@@ -82,6 +84,7 @@ export const useCaseList = (f: CaseListFilters, enabled: boolean) =>
               suspended: f.suspended === '' ? undefined : f.suspended === 'true',
               hearingFrom: f.hearingFrom || undefined,
               hearingTo: f.hearingTo || undefined,
+              lawyerId: f.lawyerId || undefined,
               after: pageParam,
               limit: LIST_PAGE_SIZE,
             },
@@ -168,6 +171,45 @@ export const useRemoveParty = (caseId: string) => {
         })
         .then(unwrap),
     onSuccess: () => invalidateCaseParties(qc, caseId),
+  })
+}
+
+// ---------------------------------------------------------------- assigning lawyers (task 023)
+
+export type AssignableLawyer = components['schemas']['AssignableLawyer']
+export type OfficeLawyer = components['schemas']['OfficeLawyer']
+export type AssignLawyersRequest = components['schemas']['AssignLawyersRequest']
+
+/** The lawyers the Kryetar may assign in this case, least loaded first (the Kryetar himself with isSelf). */
+export const useAssignableLawyers = (caseId: string) =>
+  useQuery({
+    queryKey: ['assignable-lawyers', caseId] as const,
+    retry: false,
+    queryFn: () => api.GET('/api/cases/{id}/assignable-lawyers', { params: { path: { id: caseId } } }).then(unwrap),
+  })
+
+/** The lawyers of the user's office, for the lawyer filter of the case list (case.view_office). */
+export const useOfficeLawyers = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['office-lawyers'] as const,
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: () => api.GET('/api/cases/office-lawyers').then(unwrap),
+  })
+
+/** POST assignment: the case becomes ACTIVE, moves between the tabs and changes its page and history. */
+export const useAssignLawyers = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: AssignLawyersRequest) =>
+      api.POST('/api/cases/{id}/assignment', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: () =>
+      Promise.all([
+        invalidateCaseLists(qc),
+        qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) }),
+        qc.invalidateQueries({ queryKey: caseKeys.history(caseId) }),
+        qc.invalidateQueries({ queryKey: ['assignable-lawyers'] }),
+      ]),
   })
 }
 

@@ -64,8 +64,10 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.NextHearingAt).HasColumnName("next_hearing_at");
             b.Property(x => x.RegisteredBy).HasColumnName("registered_by");
             b.Property(x => x.RegisteredAt).HasColumnName("registered_at");
+            b.Property(x => x.AssignedAt).HasColumnName("assigned_at");
             b.Property(x => x.ClosedAt).HasColumnName("closed_at");
-            b.Property(x => x.RowVersion).HasColumnName("row_version");
+            // UPDATE … WHERE row_version = <read value>: a change committed in between fails instead of being overwritten
+            b.Property(x => x.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
         });
 
         modelBuilder.Entity<CaseHearing>(b =>
@@ -122,6 +124,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.CaseId).HasColumnName("case_id");
             b.Property(x => x.UserId).HasColumnName("user_id");
             b.Property(x => x.CaseRole).HasColumnName("case_role");
+            b.Property(x => x.AssignedBy).HasColumnName("assigned_by");
             b.Property(x => x.AssignedAt).HasColumnName("assigned_at").ValueGeneratedOnAdd();
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
         });
@@ -192,7 +195,11 @@ public sealed class Dossier
 public sealed class Case
 {
     public const string Registered = "REGISTERED";
+    public const string Active = "ACTIVE";
     public const string Closed = "CLOSED";
+
+    /// <summary>The values of ck_cases_priority.</summary>
+    public static readonly string[] Priorities = ["NONE", "LOW", "MEDIUM", "HIGH"];
 
     public ulong Id { get; set; }
     public Guid PublicId { get; set; }
@@ -229,6 +236,8 @@ public sealed class Case
     public DateTime? NextHearingAt { get; set; }
     public uint RegisteredBy { get; set; }
     public DateTime RegisteredAt { get; set; }
+    /// <summary>First primary lawyer assigned: the start of the 30-day reminder.</summary>
+    public DateTime? AssignedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
     public uint RowVersion { get; set; }
 }
@@ -302,12 +311,14 @@ public sealed class CaseHistoryEvent
 public sealed class CaseAssignmentRow
 {
     public const string PrimaryLawyer = "PRIMARY_LAWYER";
+    public const string SecondaryLawyer = "SECONDARY_LAWYER";
 
     public ulong Id { get; set; }
     public ulong CaseId { get; set; }
     public uint UserId { get; set; }
     public string CaseRole { get; set; } = string.Empty;
-    /// <summary>Database default on insert.</summary>
+    public uint AssignedBy { get; set; }
+    /// <summary>Database default on insert when not set.</summary>
     public DateTime AssignedAt { get; set; }
     public DateTime? EndedAt { get; set; }
 }

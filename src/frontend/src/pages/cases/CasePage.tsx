@@ -1,6 +1,9 @@
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { UserPlus } from 'lucide-react'
+import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
 import { CaseCode } from '../../components/ui/CaseCode'
 import { StatusChip } from '../../components/ui/StatusChip'
+import { SuccessToast } from '../../components/ui/SuccessToast'
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { ApiError } from '../../api/client'
@@ -28,6 +31,8 @@ export function CasePage() {
   const { publicId = '', tab } = useParams()
   const detail = useCase(publicId)
   const [copied, setCopied] = useState(false)
+  const [assigning, setAssigning] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   if (tab !== undefined && !isCaseTab(tab)) return <Navigate to={`/cases/${publicId}`} replace />
   const current: CaseTab = isCaseTab(tab) ? tab : 'te-dhenat'
@@ -49,6 +54,8 @@ export function CasePage() {
 
   const c = detail.data
   const { header, data } = c
+  // from the case's permissions and its status as the API sent them; the API refuses anything else
+  const canAssign = c.permissions.includes('case.assign_lawyer') && header.status === 'REGISTERED'
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(header.caseCode)
@@ -78,6 +85,16 @@ export function CasePage() {
             <Typography role="status" variant="body2" color="success.dark">
               {copied ? sq.cases.register.success.copied : ''}
             </Typography>
+            {canAssign && (
+              <Button
+                variant="contained"
+                startIcon={<UserPlus size={20} aria-hidden />}
+                onClick={() => setAssigning(true)}
+                sx={{ ml: { sm: 'auto' } }}
+              >
+                {sq.cases.assign.button}
+              </Button>
+            )}
           </Stack>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
             <StatusChip kind="status" value={header.status} size="medium" />
@@ -114,6 +131,18 @@ export function CasePage() {
         {current === 'vendimi' && <DecisionTab detail={c} />}
         {current === 'historiku' && <HistoryTab casePublicId={header.publicId} />}
       </Box>
+
+      {assigning && (
+        <AssignLawyerDialog
+          casePublicId={header.publicId}
+          onClose={() => setAssigning(false)}
+          onAssigned={(name) => {
+            setAssigning(false)
+            setToast(sq.cases.assign.success(name))
+          }}
+        />
+      )}
+      <SuccessToast message={toast} onClose={() => setToast(null)} />
     </Stack>
   )
 }

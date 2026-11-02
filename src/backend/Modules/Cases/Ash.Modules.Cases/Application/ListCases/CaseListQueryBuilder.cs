@@ -124,7 +124,7 @@ public sealed partial class CaseListQueryBuilder(CasesDbContext db, CaseAccessSe
         if (f.LawyerUserId is { } lawyer)
         {
             cases = cases.Where(c => db.CaseAssignments.Any(a => a.CaseId == c.Id && a.UserId == lawyer && a.EndedAt == null
-                && (a.CaseRole == CaseAssignmentRow.PrimaryLawyer || a.CaseRole == "SECONDARY_LAWYER")));
+                && (a.CaseRole == CaseAssignmentRow.PrimaryLawyer || a.CaseRole == CaseAssignmentRow.SecondaryLawyer)));
         }
 
         if (f.HearingFromUtc is { } from)

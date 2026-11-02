@@ -52,8 +52,7 @@ internal sealed class ListCasesHandler(
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
 
-    private static readonly string[] Statuses = [Case.Registered, "ACTIVE", Case.Closed];
-    private static readonly string[] Priorities = ["NONE", "LOW", "MEDIUM", "HIGH"];
+    private static readonly string[] Statuses = [Case.Registered, Case.Active, Case.Closed];
 
     public async Task<Result<KeysetPage<CaseListItem>>> Handle(ListCasesQuery query, CancellationToken ct)
     {
@@ -129,7 +128,7 @@ internal sealed class ListCasesHandler(
         if (!string.IsNullOrWhiteSpace(q.Priority))
         {
             priority = q.Priority.Trim().ToUpperInvariant();
-            if (!Priorities.Contains(priority))
+            if (!Case.Priorities.Contains(priority))
             {
                 errors.Add("priority", "Prioriteti duhet të jetë NONE, LOW, MEDIUM ose HIGH.");
             }

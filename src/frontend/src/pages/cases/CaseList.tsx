@@ -6,6 +6,7 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -25,13 +26,22 @@ import {
 import dayjs from 'dayjs'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { CirclePause } from 'lucide-react'
+import { CirclePause, UserPlus } from 'lucide-react'
 import { AppDatePicker } from '../../components/AppDatePicker'
+import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
+import { OptionPicker } from '../../components/OptionPicker'
 import { CaseCode } from '../../components/ui/CaseCode'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatusChip } from '../../components/ui/StatusChip'
+import { SuccessToast } from '../../components/ui/SuccessToast'
 import { CourtPicker } from '../../components/CourtPicker'
-import { useCaseList, useCaseTabs, type CaseListFilters, type CaseListItem } from '../../features/cases/api'
+import {
+  useCaseList,
+  useCaseTabs,
+  useOfficeLawyers,
+  type CaseListFilters,
+  type CaseListItem,
+} from '../../features/cases/api'
 import { useMe } from '../../features/identity/api'
 import { useCaseCategories, useCourtLevels, useCourts } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
@@ -44,10 +54,13 @@ import { useDebounced } from '../../lib/useDebounced'
 const t = sq.cases.list
 
 /** URL query parameters of the list (shareable; Back/Forward keep them). */
-type Param = 'tab' | 'q' | 'status' | 'court' | 'category' | 'priority' | 'suspended' | 'from' | 'to'
-const FILTER_PARAMS: Param[] = ['q', 'status', 'court', 'category', 'priority', 'suspended', 'from', 'to']
+type Param = 'tab' | 'q' | 'status' | 'court' | 'category' | 'priority' | 'suspended' | 'from' | 'to' | 'lawyer'
+const FILTER_PARAMS: Param[] = ['q', 'status', 'court', 'category', 'priority', 'suspended', 'from', 'to', 'lawyer']
 
-/** Cases waiting for a lawyer have no category, priority or suspension yet: those filters and columns are hidden. */
+/**
+ * Cases waiting for a lawyer have no lawyer, category, priority or suspension yet: those filters and columns are
+ * hidden.
+ */
 const TABS_WITHOUT_CLASSIFICATION = new Set(['registered', 'unassigned'])
 
 /** A select whose "" option ("Të hapura", "Të gjitha") is shown as a value, not as an empty field. */
@@ -57,7 +70,7 @@ const HIDE_ON_PHONE ={ display: { xs: 'none', md: 'table-cell' } } as const
 const TRUNCATE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
 interface Column {
-  key: 'code' | 'act' | 'court' | 'lawyer' | 'hearing' | 'priority' | 'status' | 'suspended'
+  key: 'code' | 'act' | 'court' | 'lawyer' | 'assign' | 'hearing' | 'priority' | 'status' | 'suspended'
   label: string
   /** shorter header on a phone */
   phoneLabel?: string
@@ -78,6 +91,15 @@ const COLUMNS: Column[] = [
   { key: 'status', label: t.columns.status, width: { xs: 112, md: 120 }, phone: true },
   { key: 'suspended', label: '', width: { xs: 28, md: 44 }, phone: true, classification: true },
 ]
+
+/** "Pa avokat" for a user who may assign: the (always empty) lawyer column becomes the assign button. */
+const ASSIGN_COLUMN: Column = {
+  key: 'assign',
+  label: sq.common.actions,
+  phoneLabel: '', // too narrow for a header on a phone; the icon button has its own label
+  width: { xs: 48, md: 170 },
+  phone: true,
+}
 
 /** Less padding on a phone, where every pixel of the row counts. */
 const CELL_PADDING = { px: { xs: 1, md: 2 } } as const
@@ -113,6 +135,10 @@ export function CaseListPage() {
   const categories = useCaseCategories()
   const [panelOpen, setPanelOpen] = useState(false)
   const panelId = useId()
+  const canFilterLawyer = permissions.includes('case.view_office')
+  const officeLawyers = useOfficeLawyers(canFilterLawyer)
+  const [assigning, setAssigning] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   const userTabs = tabs.data?.tabs ?? []
   const requested = get('tab')
@@ -132,11 +158,19 @@ export function CaseListPage() {
     suspended: classification ? get('suspended') : '',
     hearingFrom: get('from'),
     hearingTo: get('to'),
-    // TODO(task 023): lawyer filter (lawyerId = user public id) with the lawyer picker.
+    lawyerId: classification && canFilterLawyer ? get('lawyer') : '',
   }
   const list = useCaseList(filters, tab !== '')
   const items = list.data?.pages.flatMap((p) => p.items) ?? []
-  const columns = COLUMNS.filter((c) => classification || !c.classification)
+  // the button only for who may assign; the API checks each case again
+  const canAssign = tab === 'unassigned' && permissions.includes('case.assign_lawyer')
+  const columns = COLUMNS.filter((c) => classification || !c.classification).map((c) =>
+    canAssign && c.key === 'lawyer' ? ASSIGN_COLUMN : c,
+  )
+  const lawyerOptions = (officeLawyers.data ?? []).map((x) => ({
+    value: x.publicId,
+    label: x.isSelf ? `${x.fullName} ${sq.cases.assign.self}` : x.fullName,
+  }))
 
   // ---------------------------------------------------------------- active filters (chips + the "Filtra" badge)
   const courtName = courts.data?.find((c) => String(c.id) === filters.courtId)?.name
@@ -148,6 +182,10 @@ export function CaseListPage() {
   }
   if (filters.courtId) {
     chips.push({ key: 'court', label: `${t.court}: ${courtName ?? filters.courtId}`, clear: { court: '' }, inPanel: narrow })
+  }
+  if (filters.lawyerId) {
+    const lawyerName = lawyerOptions.find((x) => x.value === filters.lawyerId)?.label
+    chips.push({ key: 'lawyer', label: `${t.lawyer}: ${lawyerName ?? '…'}`, clear: { lawyer: '' }, inPanel: true })
   }
   if (filters.categoryCode) {
     chips.push({
@@ -295,6 +333,17 @@ export function CaseListPage() {
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-end' } }}>
             {narrow && statusField}
             {narrow && courtField}
+            {classification && canFilterLawyer && (
+              <Box sx={{ width: { xs: '100%', md: 240 } }}>
+                <OptionPicker
+                  options={lawyerOptions}
+                  value={filters.lawyerId}
+                  onChange={(lawyer) => set({ lawyer })}
+                  label={t.lawyer}
+                  size="small"
+                />
+              </Box>
+            )}
             {classification && (
               <>
                 <PanelSelect label={t.category} value={filters.categoryCode} onChange={(category) => set({ category })}>
@@ -386,7 +435,7 @@ export function CaseListPage() {
                       component="div"
                       sx={{ width: c.width, ...CELL_PADDING, ...TRUNCATE, ...(c.phone ? {} : HIDE_ON_PHONE) }}
                     >
-                      {c.phoneLabel ? (
+                      {c.phoneLabel !== undefined ? (
                         <>
                           <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
                             {c.label}
@@ -404,7 +453,12 @@ export function CaseListPage() {
               </TableHead>
               <TableBody component="div">
                 {items.map((item) => (
-                  <CaseRow key={item.publicId} item={item} columns={columns} />
+                  <CaseRow
+                    key={item.publicId}
+                    item={item}
+                    columns={columns}
+                    onAssign={canAssign ? () => setAssigning(item.publicId) : undefined}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -419,22 +473,54 @@ export function CaseListPage() {
           </Stack>
         </Box>
       )}
+
+      {assigning && (
+        <AssignLawyerDialog
+          casePublicId={assigning}
+          onClose={() => setAssigning(null)}
+          onAssigned={(name) => {
+            setAssigning(null)
+            setToast(sq.cases.assign.success(name))
+          }}
+        />
+      )}
+      <SuccessToast message={toast} onClose={() => setToast(null)} />
     </Stack>
   )
 }
 
-/** One case as a real link: Tab reaches it, Enter opens it, Ctrl/middle-click opens a new tab. */
-function CaseRow({ item, columns }: { item: CaseListItem; columns: Column[] }) {
+/**
+ * One case as a real link: Tab reaches it, Enter opens it, Ctrl/middle-click opens a new tab. With `onAssign` the row
+ * holds a button, which cannot sit inside an <a>: then the case code is the link, stretched over the whole row
+ * (::after), and the button lies above it.
+ */
+function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Column[]; onAssign?: () => void }) {
   const today = todayInTirane()
   const hearingDay = tiraneDateOf(item.nextHearingAt)
   const when = hearingDay === today ? t.today : hearingDay === addDays(today, 1) ? t.tomorrow : null
   const hearing = item.nextHearingAt ? formatDateTime(item.nextHearingAt) : t.none
+  const code = <CaseCode code={item.caseCode} />
   const cell: Record<Column['key'], ReactNode> = {
     code: (
       <>
         {/* the row is the link: the code is styled as one, not a nested <a> */}
         <Box sx={TRUNCATE}>
-          <CaseCode code={item.caseCode} />
+          {onAssign ? (
+            <Box
+              component={Link}
+              to={`/cases/${item.publicId}`}
+              sx={{
+                textDecoration: 'none',
+                outline: 'none',
+                '&::after': { content: '""', position: 'absolute', inset: 0 },
+                '&:focus-visible::after': { outline: 2, outlineColor: 'primary.main', outlineOffset: -2 },
+              }}
+            >
+              {code}
+            </Box>
+          ) : (
+            code
+          )}
         </Box>
         <Typography variant="caption" component="p" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' } }}>
           {item.courtName}
@@ -452,6 +538,32 @@ function CaseRow({ item, columns }: { item: CaseListItem; columns: Column[] }) {
         <Box sx={TRUNCATE}>{item.primaryLawyerName ?? t.none}</Box>
       </Tooltip>
     ),
+    // above the stretched link (position + z-index), so a click assigns instead of opening the case
+    assign: onAssign ? (
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<UserPlus size={18} aria-hidden />}
+          onClick={onAssign}
+          aria-label={sq.cases.assign.buttonFor(item.caseCode)}
+          sx={{ display: { xs: 'none', md: 'inline-flex' } }}
+        >
+          {sq.cases.assign.button}
+        </Button>
+        <Tooltip title={sq.cases.assign.button}>
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={onAssign}
+            aria-label={sq.cases.assign.buttonFor(item.caseCode)}
+            sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+          >
+            <UserPlus size={20} aria-hidden />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    ) : null,
     // today / tomorrow stand out as tinted chips (red / orange)
     hearing: when ? (
       <Chip size="small" color={hearingDay === today ? 'error' : 'warning'} label={`${when} ${hearing.slice(11)}`} />
@@ -469,6 +581,20 @@ function CaseRow({ item, columns }: { item: CaseListItem; columns: Column[] }) {
     ) : null,
   }
 
+  const cells = columns.map((c) => (
+    <TableCell key={c.key} component="div" sx={{ ...CELL_PADDING, ...(c.phone ? {} : HIDE_ON_PHONE), overflow: 'hidden' }}>
+      {cell[c.key]}
+    </TableCell>
+  ))
+
+  if (onAssign) {
+    return (
+      <TableRow hover component="div" sx={{ position: 'relative', cursor: 'pointer' }}>
+        {cells}
+      </TableRow>
+    )
+  }
+
   return (
     <TableRow
       hover
@@ -481,11 +607,7 @@ function CaseRow({ item, columns }: { item: CaseListItem; columns: Column[] }) {
         '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineOffset: -2 },
       }}
     >
-      {columns.map((c) => (
-        <TableCell key={c.key} component="div" sx={{ ...CELL_PADDING, ...(c.phone ? {} : HIDE_ON_PHONE), overflow: 'hidden' }}>
-          {cell[c.key]}
-        </TableCell>
-      ))}
+      {cells}
     </TableRow>
   )
 }

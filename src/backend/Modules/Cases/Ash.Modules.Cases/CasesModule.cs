@@ -1,3 +1,4 @@
+using Ash.Modules.Cases.Application.AssignLawyers;
 using Ash.Modules.Cases.Application.GetCase;
 using Ash.Modules.Cases.Application.GetHistory;
 using Ash.Modules.Cases.Application.ListCases;
@@ -45,11 +46,15 @@ public static class CasesModule
 		services.AddScoped<AddPartyHandler>();
 		services.AddScoped<UpdatePartyHandler>();
 		services.AddScoped<RemovePartyHandler>();
+		services.AddScoped<OfficeLawyers>();
+		services.AddScoped<AssignableLawyersHandler>();
+		services.AddScoped<OfficeLawyersHandler>();
+		services.AddScoped<AssignLawyersHandler>();
 		return services;
 	}
 
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail();
+		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment();
 	}
 }

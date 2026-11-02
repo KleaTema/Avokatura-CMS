@@ -54,7 +54,7 @@ Rules
 
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
-| 023 | [Kryetar assigns primary and secondary lawyer](023-assign-lawyers.md) | 020 |  | todo |
+| 023 | [Kryetar assigns primary and secondary lawyer](023-assign-lawyers.md) | 020 |  | done |
 | 024 | [Transfer the primary lawyer](024-transfer-primary-lawyer.md) | 023 | yes | todo |
 | 025 | [Edit case data, status and classification](025-edit-case-data.md) | 023 |  | todo |
 | 026 | [Primary lawyer adds or removes the legal assistant](026-legal-assistant.md) | 023 | yes | todo |

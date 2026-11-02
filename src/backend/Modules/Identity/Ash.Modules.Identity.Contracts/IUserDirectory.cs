@@ -14,6 +14,12 @@ public sealed record UserSummary(
 /// </summary>
 public sealed record UserRef(Guid PublicId, string Name, long? InstitutionId);
 
+/// <summary>A user of an office as another module needs it: the internal id only for foreign keys, never sent out.</summary>
+public sealed record OfficeUser(long Id, Guid PublicId, string FirstName, string LastName)
+{
+    public string FullName => $"{FirstName} {LastName}";
+}
+
 public interface IUserDirectory
 {
     Task<UserSummary?> GetUser(Guid publicId, CancellationToken ct = default);
@@ -29,6 +35,9 @@ public interface IUserDirectory
 
     /// <summary>Public id + name (+ institution) per internal user id, inactive users included, in one call.</summary>
     Task<IReadOnlyDictionary<long, UserRef>> GetRefsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default);
+
+    /// <summary>Active users of the office that hold the role (e.g. the STATE_LAWYERs a case can be assigned to).</summary>
+    Task<IReadOnlyList<OfficeUser>> GetOfficeUsersByRoleAsync(long officeId, string roleCode, CancellationToken ct = default);
 
     /// <summary>Active users matching name/email text and, optionally, a role code.</summary>
     Task<IReadOnlyList<UserSummary>> FindUsers(string? query, string? role, CancellationToken ct = default);
