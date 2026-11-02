@@ -45,8 +45,12 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user) : IC
     /// <summary>The institution user assigns its jurist — only where the user's institution has an active link.</summary>
     public const string AssignJuristPermission = "institution.assign_jurist";
 
-    /// <summary>The registering office's Protokoll corrects the registration while the case waits for a lawyer.</summary>
-    private static readonly string[] RegistrationDeskActions = [EditRegistrationPermission, "party.add", "party.edit", "party.delete"];
+    /// <summary>
+    /// The registering office's Protokoll corrects the registration while the case waits for a lawyer: parties,
+    /// and the judge and the object (typos, task 028).
+    /// </summary>
+    private static readonly string[] RegistrationDeskActions =
+        [EditRegistrationPermission, "party.add", "party.edit", "party.delete", "case.change_judge", "case.change_object"];
 
     /// <summary>
     /// What still applies to a CLOSED case, if the user holds it (the next level continues the work):

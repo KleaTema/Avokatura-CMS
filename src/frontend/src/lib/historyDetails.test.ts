@@ -1,5 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { detailRows, displayValue } from './historyDetails'
+import { detailRows, displayValue, historyLine } from './historyDetails'
+
+describe('history line (task 028)', () => {
+  it('reads a judge change from the stored names', () => {
+    expect(historyLine('JUDGE_CHANGED', { name: 'Ilir Gjyqtari' }, { name: 'Klodiana Çela' }, 'x')).toBe(
+      'Gjyqtari u ndryshua: Ilir Gjyqtari → Klodiana Çela',
+    )
+  })
+
+  it('says "u caktua" when there was no judge, and falls back to the summary without names', () => {
+    expect(historyLine('JUDGE_CHANGED', null, { name: 'Klodiana Çela' }, 'x')).toBe('Gjyqtari u caktua: Klodiana Çela')
+    expect(historyLine('JUDGE_CHANGED', null, null, 'Gjyqtari u ndryshua.')).toBe('Gjyqtari u ndryshua.')
+  })
+
+  it('keeps the object change short (the texts are in the expandable view)', () => {
+    expect(historyLine('OBJECT_CHANGED', { objectText: 'a' }, { objectText: 'b' }, 'Objekti u ndryshua.')).toBe(
+      'Objekti u ndryshua',
+    )
+  })
+
+  it('uses the summary for every other event', () => {
+    expect(historyLine('PARTY_ADDED', null, { displayName: 'A' }, 'Pala u shtua: A.')).toBe('Pala u shtua: A.')
+  })
+})
+
+describe('money in the history (task 025)', () => {
+  it('shows claim amounts in Albanian notation, exactly', () => {
+    expect(displayValue('claimAmount', '9999999999999999.99')).toBe('9.999.999.999.999.999,99')
+  })
+})
 
 describe('history details as readable rows', () => {
   it('shows a transfer as name before/after, without the public ids', () => {

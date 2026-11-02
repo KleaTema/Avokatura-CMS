@@ -19,7 +19,7 @@ import { CodeText } from '../../../components/ui/CodeText'
 import { useCaseHistory, type CaseHistoryItem } from '../../../features/cases/api'
 import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
-import { detailRows } from '../../../lib/historyDetails'
+import { detailRows, historyLine, textOf } from '../../../lib/historyDetails'
 import { problemMessage } from '../../../lib/problem'
 
 const h = sq.cases.page.history
@@ -55,6 +55,10 @@ function HistoryEntry({ item }: { item: CaseHistoryItem }) {
   const [open, setOpen] = useState(false)
   const detailsId = useId()
   const rows = detailRows(item.old, item.new)
+  // an object change: the two full texts one under the other, not squeezed into a table
+  const objectBefore = item.eventType === 'OBJECT_CHANGED' ? textOf(item.old, 'objectText') : null
+  const objectAfter = item.eventType === 'OBJECT_CHANGED' ? textOf(item.new, 'objectText') : null
+  const objectView = objectBefore !== null || objectAfter !== null
   return (
     <Paper component="li" variant="outlined" sx={{ p: 2, mb: 1 }}>
       <Stack spacing={0.5}>
@@ -67,8 +71,32 @@ function HistoryEntry({ item }: { item: CaseHistoryItem }) {
             {formatDateTime(item.occurredAt)} · {h.by(item.actorName ?? h.system)}
           </Typography>
         </Stack>
-        <Typography>{item.summary}</Typography>
-        {rows.length > 0 && (
+        <Typography>{historyLine(item.eventType, item.old, item.new, item.summary)}</Typography>
+        {objectView && (
+          <Box>
+            <Button size="small" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={detailsId}>
+              {open ? h.hideObject : h.showObject}
+            </Button>
+            <Collapse in={open} id={detailsId}>
+              <Stack spacing={1.5} sx={{ mt: 1 }}>
+                {[
+                  { label: h.before, text: objectBefore },
+                  { label: h.after, text: objectAfter },
+                ].map((part) => (
+                  <Box key={part.label}>
+                    <Typography variant="body2" color="text.secondary">
+                      {part.label}
+                    </Typography>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'background.default' }}>
+                      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{part.text ?? sq.cases.page.none}</Typography>
+                    </Paper>
+                  </Box>
+                ))}
+              </Stack>
+            </Collapse>
+          </Box>
+        )}
+        {!objectView && rows.length > 0 && (
           <Box>
             <Button size="small" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={detailsId}>
               {open ? h.hideDetails : h.showDetails}

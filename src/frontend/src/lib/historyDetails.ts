@@ -57,6 +57,32 @@ export function labelOf(key: string): string {
   return h.fields[key] ?? h.fields[last] ?? key
 }
 
+/** A string member of a details object (old/new from the API), or null. */
+export function textOf(details: unknown, key: string): string | null {
+  if (!isPlainObject(details)) return null
+  const value = details[key]
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+/**
+ * The line shown for a history row: built from the details where the event has a fixed wording (task 028), so old
+ * and new rows read the same; otherwise the stored summary.
+ */
+export function historyLine(eventType: string, before: unknown, after: unknown, summary: string): string {
+  switch (eventType) {
+    case 'JUDGE_CHANGED': {
+      const from = textOf(before, 'name')
+      const to = textOf(after, 'name')
+      if (!to) return summary
+      return from ? h.judgeChanged(from, to) : h.judgeSet(to)
+    }
+    case 'OBJECT_CHANGED':
+      return h.objectChanged
+    default:
+      return summary
+  }
+}
+
 /** The changed fields of a history row (old/new from the API) as readable rows; empty when there is nothing to show. */
 export function detailRows(before: unknown, after: unknown): DetailRow[] {
   const old = flatten(before)

@@ -1,6 +1,8 @@
 using Ash.Modules.Cases.Application;
 using Ash.Modules.Cases.Application.AssignJurist;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.ChangeJudge;
+using Ash.Modules.Cases.Application.ChangeObject;
 using Ash.Modules.Cases.Application.DelegateCase;
 using Ash.Modules.Cases.Application.Assistants;
 using Ash.Modules.Cases.Application.SetCategory;
@@ -76,6 +78,8 @@ public static class CasesModule
 		services.AddScoped<AssignJuristHandler>();
 		services.AddScoped<DelegateCaseHandler>();
 		services.AddScoped<UndelegateCaseHandler>();
+		services.AddScoped<ChangeJudgeHandler>();
+		services.AddScoped<ChangeObjectHandler>();
 		return services;
 	}
 

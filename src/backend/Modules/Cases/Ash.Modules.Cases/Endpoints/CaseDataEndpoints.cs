@@ -1,4 +1,6 @@
 using Ash.AspNetCore.Http;
+using Ash.Modules.Cases.Application.ChangeJudge;
+using Ash.Modules.Cases.Application.ChangeObject;
 using Ash.Modules.Cases.Application.SetCategory;
 using Ash.Modules.Cases.Application.SetPriority;
 using Ash.Modules.Cases.Application.SetSecurityMeasure;
@@ -83,6 +85,33 @@ public static class CaseDataEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("SetCasePriority");
+
+        // Task 028: judge and object, with the old value in the history
+        endpoints.MapPatch("/api/cases/{id:guid}/judge",
+                async (Guid id, ChangeJudgeRequest req, ChangeJudgeHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<ChangeJudgeResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("ChangeCaseJudge");
+
+        endpoints.MapPatch("/api/cases/{id:guid}/object",
+                async (Guid id, ChangeObjectRequest req, ChangeObjectHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<ChangeObjectResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("ChangeCaseObject");
 
         return endpoints;
     }

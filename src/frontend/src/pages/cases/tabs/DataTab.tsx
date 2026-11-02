@@ -8,6 +8,7 @@ import {
   SecurityMeasureEditor,
   SuspensionEditor,
 } from '../../../components/caseData/editors'
+import { JudgeEditor, ObjectEditor } from '../../../components/caseData/judgeObjectEditors'
 import { InstitutionsCard } from '../../../components/InstitutionsCard'
 import { TeamCard } from '../../../components/TeamCard'
 import { SectionCard } from '../../../components/ui/SectionCard'
@@ -33,6 +34,8 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
   const can = (code: string) => permissions.includes(code)
   const categories = useCaseCategories().data ?? []
   const [toast, setToast] = useState<string | null>(null)
+  // e.g. "the judge is listed at another court": shown in the card after the save, until dismissed
+  const [judgeWarnings, setJudgeWarnings] = useState<string[]>([])
   const saved = (close: () => void) => () => {
     close()
     setToast(e.saved)
@@ -52,12 +55,41 @@ export function DataTab({ detail }: { detail: CaseDetail }) {
         <Field label={d.receivedDate} value={formatDate(data.receivedDate)} />
         <Field label={d.courtLevel} value={data.courtLevel?.name} />
         <Field label={d.court} value={data.courtName} />
-        <Field label={d.judge} value={data.judgeName} />
       </Section>
 
-      <Section title={d.object}>
-        <Typography sx={{ whiteSpace: 'pre-wrap', gridColumn: '1 / -1' }}>{data.objectText}</Typography>
-      </Section>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 2fr)' }, gap: 2 }}>
+        <EditableSection
+          title={e.judge.title}
+          canEdit={can('case.change_judge')}
+          view={
+            <Stack spacing={1.5}>
+              <Typography>{data.judgeName ?? e.judge.none}</Typography>
+              {judgeWarnings.map((w) => (
+                <Alert key={w} severity="warning" onClose={() => setJudgeWarnings([])}>
+                  {w}
+                </Alert>
+              ))}
+            </Stack>
+          }
+          editor={(close) => (
+            <JudgeEditor
+              detail={detail}
+              onSaved={(warnings) => {
+                setJudgeWarnings(warnings)
+                saved(close)()
+              }}
+              onCancel={close}
+            />
+          )}
+        />
+
+        <EditableSection
+          title={e.object.title}
+          canEdit={can('case.change_object')}
+          view={<Typography sx={{ whiteSpace: 'pre-wrap' }}>{data.objectText}</Typography>}
+          editor={(close) => <ObjectEditor detail={detail} onSaved={saved(close)} onCancel={close} />}
+        />
+      </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
         <EditableSection

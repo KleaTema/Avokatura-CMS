@@ -147,7 +147,8 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
         var kryetar = await Permissions(factory, "kryetar@ash.local", s.Registered);
         kryetar.ShouldBe(["case.assign_lawyer", "case.set_priority_any", "case.transfer", "case.view"]);
         var protokoll = await Permissions(factory, "protokoll@ash.local", s.Registered);
-        protokoll.ShouldBe(["case.edit_registration", "case.view", "party.add", "party.delete", "party.edit"]);
+        // the registration desk also fixes the judge and the object while REGISTERED (task 028)
+        protokoll.ShouldBe(["case.change_judge", "case.change_object", "case.edit_registration", "case.view", "party.add", "party.delete", "party.edit"]);
 
         await Execute($"UPDATE cases SET lifecycle_status = 'ACTIVE' WHERE id = {s.RegisteredId}");
         using var client = factory.CreateClient().AsUser("protokoll@ash.local");

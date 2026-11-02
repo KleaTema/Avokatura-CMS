@@ -306,6 +306,24 @@ export const useSetSecurityMeasure = (caseId: string) =>
     (c, r) => ({ ...c, data: { ...c.data, hasSecurityMeasure: r.hasSecurityMeasure, securityMeasure: r.measure } }),
   )
 
+export type ChangeJudgeRequest = components['schemas']['ChangeJudgeRequest']
+
+/** PATCH judge (task 028); the response's warnings (judge.court_mismatch) are for the user, the save went through. */
+export const useChangeJudge = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: ChangeJudgeRequest) => api.PATCH('/api/cases/{id}/judge', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({ ...c, data: { ...c.data, judgeName: r.judge.name } }),
+  )
+
+export const useChangeObject = (caseId: string) =>
+  useCaseDataSave(
+    caseId,
+    (body: { objectText: string; rowVersion: number }) =>
+      api.PATCH('/api/cases/{id}/object', { ...path(caseId), body }).then(unwrap),
+    (c, r) => ({ ...c, data: { ...c.data, objectText: r.objectText } }),
+  )
+
 export const useSetPriority = (caseId: string) =>
   useCaseDataSave(
     caseId,
