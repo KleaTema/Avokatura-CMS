@@ -100,6 +100,14 @@ export function tiraneDateOf(utcIso: string | null | undefined): string | null {
   return shown ? `${shown.slice(6, 10)}-${shown.slice(3, 5)}-${shown.slice(0, 2)}` : null
 }
 
+/**
+ * A UTC instant shown as its Tirane wall-clock time written as UTC ("2026-11-10T09:00:00.000Z" for 08:00Z in winter):
+ * for a calendar that runs in UTC so it shows Tirane times whatever the browser's time zone (the agenda, task 031).
+ */
+export function tiraneWallClockIso(utcIso: string): string {
+  return new Date(tiraneWallMs(Date.parse(utcIso))).toISOString()
+}
+
 /** Formats a UTC ISO string as dd.MM.yyyy HH:mm in Europe/Tirane. */
 export function formatDateTime(utcIso: string | null | undefined): string {
   if (!utcIso) return ''

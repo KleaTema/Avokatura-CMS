@@ -484,6 +484,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetAgenda"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -1523,6 +1539,23 @@ export interface components {
             hearingTypeCode: null | string;
             otherTypeText: null | string;
             description: null | string;
+        };
+        AgendaItem: {
+            /** Format: uuid */
+            hearingPublicId: string;
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            /** Format: date-time */
+            scheduledAt: string;
+            hearingType: components["schemas"]["CodeName"];
+            otherTypeText: null | string;
+            status: string;
+            courtName: string;
+            primaryLawyerName: null | string;
+            isOverdue: boolean;
+            conflict: boolean;
+            conflictWith: string[];
         };
         AllowedFileTypeResponse: {
             extension: string;
@@ -3792,6 +3825,50 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetAgenda: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                lawyerId?: string;
+                officeId?: string;
+                includeCancelled?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgendaItem"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

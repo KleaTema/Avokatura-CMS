@@ -37,8 +37,9 @@ import { SuccessToast } from '../../components/ui/SuccessToast'
 import { CourtPicker } from '../../components/CourtPicker'
 import {
   useCaseList,
+  lawyerOptionsOf,
   useCaseTabs,
-  useOfficeLawyers,
+  useFilterOptions,
   type CaseListFilters,
   type CaseListItem,
 } from '../../features/cases/api'
@@ -54,8 +55,8 @@ import { useDebounced } from '../../lib/useDebounced'
 const t = sq.cases.list
 
 /** URL query parameters of the list (shareable; Back/Forward keep them). */
-type Param = 'tab' | 'q' | 'status' | 'court' | 'category' | 'priority' | 'suspended' | 'from' | 'to' | 'lawyer'
-const FILTER_PARAMS: Param[] = ['q', 'status', 'court', 'category', 'priority', 'suspended', 'from', 'to', 'lawyer']
+type Param = 'tab' | 'q' | 'status' | 'court' | 'category' | 'priority' | 'suspended' | 'from' | 'to' | 'lawyer' | 'office'
+const FILTER_PARAMS: Param[] = ['q', 'status', 'court', 'category', 'priority', 'suspended', 'from', 'to', 'lawyer', 'office']
 
 /**
  * Cases waiting for a lawyer have no lawyer, category, priority or suspension yet: those filters and columns are
@@ -135,8 +136,6 @@ export function CaseListPage() {
   const categories = useCaseCategories()
   const [panelOpen, setPanelOpen] = useState(false)
   const panelId = useId()
-  const canFilterLawyer = permissions.includes('case.view_office')
-  const officeLawyers = useOfficeLawyers(canFilterLawyer)
   const [assigning, setAssigning] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -144,6 +143,10 @@ export function CaseListPage() {
   const requested = get('tab')
   const tab = userTabs.some((x) => x.tab === requested) ? requested : (tabs.data?.defaultTab ?? '')
   const classification = !TABS_WITHOUT_CLASSIFICATION.has(tab)
+  // the Kryetar filters by the lawyers of the office; the Monitor, in "Të gjitha", by office and lawyer (task 031)
+  const canFilterOffice = permissions.includes('case.view_all') && tab === 'all'
+  const canFilterLawyer = permissions.includes('case.view_office') || canFilterOffice
+  const filterOptions = useFilterOptions(canFilterLawyer)
 
   const search = get('q')
   const q = useDebounced(serverQuery(search), 300)
@@ -159,6 +162,7 @@ export function CaseListPage() {
     hearingFrom: get('from'),
     hearingTo: get('to'),
     lawyerId: classification && canFilterLawyer ? get('lawyer') : '',
+    officeId: canFilterOffice ? get('office') : '',
   }
   const list = useCaseList(filters, tab !== '')
   const items = list.data?.pages.flatMap((p) => p.items) ?? []
@@ -167,10 +171,15 @@ export function CaseListPage() {
   const columns = COLUMNS.filter((c) => classification || !c.classification).map((c) =>
     canAssign && c.key === 'lawyer' ? ASSIGN_COLUMN : c,
   )
-  const lawyerOptions = (officeLawyers.data ?? []).map((x) => ({
-    value: x.publicId,
-    label: x.isSelf ? `${x.fullName} ${sq.cases.assign.self}` : x.fullName,
-  }))
+  const lawyerOptions = lawyerOptionsOf(filterOptions.data?.lawyers ?? [], filters.officeId).map((x) =>
+    x.value === me.data?.publicId ? { ...x, label: `${x.label} ${sq.cases.assign.self}` } : x,
+  )
+  const officeOptions = (filterOptions.data?.offices ?? []).map((o) => ({ value: o.publicId, label: o.name }))
+  // a chosen lawyer of another office goes when the office changes
+  const setOffice = (office: string) => {
+    const lawyers = lawyerOptionsOf(filterOptions.data?.lawyers ?? [], office)
+    set({ office, lawyer: lawyers.some((x) => x.value === filters.lawyerId) ? filters.lawyerId : '' })
+  }
 
   // ---------------------------------------------------------------- active filters (chips + the "Filtra" badge)
   const courtName = courts.data?.find((c) => String(c.id) === filters.courtId)?.name
@@ -182,6 +191,10 @@ export function CaseListPage() {
   }
   if (filters.courtId) {
     chips.push({ key: 'court', label: `${t.court}: ${courtName ?? filters.courtId}`, clear: { court: '' }, inPanel: narrow })
+  }
+  if (filters.officeId) {
+    const officeName = officeOptions.find((x) => x.value === filters.officeId)?.label
+    chips.push({ key: 'office', label: `${t.office}: ${officeName ?? '…'}`, clear: { office: '', lawyer: '' }, inPanel: true })
   }
   if (filters.lawyerId) {
     const lawyerName = lawyerOptions.find((x) => x.value === filters.lawyerId)?.label
@@ -333,6 +346,11 @@ export function CaseListPage() {
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-end' } }}>
             {narrow && statusField}
             {narrow && courtField}
+            {canFilterOffice && (
+              <Box sx={{ width: { xs: '100%', md: 260 } }}>
+                <OptionPicker options={officeOptions} value={filters.officeId} onChange={setOffice} label={t.office} size="small" />
+              </Box>
+            )}
             {classification && canFilterLawyer && (
               <Box sx={{ width: { xs: '100%', md: 240 } }}>
                 <OptionPicker

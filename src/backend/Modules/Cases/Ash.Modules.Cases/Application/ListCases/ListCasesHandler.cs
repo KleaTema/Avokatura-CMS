@@ -22,7 +22,8 @@ public sealed record ListCasesQuery(
     Guid? LawyerId,
     string? Q,
     string? After,
-    int? Limit);
+    int? Limit,
+    Guid? OfficeId = null);
 
 /// <summary>A row of the case list. Public ids only; names from Reference (court) and Identity (lawyer).</summary>
 public sealed record CaseListItem(
@@ -49,6 +50,7 @@ internal sealed class ListCasesHandler(
     CaseListQueryBuilder builder,
     IReferenceData reference,
     IUserDirectory users,
+    IOfficeDirectory offices,
     ICurrentUser user,
     IClock clock)
 {
@@ -178,6 +180,19 @@ internal sealed class ListCasesHandler(
             }
         }
 
+        ushort? officeId = null;
+        if (q.OfficeId is { } officePublicId)
+        {
+            if (await offices.GetIdAsync(officePublicId, ct) is { } id)
+            {
+                officeId = (ushort)id;
+            }
+            else
+            {
+                errors.Add("officeId", "Zyra nuk u gjet.");
+            }
+        }
+
         if (q.HearingFrom is { } from && q.HearingTo is { } to && to < from)
         {
             errors.Add("hearingTo", "Data e fundit nuk mund të jetë para datës së fillimit.");
@@ -202,7 +217,7 @@ internal sealed class ListCasesHandler(
         return new CaseListFilter(tab, status, courtId, categoryId, priority, q.Suspended, lawyerUserId,
             q.HearingFrom is { } f ? TiraneTime.StartOfDayUtc(f) : null,
             q.HearingTo is { } t ? TiraneTime.StartOfDayUtc(t.AddDays(1)) : null,
-            search);
+            search, officeId);
     }
 
     /// <summary>The current primary lawyer's name per case, with ONE call to Identity for the whole page.</summary>

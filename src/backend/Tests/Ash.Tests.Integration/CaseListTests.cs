@@ -395,6 +395,30 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
             .ShouldBe(await Oracle(s.Sql($"{Open} AND c.office_id = {{dr}} AND c.act_number LIKE 'AKT-125%'"), OpenOrder));
     }
 
+    // ---------------------------------------------------------------- office filter (task 031)
+
+    [Fact]
+    public async Task Monitor_filters_the_all_tab_by_office_and_lawyer()
+    {
+        var s = await SeedAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+        var dr = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM offices WHERE id = {s.Dr}"))!);
+        var tr = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM offices WHERE id = {s.Tr}"))!);
+        var avokat1 = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM users WHERE id = {s.Avokat1}"))!);
+
+        (await PageAll(client, $"tab=all&officeId={dr}")).Select(PublicIdOf)
+            .ShouldBe(await Oracle(s.Sql($"{Open} AND c.office_id = {{dr}}"), OpenOrder));
+        (await PageAll(client, $"tab=all&officeId={tr}&lawyerId={avokat1}")).Select(PublicIdOf)
+            .ShouldBe(await Oracle(s.Sql($"{Open} AND c.office_id = {{tr}} AND EXISTS (SELECT 1 FROM case_assignments a " +
+                "WHERE a.case_id = c.id AND a.user_id = {av1} AND a.ended_at IS NULL " +
+                "AND a.case_role IN ('PRIMARY_LAWYER','SECONDARY_LAWYER'))"), OpenOrder));
+
+        var unknown = await client.GetAsync($"/api/cases?tab=all&officeId={Guid.NewGuid()}", Ct);
+        unknown.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await unknown.Content.ReadAsStringAsync(Ct)).ShouldContain("officeId");
+    }
+
     // ---------------------------------------------------------------- EXPLAIN
 
     [Theory]

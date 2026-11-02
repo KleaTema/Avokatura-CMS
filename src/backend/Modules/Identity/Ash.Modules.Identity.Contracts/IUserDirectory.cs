@@ -23,6 +23,9 @@ public sealed record OfficeUser(long Id, Guid PublicId, string FirstName, string
     public string FullName => $"{FirstName} {LastName}";
 }
 
+/// <summary>An active user holding a role, with their office (internal id, for grouping only — never sent out).</summary>
+public sealed record RoleUser(long Id, Guid PublicId, string FullName, long? OfficeId);
+
 public interface IUserDirectory
 {
     Task<UserSummary?> GetUser(Guid publicId, CancellationToken ct = default);
@@ -41,6 +44,9 @@ public interface IUserDirectory
 
     /// <summary>Active users of the office that hold the role (e.g. the STATE_LAWYERs a case can be assigned to).</summary>
     Task<IReadOnlyList<OfficeUser>> GetOfficeUsersByRoleAsync(long officeId, string roleCode, CancellationToken ct = default);
+
+    /// <summary>Active users of every office that hold the role, in one query (e.g. all STATE_LAWYERs for a filter).</summary>
+    Task<IReadOnlyList<RoleUser>> GetUsersByRoleAsync(string roleCode, CancellationToken ct = default);
 
     /// <summary>Active users of the institution that hold the role (e.g. its INSTITUTION_JURISTs).</summary>
     Task<IReadOnlyList<OfficeUser>> GetInstitutionUsersByRoleAsync(long institutionId, string roleCode, CancellationToken ct = default);

@@ -6,6 +6,7 @@ using Ash.Modules.Cases.Application.ChangeJudge;
 using Ash.Modules.Cases.Application.ChangeObject;
 using Ash.Modules.Cases.Application.DelegateCase;
 using Ash.Modules.Cases.Application.Assistants;
+using Ash.Modules.Cases.Application.FilterOptions;
 using Ash.Modules.Cases.Application.SetCategory;
 using Ash.Modules.Cases.Application.SetPriority;
 using Ash.Modules.Cases.Application.SetSecurityMeasure;
@@ -62,7 +63,7 @@ public static class CasesModule
 		services.AddScoped<RemovePartyHandler>();
 		services.AddScoped<OfficeLawyers>();
 		services.AddScoped<AssignableLawyersHandler>();
-		services.AddScoped<OfficeLawyersHandler>();
+		services.AddScoped<FilterOptionsHandler>();
 		services.AddScoped<AssignLawyersHandler>();
 		services.AddScoped<TransferLawyerHandler>();
 		services.AddScoped<FirstDataEntry>();

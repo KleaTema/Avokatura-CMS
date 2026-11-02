@@ -2,6 +2,7 @@ using Ash.AspNetCore.Authorization;
 using Ash.AspNetCore.Http;
 using Ash.Modules.Cases.Application.AssignLawyers;
 using Ash.Modules.Cases.Application.Assistants;
+using Ash.Modules.Cases.Application.FilterOptions;
 using Ash.Modules.Cases.Application.TransferLawyer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -28,12 +29,12 @@ public static class AssignmentEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("ListAssignableLawyers");
 
-        // The lawyer filter of the case list: the lawyers of the user's office.
-        endpoints.MapGet("/api/cases/office-lawyers",
-                async (OfficeLawyersHandler handler, CancellationToken ct) => Results.Ok(await handler.Handle(ct)))
-            .RequirePermission("case.view_office")
-            .Produces<IReadOnlyList<OfficeLawyer>>()
-            .WithName("ListOfficeLawyers");
+        // The office and lawyer filters of the case list and the agenda (task 031); empty lists without office/all view.
+        endpoints.MapGet("/api/cases/filter-options",
+                async (FilterOptionsHandler handler, CancellationToken ct) => Results.Ok(await handler.Handle(ct)))
+            .RequireAuthorization()
+            .Produces<FilterOptionsResponse>()
+            .WithName("GetCaseFilterOptions");
 
         endpoints.MapPost("/api/cases/{id:guid}/assignment",
                 async (Guid id, AssignLawyersRequest req, AssignLawyersHandler handler, CancellationToken ct) =>

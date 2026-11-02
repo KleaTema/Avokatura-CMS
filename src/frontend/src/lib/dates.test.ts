@@ -8,8 +8,22 @@ import {
   parseDisplayDate,
   tiraneDateOf,
   tiraneLocalToUtcIso,
+  tiraneWallClockIso,
   todayInTirane,
 } from './dates'
+
+describe('tiraneWallClockIso (the agenda calendar runs in UTC, task 031)', () => {
+  it('writes the Tirane wall clock as UTC, in winter and summer and across midnight', () => {
+    expect(tiraneWallClockIso('2026-11-10T08:00:00Z')).toBe('2026-11-10T09:00:00.000Z')
+    expect(tiraneWallClockIso('2026-07-01T22:15:00Z')).toBe('2026-07-02T00:15:00.000Z')
+  })
+
+  it('keeps the day edges of the clock change of 25.10.2026', () => {
+    expect(tiraneWallClockIso('2026-10-24T21:59:00Z')).toBe('2026-10-24T23:59:00.000Z')
+    expect(tiraneWallClockIso('2026-10-24T22:00:00Z')).toBe('2026-10-25T00:00:00.000Z')
+    expect(tiraneWallClockIso('2026-10-25T23:00:00Z')).toBe('2026-10-26T00:00:00.000Z')
+  })
+})
 
 describe('formatDate (DateOnly, no time zone)', () => {
   it('rewrites yyyy-MM-dd as dd.MM.yyyy', () => {

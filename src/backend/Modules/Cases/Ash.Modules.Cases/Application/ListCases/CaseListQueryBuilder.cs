@@ -33,7 +33,8 @@ public sealed record CaseListFilter(
     uint? LawyerUserId,
     DateTime? HearingFromUtc,
     DateTime? HearingToUtc,
-    string? Q)
+    string? Q,
+    ushort? OfficeId = null)
 {
     /// <summary>The tab's open cases without filters (tab counts, default tab).</summary>
     public static CaseListFilter Open(CaseListTab tab) => new(tab, null, null, null, null, null, null, null, null, null);
@@ -46,7 +47,7 @@ public sealed record CaseListFilter(
     public string Hash()
     {
         var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? "open", CourtId, CategoryId, Priority, Suspended,
-            LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort);
+            LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort, OfficeId);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
     }
 }
@@ -125,6 +126,12 @@ public sealed partial class CaseListQueryBuilder(CasesDbContext db, CaseAccessSe
         {
             cases = cases.Where(c => db.CaseAssignments.Any(a => a.CaseId == c.Id && a.UserId == lawyer && a.EndedAt == null
                 && (a.CaseRole == CaseAssignmentRow.PrimaryLawyer || a.CaseRole == CaseAssignmentRow.SecondaryLawyer)));
+        }
+
+        if (f.OfficeId is { } office)
+        {
+            // narrows only (the scope below still applies): the Monitor's office filter of the "all" tab
+            cases = cases.Where(c => c.OfficeId == office);
         }
 
         if (f.HearingFromUtc is { } from)

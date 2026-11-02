@@ -15,10 +15,10 @@ public static class CaseListEndpoints
         endpoints.MapGet("/api/cases",
                 async (string? tab, string? status, int? courtId, string? categoryCode, string? priority, bool? suspended,
                     DateOnly? hearingFrom, DateOnly? hearingTo, Guid? lawyerId, string? q, string? after, int? limit,
-                    ListCasesHandler handler, CancellationToken ct) =>
+                    Guid? officeId, ListCasesHandler handler, CancellationToken ct) =>
                 {
                     var result = await handler.Handle(new ListCasesQuery(tab, status, courtId, categoryCode, priority, suspended,
-                        hearingFrom, hearingTo, lawyerId, q, after, limit), ct);
+                        hearingFrom, hearingTo, lawyerId, q, after, limit, officeId), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequireAuthorization()

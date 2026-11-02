@@ -778,6 +778,7 @@ export const sq = {
       priority: 'Prioriteti',
       suspended: 'Pezulluar',
       lawyer: 'Avokati',
+      office: 'Zyra',
       any: 'Të gjitha',
       yes: 'Po',
       no: 'Jo',

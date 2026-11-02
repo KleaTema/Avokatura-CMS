@@ -354,23 +354,23 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Office_lawyers_are_the_same_people_without_workload()
+    public async Task Kryetar_filter_lawyers_are_the_same_people_as_the_picker_without_workload()
     {
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
         await using var factory = new AshApiFactory(Db);
         using var kryetar = factory.CreateClient().AsUser(Kryetar);
         var assignable = await Json(await kryetar.GetAsync(AssignablePath(await PublicIdOf("cases", s.RegisteredCaseId)), Ct));
 
-        var response = await kryetar.GetAsync("/api/cases/office-lawyers", Ct);
+        var response = await kryetar.GetAsync("/api/cases/filter-options", Ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var office = (await Json(response)).EnumerateArray().ToList();
+        var office = (await Json(response)).GetProperty("lawyers").EnumerateArray().ToList();
         office.Select(x => x.GetProperty("publicId").GetGuid()).Order()
             .ShouldBe(assignable.EnumerateArray().Select(x => x.GetProperty("publicId").GetGuid()).Order());
         office.Where(x => x.TryGetProperty("workload", out _)).ShouldBeEmpty();
         var names = office.Select(x => x.GetProperty("fullName").GetString()!).ToList();
         names.ShouldBe(names.Order(StringComparer.InvariantCultureIgnoreCase).ToList());
-        office.Single(x => x.GetProperty("isSelf").GetBoolean()).GetProperty("fullName").GetString().ShouldBe("Kryetar Dev");
+        names.ShouldContain("Kryetar Dev"); // the Kryetar may assign himself, so he is a lawyer of the office too
     }
 
     // ---------------------------------------------------------------- access
@@ -392,7 +392,7 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
         using var lawyer = factory.CreateClient().AsUser(Avokat1);
         (await lawyer.GetAsync(AssignablePath(casePublicId), Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await lawyer.PostAsJsonAsync(AssignPath(casePublicId), body, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        (await lawyer.GetAsync("/api/cases/office-lawyers", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Json(await lawyer.GetAsync("/api/cases/filter-options", Ct))).GetProperty("lawyers").GetArrayLength().ShouldBe(0);
         // also on the case the lawyer works on: assigning is the Kryetar's
         var active = await PublicIdOf("cases", s.ActiveCaseId);
         (await lawyer.GetAsync(AssignablePath(active), Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -404,7 +404,7 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
         (await drKryetar.PostAsJsonAsync(AssignPath(casePublicId), body, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await drKryetar.PostAsJsonAsync(AssignPath(Guid.NewGuid()), body, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         // the DR Kryetar's office list has the DR lawyer, not TR's
-        var drOffice = (await Json(await drKryetar.GetAsync("/api/cases/office-lawyers", Ct))).EnumerateArray()
+        var drOffice = (await Json(await drKryetar.GetAsync("/api/cases/filter-options", Ct))).GetProperty("lawyers").EnumerateArray()
             .Select(x => x.GetProperty("publicId").GetGuid()).ToList();
         drOffice.ShouldContain(await PublicIdOf("users", s.User("drlawyer").Id));
         drOffice.ShouldNotContain(await PublicIdOf("users", s.User("avokat1").Id));

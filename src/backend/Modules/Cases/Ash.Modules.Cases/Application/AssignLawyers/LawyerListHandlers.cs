@@ -42,24 +42,3 @@ internal sealed class AssignableLawyersHandler(CasesDbContext db, ICaseAccessSer
             .ToList();
     }
 }
-
-/// <summary>
-/// GET /api/cases/office-lawyers (case.view_office): the same people as the picker offers for the user's own office,
-/// without workload, sorted by name — the lawyer filter of the case list.
-/// </summary>
-internal sealed class OfficeLawyersHandler(OfficeLawyers lawyers, ICurrentUser user)
-{
-    public async Task<IReadOnlyList<OfficeLawyer>> Handle(CancellationToken ct)
-    {
-        if (user.OfficeId is not { } officeId)
-        {
-            return [];
-        }
-
-        var candidates = await lawyers.ListAsync(officeId, user.HasPermission(OfficeLawyers.AssignPermission), ct);
-        return candidates
-            .Select(x => new OfficeLawyer(x.PublicId, x.FullName, x.IsSelf))
-            .OrderBy(x => x.FullName, OfficeLawyers.NameOrder)
-            .ToList();
-    }
-}

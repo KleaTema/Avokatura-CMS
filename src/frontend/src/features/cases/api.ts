@@ -42,6 +42,8 @@ export interface CaseListFilters {
   hearingTo: string
   /** public id of a lawyer (current primary or secondary) */
   lawyerId: string
+  /** public id of an office (the Monitor's "all" tab, task 031) */
+  officeId: string
 }
 
 const LIST_PAGE_SIZE = 50
@@ -85,6 +87,7 @@ export const useCaseList = (f: CaseListFilters, enabled: boolean) =>
               hearingFrom: f.hearingFrom || undefined,
               hearingTo: f.hearingTo || undefined,
               lawyerId: f.lawyerId || undefined,
+              officeId: f.officeId || undefined,
               after: pageParam,
               limit: LIST_PAGE_SIZE,
             },
@@ -214,8 +217,9 @@ export const useRemoveParty = (caseId: string) => {
 // ---------------------------------------------------------------- assigning lawyers (task 023)
 
 export type AssignableLawyer = components['schemas']['AssignableLawyer']
-export type OfficeLawyer = components['schemas']['OfficeLawyer']
 export type AssignLawyersRequest = components['schemas']['AssignLawyersRequest']
+export type FilterOptions = components['schemas']['FilterOptionsResponse']
+export type FilterLawyer = components['schemas']['FilterLawyer']
 
 /** The lawyers the Kryetar may assign in this case, least loaded first (the Kryetar himself with isSelf). */
 export const useAssignableLawyers = (caseId: string) =>
@@ -225,14 +229,23 @@ export const useAssignableLawyers = (caseId: string) =>
     queryFn: () => api.GET('/api/cases/{id}/assignable-lawyers', { params: { path: { id: caseId } } }).then(unwrap),
   })
 
-/** The lawyers of the user's office, for the lawyer filter of the case list (case.view_office). */
-export const useOfficeLawyers = (enabled: boolean) =>
+/**
+ * The office and lawyer filters of the case list and the agenda (task 031): every office and lawyer for
+ * case.view_all, the own office and its lawyers for case.view_office, empty lists for anyone else.
+ */
+export const useFilterOptions = (enabled: boolean) =>
   useQuery({
-    queryKey: ['office-lawyers'] as const,
+    queryKey: ['case-filter-options'] as const,
     enabled,
     staleTime: 5 * 60_000,
-    queryFn: () => api.GET('/api/cases/office-lawyers').then(unwrap),
+    queryFn: () => api.GET('/api/cases/filter-options').then(unwrap),
   })
+
+/** The lawyers of the chosen office (all of them when none is chosen), as picker options. */
+export const lawyerOptionsOf = (lawyers: FilterLawyer[], officeId: string) =>
+  lawyers
+    .filter((l) => !officeId || l.officePublicId === officeId)
+    .map((l) => ({ value: l.publicId, label: l.fullName }))
 
 /** POST assignment: the case becomes ACTIVE, moves between the tabs and changes its page and history. */
 export const useAssignLawyers = (caseId: string) => {
