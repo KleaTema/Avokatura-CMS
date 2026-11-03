@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="MySql.EntityFrameworkCore" />
+    <PackageReference Include="AWSSDK.S3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ash.SharedKernel\Ash.SharedKernel.csproj" />

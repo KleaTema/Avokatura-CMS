@@ -174,20 +174,44 @@ buttons of five users on a REGISTERED and an ACTIVE case. By hand:
 13. At 390 px: the dialogs fill the screen, no horizontal scrolling; keyboard: the focus starts in the first field,
     Esc closes, Enter in a one-line field does not submit.
 
-## 031 — Agenda (backend; the screen comes with the frontend task)
-Until the screen exists, call the API (Swagger at http://localhost:5004/swagger with the `X-Dev-User` header, or
-`curl -H "X-Dev-User: avokat1@ash.local" "http://localhost:5004/api/agenda?from=…&to=…"`). Dates are Tirane calendar
-days, both included. Prepare: two ACTIVE cases of avokat1 with hearings in the same week, 30 minutes apart.
-1. As avokat1, `from`/`to` = that week. → Only the hearings of avokat1's current cases, sorted by time then case code;
-   each with case code, type, court, primary lawyer; the two hearings 30 minutes apart have `conflict: true` and each
-   other's case code in `conflictWith`.
-2. Transfer one of the cases to avokat2 (task 024), repeat. → Its hearings are gone from avokat1's agenda.
-3. Complete a hearing as *U anulua* (task 030). → Gone; with `includeCancelled=true` it is back, never in conflict.
-4. A range of 63 days (e.g. `from=2026-11-01&to=2027-01-02`). → 400 "Periudha mund të jetë deri në 62 ditë."; 62 days → 200.
-5. As kryetar: all hearings of TR's cases; `lawyerId=<avokat2's public id>` → only the cases avokat2 works on (any
-   role); the conflict is computed per primary lawyer.
-6. As kryetar, `officeId` of another office or `lawyerId` of a lawyer of another office → 403.
-7. As monitor: every office; `officeId=<TR's public id>` narrows to TR.
-8. As institucion: only the hearings of the cases the ministry is actively linked to; any `lawyerId`/`officeId` → 403.
-9. A hearing at 00:30 Tirane time on the first day appears in the range; one at 00:30 the day after `to` does not
-   (also across the clock change of the last Sunday of October/March).
+## 031 — Agenda
+**Prepare:** as avokat1, two ACTIVE cases with hearings this week (*Seancat → Shto seancë*), two of them 30 minutes
+apart; complete one as *U zhvillua*, one as *U shty*, one as *U anulua*; leave one with a time in the past.
+**User:** avokat1, menu *Agjenda* (`/agenda`).
+1. On a computer the week opens (*Java*, Monday–Sunday, 07:00–19:00, 24h times); below 900 px the list (*Listë*).
+   The URL keeps the view and the date (`?view=…&date=…`): reload, Back/Forward and a shared link show the same week.
+2. Each hearing shows time, case code, court and type. Colours: planned blue, held green, postponed orange,
+   cancelled grey and struck through; a planned hearing whose time has passed has a red outline.
+3. The two hearings 30 minutes apart have ⚠; hovering it shows "Përplasje me {kodi i çështjes}". With the keyboard
+   (Tab to the hearing) a screen reader reads the same text, and "Seanca kaloi…" for an overdue one.
+4. ‹ › move by a day / week / month; *Sot* returns to today; *Dita*, *Muaji*, *Listë* switch the view. The month
+   shows six weeks and loads them in one request.
+5. Change the computer's time zone (e.g. to New York) and reload. → The times are still Tirane's (10:00 stays 10:00).
+6. Click a hearing. → The case opens on *Seancat*; Ctrl+click opens it in a new tab; Back returns to the same week.
+7. *Shfaq të anuluarat* off (default) → cancelled hearings are hidden; on → shown struck through.
+8. A week without hearings (e.g. `?date=2030-06-03`). → "Nuk ka seanca në këtë periudhë."
+9. *Printo*. → Print preview: A4 portrait, no header or sidebar, only "Agjenda", the period and a table per day
+   (time, court, case code, type, lawyer); a cancelled hearing is struck through with "(e anuluar)".
+10. After completing or rescheduling a hearing on the case page, the agenda shows the change without a reload.
+11. As kryetar: the hearings of all TR cases; *Avokati* lists the office's lawyers (the Kryetar too); choosing one
+    narrows the agenda. No *Zyra* filter.
+12. As monitor: *Zyra* and *Avokati*; choosing an office narrows the lawyer list to its lawyers (a chosen lawyer of
+    another office is cleared). Also on *Çështje → Të gjitha → Filtra*: *Zyra* and *Avokati*, same behaviour.
+13. As institucion: only the hearings of the cases the ministry is actively linked to; no filters.
+14. As protokoll: no *Agjenda* in the menu; `/agenda` shows "no access".
+15. API checks (Swagger, `X-Dev-User`): 63 days (`from=2026-11-01&to=2027-01-02`) → 400 "Periudha mund të jetë deri
+    në 62 ditë."; as kryetar `officeId` / `lawyerId` of another office → 403; as institucion any `lawyerId` → 403.
+
+## 032 — File storage (backend; documents use it from task 034)
+Nothing to click yet: the storage is checked through the health endpoint and the MinIO console. The automated part is
+`FileStorageTests` (MinIO in Testcontainers: upload, 40 MB multipart, copy, delete rule, presigned URL, health,
+download headers).
+**Setup:** `docker compose up -d` (MinIO on :9000, console on :9001, `minio-init` creates the buckets), then once:
+`dotnet user-secrets set "Storage:AccessKey" "ash_minio" --project src/backend/Host/Ash.Api` and
+`dotnet user-secrets set "Storage:SecretKey" "ash_minio_local_pw" --project src/backend/Host/Ash.Api`; restart the API.
+1. http://localhost:5004/health → "Healthy" (mysql and storage).
+2. Stop MinIO (`docker stop ash-minio`) → /health "Unhealthy"; start it again → "Healthy".
+3. In the MinIO console (http://localhost:9001, user `ash_minio`) delete the bucket `ash-chat-files` → /health
+   "Unhealthy"; run `docker compose up minio-init` → the bucket is back and /health "Healthy".
+4. Remove the user-secrets keys → the API still starts; /health "Unhealthy" (storage not configured).
+5. The API log (logs/ash-*.log) and the console never show the access or secret key.

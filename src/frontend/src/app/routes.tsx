@@ -8,6 +8,7 @@ import { InstitutionsPage } from '../pages/admin/Institutions'
 import { OfficesPage } from '../pages/admin/Offices'
 import { ListsPage } from '../pages/admin/Lists'
 import { UsersPage } from '../pages/admin/UsersPage'
+import { LazyAgendaPage } from '../pages/agenda/LazyAgendaPage'
 import { CaseListPage } from '../pages/cases/CaseList'
 import { CasePage } from '../pages/cases/CasePage'
 import { ContinueCasePage } from '../pages/cases/ContinueCase'
@@ -18,7 +19,7 @@ import { Layout } from './Layout'
 import { RequirePermission } from './RequirePermission'
 
 // Menu codes without a real page yet; each shows the "coming soon" placeholder.
-const placeholderMenuCodes = ['chat', 'notifications', 'profile', 'agenda', 'reports']
+const placeholderMenuCodes = ['chat', 'notifications', 'profile', 'reports']
 
 export const router = createBrowserRouter([
   { path: '/login', element: <DevLogin /> },
@@ -30,6 +31,14 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
       ...placeholderMenuCodes.map((code) => ({ path: code, element: <PlaceholderPage menu={code} /> })),
+      {
+        path: 'agenda',
+        element: (
+          <RequirePermission code="menu.agenda">
+            <LazyAgendaPage />
+          </RequirePermission>
+        ),
+      },
       { path: 'cases', element: <CaseListPage /> },
       // static paths (register, continue) rank above these parameters
       { path: 'cases/:publicId', element: <CasePage /> },

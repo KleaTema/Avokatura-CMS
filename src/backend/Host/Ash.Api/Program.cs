@@ -4,6 +4,7 @@ using Ash.Api.Health;
 using Ash.Api.Middleware;
 using Ash.Api.Persistence;
 using Ash.Infrastructure;
+using Ash.Infrastructure.Storage;
 using Ash.Modules.Audit;
 using Ash.Modules.Cases;
 using Ash.Modules.Chat;
@@ -33,7 +34,11 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddAshInfrastructure(connectionString);
-builder.Services.AddHealthChecks().AddCheck<MySqlHealthCheck>("mysql");
+// object storage (task 032); keys from user-secrets / environment, never logged (StorageOptions.ToString hides them)
+builder.Services.AddAshStorage(builder.Configuration.GetSection(StorageOptions.Section).Get<StorageOptions>() ?? new StorageOptions());
+builder.Services.AddHealthChecks()
+    .AddCheck<MySqlHealthCheck>("mysql")
+    .AddCheck<StorageHealthCheck>("storage");
 builder.Services.TryAddSingleton<IClock, SystemClock>();
 builder.Services.AddAshAuthentication(builder.Configuration, builder.Environment);
 

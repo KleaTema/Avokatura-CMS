@@ -10,6 +10,8 @@ Keep this file up to date in every task (see `.github/skills/ash-task-done-check
 **Task 030** (hearings) raised no new client question: the rules it follows (an overdue hearing stays the next one
 until completed, a warning within ±30 minutes, a description required for HELD and POSTPONED) were set in the task.
 **Task 031** (agenda) implements Q4 with its default (only hearings) and adds *agenda-ics* (calendar subscription).
+**Task 032** (file storage) moves the storage question into the new "AKSHI questions — storage" section (split into
+its parts) and adds the retention period (Q9).
 
 **Numbering note.** The task files use "Client question N" inconsistently: *Q1* stands both for the identity-provider
 claims (005) and for the registration search fields (018), and *Q6* both for the 30-day reminder after a transfer (024)
@@ -40,6 +42,22 @@ and for report access (042/044). The ids below are unique; the old number is kep
 | relatim-rights | A i jep RELATIMI institucionit të njëjtat të drejta si DELEGIMI? | Does RELATIM give the institution the same rights as DELEGIM? | Yes, the same rights (INSTITUTION_DELEGATED profile). | `TODO(client-q-relatim-rights)` in `DelegateCase/DelegateCaseHandlers.cs` | 027 |
 | agenda-content (Q4) | Çfarë tjetër duhet të ketë agjenda (afate, kujtesa, ngjarje personale)? | What else belongs in the agenda (deadlines, reminders, personal events)? | Only hearings. | `TODO(client-q4)` in `Agenda/GetAgendaHandler.cs` | 031 |
 | agenda-ics | A duhet që agjenda të shihet edhe në Outlook ose në telefon (abonim kalendari)? Nëse po, si mbrohet lidhja (token personal, skadim)? | Should the agenda also show in Outlook or on the phone (calendar subscription)? If so, how is the link protected (personal token, expiry)? | Not built; the agenda is only in the application. | `TODO(client-q-ics)` in `Agenda/GetAgendaHandler.cs` | 031 |
+| retention (Q9) | Sa kohë duhet të ruhen dokumentet e çështjeve (afati ligjor i ruajtjes)? | How long must case documents be kept (legal retention period)? | The application never deletes documents (only quarantined uploads); any retention period is left to the bucket's object-lock configuration. | `TODO(client-q9)` in `Ash.Infrastructure/Storage/IFileStorage.cs` | 032 |
+
+## AKSHI questions — storage (task 032)
+
+Questions for AKSHI's infrastructure team. Until answered, the code uses the default and carries `TODO(akshi-q-storage)`
+(in `Ash.Infrastructure/Storage/IFileStorage.cs` and `S3FileStorage.cs`). Locally, MinIO (docker-compose) stands in.
+
+| Id | Question (sq) | Question (en) | Default implemented |
+|---|---|---|---|
+| storage-endpoint | Cila është adresa (endpoint) e ruajtjes S3, rajoni, dhe a kërkon stilin e adresës me rrugë (path-style)? Si jepen çelësat e qasjes (vault, variabla mjedisi)? | What is the S3 endpoint, the region, and does it need path-style addressing? How are the access keys delivered (vault, environment variables)? | `Storage:ServiceUrl` from configuration, region us-east-1, path-style on; keys from user-secrets / environment variables, never in appsettings or logs. |
+| storage-buckets | A i krijon AKSHI kovat (buckets) `ash-uploads-quarantine`, `ash-documents`, `ash-chat-files`, apo emrat i jep AKSHI? | Does AKSHI create the buckets `ash-uploads-quarantine`, `ash-documents`, `ash-chat-files`, or does AKSHI name them? | Names from `Storage:Buckets` (any names work); the app never creates buckets; the "storage" health check reports a missing one. |
+| storage-object-lock | A mbështetet object lock (governance/compliance) dhe me çfarë afati të paracaktuar ruajtjeje? Nëse ka afat të paracaktuar, a kërkon Content-MD5 në ngarkim? | Is object lock supported (governance/compliance), with which default retention? With a default retention, is Content-MD5 required on upload? | Object lock on the documents bucket as configured by the bucket; the app sets no retention per object. Checksums are only sent where the S3 API requires them (some S3-compatible stores reject the SDK's newer default checksums). |
+| storage-versioning | A mbështetet versionimi i objekteve? | Is object versioning supported? | Left to the bucket configuration (enabled for chat files locally). |
+| storage-encryption | A enkriptohen objektet në ruajtje (SSE-S3, SSE-KMS)? Kush i menaxhon çelësat? | Are objects encrypted at rest (SSE-S3, SSE-KMS)? Who manages the keys? | Left to the bucket's default encryption; the app sends no SSE headers. |
+| storage-presigned | A mbështeten URL-të e nënshkruara (presigned) dhe cila adresë publike arrihet nga shfletuesi? | Are presigned URLs supported, and which public endpoint can the browser reach? | Implemented (at most 2 minutes, signed against `Storage:PublicServiceUrl` when set) but NOT used: downloads go through the API (access check and audit at download time, links cannot be forwarded). |
+| storage-lifecycle | A mbështeten rregullat e ciklit të jetës (fshirja automatike pas 1 dite në kovën e karantinës)? | Are lifecycle rules supported (automatic expiry after 1 day in the quarantine bucket)? | Expected on the quarantine bucket (docker-compose sets it locally); the app may delete from the quarantine bucket only. |
 
 ## Open — for tasks not built yet
 
@@ -47,7 +65,6 @@ No code yet; the default is decided when the task is implemented.
 
 | Id | Question (sq) | Question (en) | Planned default | Task |
 |---|---|---|---|---|
-| file-storage | AKSHI: a ofron ruajtja object lock, versione, enkriptim dhe URL të nënshkruara? | AKSHI: does the storage support object lock, versioning, encryption and signed URLs? | — | 032 |
 | notifications-email | A duhet që njoftimet të dërgohen edhe me email? | Should notifications also be sent by e-mail? | — | 040 |
 | report-access (Q6) | Cilat raporte dhe statistika mund të shohë secili rol? | Which reports and statistics may each role see? | — | 042, 044 |
 | dashboard-widgets | Cilat elemente do të shohë secili rol në faqen kryesore? | Which widgets does each role want on the dashboard? | — | 046 |

@@ -4,5 +4,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ash.SharedKernel\Ash.SharedKernel.csproj" />
+    <!-- StoredFileResult writes an IFileStorage object to the response (task 032) -->
+    <ProjectReference Include="..\Ash.Infrastructure\Ash.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

@@ -38,25 +38,34 @@ export function Layout() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppHeader
-        user={me.data}
-        onMenu={drawer ? () => setMenuOpen((o) => !o) : undefined}
-        menuOpen={menuOpen}
-        onLogout={() => void logout()}
-      />
-      <Sidebar
-        menus={me.data?.menus ?? []}
-        collapsed={collapsed}
-        temporary={drawer}
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-      />
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', '@media print': { display: 'block', bgcolor: 'common.white' } }}>
+      {/* printing prints the page only (task 031): no header, no sidebar; "contents" keeps the flex layout on screen */}
+      <Box sx={{ display: 'contents', displayPrint: 'none' }}>
+        <AppHeader
+          user={me.data}
+          onMenu={drawer ? () => setMenuOpen((o) => !o) : undefined}
+          menuOpen={menuOpen}
+          onLogout={() => void logout()}
+        />
+        <Sidebar
+          menus={me.data?.menus ?? []}
+          collapsed={collapsed}
+          temporary={drawer}
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+        />
+      </Box>
       <Box
         component="main"
-        sx={{ flexGrow: 1, minWidth: 0, pt: `${tokens.layout.headerHeight}px`, bgcolor: 'background.default' }}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          pt: `${tokens.layout.headerHeight}px`,
+          bgcolor: 'background.default',
+          '@media print': { pt: 0, bgcolor: 'common.white' },
+        }}
       >
-        <Box sx={{ p: tokens.layout.pagePadding }}>{content}</Box>
+        <Box sx={{ p: tokens.layout.pagePadding, '@media print': { p: 0 } }}>{content}</Box>
       </Box>
       {/* Back/Forward return to the same scroll position (e.g. the case list, whose pages stay cached) */}
       <ScrollRestoration />

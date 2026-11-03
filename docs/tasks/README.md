@@ -67,8 +67,8 @@ Rules
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
 | 030 | [Hearings (Seancat)](030-hearings.md) | 020 |  | done |
-| 031 | [Agenda (Agjenda)](031-agenda.md) | 030 | yes | todo |
-| 032 | [File storage abstraction (S3)](032-file-storage.md) | 004 | yes | todo |
+| 031 | [Agenda (Agjenda)](031-agenda.md) | 030 | yes | done |
+| 032 | [File storage abstraction (S3)](032-file-storage.md) | 004 | yes | done |
 | 033 | [Document upload pipeline](033-document-upload.md) | 032, 030 |  | todo |
 | 034 | [Documents: timeline, download, delete](034-document-list-download-delete.md) | 033 |  | todo |
 | 035 | [UI: hearings, agenda and documents](035-ui-hearings-agenda-documents.md) | 022, 030, 031, 034 |  | todo |

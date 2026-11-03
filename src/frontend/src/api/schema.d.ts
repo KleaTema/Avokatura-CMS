@@ -212,14 +212,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/cases/office-lawyers": {
+    "/api/cases/filter-options": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["ListOfficeLawyers"];
+        get: operations["GetCaseFilterOptions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1969,6 +1969,22 @@ export interface components {
             appliesTo: string;
             isActive: boolean;
         };
+        FilterLawyer: {
+            /** Format: uuid */
+            publicId: string;
+            fullName: string;
+            /** Format: uuid */
+            officePublicId: string;
+        };
+        FilterOffice: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
+        FilterOptionsResponse: {
+            offices: components["schemas"]["FilterOffice"][];
+            lawyers: components["schemas"]["FilterLawyer"][];
+        };
         FirstHearingRequest: {
             at: null | string;
             hearingTypeCode: null | string;
@@ -2183,12 +2199,6 @@ export interface components {
             isActive: boolean;
             /** Format: int32 */
             activeUsers: number | string;
-        };
-        OfficeLawyer: {
-            /** Format: uuid */
-            publicId: string;
-            fullName: string;
-            isSelf: boolean;
         };
         PartyInstitutionRef: {
             /** Format: uuid */
@@ -2850,6 +2860,7 @@ export interface operations {
                 q?: string;
                 after?: string;
                 limit?: number | string;
+                officeId?: string;
             };
             header?: never;
             path?: never;
@@ -3011,7 +3022,7 @@ export interface operations {
             };
         };
     };
-    ListOfficeLawyers: {
+    GetCaseFilterOptions: {
         parameters: {
             query?: never;
             header?: never;
@@ -3026,7 +3037,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OfficeLawyer"][];
+                    "application/json": components["schemas"]["FilterOptionsResponse"];
                 };
             };
         };

@@ -21,5 +21,7 @@
 	<PackageVersion Include="Testcontainers.MySql" Version="4.16.0" />
 	<PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.0" />
 	<PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.0" />
+	<!-- task 032: object storage (MinIO locally, AKSHI's S3-compatible storage in production) -->
+	<PackageVersion Include="AWSSDK.S3" Version="4.0.104.8" />
   </ItemGroup>
 </Project>
