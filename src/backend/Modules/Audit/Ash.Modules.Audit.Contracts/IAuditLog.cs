@@ -10,6 +10,8 @@ public static class AuditActions
     public const string CaseUpdate = "CASE_UPDATE";
     public const string DocumentDownload = "DOCUMENT_DOWNLOAD";
     public const string DocumentUpload = "DOCUMENT_UPLOAD";
+    /// <summary>A document was removed (soft delete, task 034).</summary>
+    public const string DocumentDelete = "DOCUMENT_DELETE";
     public const string ReportExport = "REPORT_EXPORT";
     public const string AdminChange = "ADMIN_CHANGE";
 }

@@ -23,7 +23,7 @@ internal sealed class GetCaseHandler(
     IReferenceData reference,
     IUserDirectory users,
     IInstitutionDirectory institutions,
-    IDocumentCounts documents,
+    IDocumentService documents,
     IAuditLog audit,
     IClock clock)
 {
@@ -73,7 +73,7 @@ internal sealed class GetCaseHandler(
                 .ToList(),
             await partyViews.ToResponsesAsync(parties, ct),
             hearingsCount,
-            await documents.CountForCaseAsync(caseId, ct),
+            (await documents.CountsByCaseAsync([caseId], ct)).GetValueOrDefault(caseId),
             decision is null ? null : await DecisionAsync(decision, ct),
             await LevelsAsync(c, ct),
             permissions.Order(StringComparer.Ordinal).ToList());

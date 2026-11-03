@@ -154,6 +154,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.IsRecursed).HasColumnName("is_recursed");
             b.Property(x => x.IsFinal).HasColumnName("is_final");
             b.Property(x => x.RecordedAt).HasColumnName("recorded_at");
+            b.Property(x => x.DecisionDocumentId).HasColumnName("decision_document_id");
         });
 
         modelBuilder.Entity<CaseSecurityMeasure>(b =>
@@ -166,6 +167,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.Dispositive).HasColumnName("dispositive");
             b.Property(x => x.RecordedBy).HasColumnName("recorded_by");
             b.Property(x => x.RecordedAt).HasColumnName("recorded_at");
+            b.Property(x => x.DocumentId).HasColumnName("document_id");
         });
 
         modelBuilder.Entity<CaseAccessRow>(b =>
@@ -387,11 +389,13 @@ public sealed class CaseDecision
     /// <summary>Formë e prerë.</summary>
     public bool IsFinal { get; set; }
     public DateTime RecordedAt { get; set; }
+    /// <summary>The decision PDF (documents.id); such a document cannot be removed (task 034).</summary>
+    public ulong? DecisionDocumentId { get; set; }
 }
 
 /// <summary>
 /// Masa e sigurimit, 1:1 with the case. Never deleted: lifting sets cases.has_security_measure = 0 and keeps the row;
-/// setting it again updates the row. TODO(task-033): link the decision document (no document_id column yet).
+/// setting it again updates the row. Linking its decision document (document_id) comes with the decision tasks.
 /// </summary>
 public sealed class CaseSecurityMeasure
 {
@@ -402,6 +406,8 @@ public sealed class CaseSecurityMeasure
     public string? Dispositive { get; set; }
     public uint RecordedBy { get; set; }
     public DateTime RecordedAt { get; set; }
+    /// <summary>The measure's decision document (documents.id); such a document cannot be removed (task 034).</summary>
+    public ulong? DocumentId { get; set; }
 }
 
 public sealed class CaseAccessRow

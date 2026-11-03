@@ -13,6 +13,7 @@ until completed, a warning within ±30 minutes, a description required for HELD 
 **Task 032** (file storage) moves the storage question into the new "AKSHI questions — storage" section (split into
 its parts) and adds the retention period (Q9).
 **Task 033** (document upload) adds "AKSHI questions — uploads": the proxy limit, the antivirus, retention on copy.
+**Task 034** (document timeline, download, delete) adds *docs-across-levels*, *deleted-docs* and *uploader-delete*.
 
 **Numbering note.** The task files use "Client question N" inconsistently: *Q1* stands both for the identity-provider
 claims (005) and for the registration search fields (018), and *Q6* both for the 30-day reminder after a transfer (024)
@@ -43,6 +44,9 @@ and for report access (042/044). The ids below are unique; the old number is kep
 | relatim-rights | A i jep RELATIMI institucionit të njëjtat të drejta si DELEGIMI? | Does RELATIM give the institution the same rights as DELEGIM? | Yes, the same rights (INSTITUTION_DELEGATED profile). | `TODO(client-q-relatim-rights)` in `DelegateCase/DelegateCaseHandlers.cs` | 027 |
 | agenda-content (Q4) | Çfarë tjetër duhet të ketë agjenda (afate, kujtesa, ngjarje personale)? | What else belongs in the agenda (deadlines, reminders, personal events)? | Only hearings. | `TODO(client-q4)` in `Agenda/GetAgendaHandler.cs` | 031 |
 | agenda-ics | A duhet që agjenda të shihet edhe në Outlook ose në telefon (abonim kalendari)? Nëse po, si mbrohet lidhja (token personal, skadim)? | Should the agenda also show in Outlook or on the phone (calendar subscription)? If so, how is the link protected (personal token, expiry)? | Not built; the agenda is only in the application. | `TODO(client-q-ics)` in `Agenda/GetAgendaHandler.cs` | 031 |
+| docs-across-levels | A i sheh avokati i apelit dokumentet e shkallës së parë (dhe anasjelltas)? | Does the appeal lawyer see the first-instance documents (and the other way round)? | Yes: whoever can view ANY level of the dossier sees the documents of ALL its levels — one dossier timeline (unlike the history, which skips levels the user cannot view). | `TODO(client-q-docs-across-levels)` in `Cases.Contracts/ICaseAccessService.cs` (CanViewDossierDocumentsAsync) | 034 |
+| deleted-docs | A duhet që Monitoruesi / Administratori të shohin ose shkarkojnë dokumentet e hequra? | Should the Monitor / Admin see or download removed documents? | No: a removed document is 404 for everyone; the row and the file stay (history shows the removal). | `TODO(client-q-deleted-docs)` in `Documents/Application/Download/DownloadDocumentHandler.cs` | 034 |
+| uploader-delete | A mund ta heqë ngarkuesi dokumentin e vet menjëherë pas ngarkimit (p.sh. brenda 15 minutave), edhe pa qenë avokat primar? | May the uploader remove their own upload shortly after (e.g. within 15 minutes) without being the primary lawyer? | No: only document.delete (the primary lawyer). | `TODO(client-q-uploader-delete)` in `Documents/Application/Delete/DeleteDocumentHandler.cs` | 034 |
 | retention (Q9) | Sa kohë duhet të ruhen dokumentet e çështjeve (afati ligjor i ruajtjes)? | How long must case documents be kept (legal retention period)? | The application never deletes documents (only quarantined uploads); any retention period is left to the bucket's object-lock configuration. | `TODO(client-q9)` in `Ash.Infrastructure/Storage/IFileStorage.cs` | 032 |
 
 ## AKSHI questions — storage (task 032)

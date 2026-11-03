@@ -1,4 +1,7 @@
 using Ash.Modules.Documents.Application;
+using Ash.Modules.Documents.Application.Delete;
+using Ash.Modules.Documents.Application.Download;
+using Ash.Modules.Documents.Application.List;
 using Ash.Modules.Documents.Application.Upload;
 using Ash.Modules.Documents.Contracts;
 using Ash.Modules.Documents.Endpoints;
@@ -16,8 +19,11 @@ public static class DocumentsModule
 	public static IServiceCollection AddDocumentsModule(this IServiceCollection services, IConfiguration configuration)
 	{
 		services.AddScoped<DocumentsDbContext>();
-		services.AddScoped<IDocumentCounts, DocumentCounts>();
+		services.AddScoped<IDocumentService, DocumentService>();
 		services.AddScoped<UploadDocumentHandler>();
+		services.AddScoped<ListDocumentsHandler>();
+		services.AddScoped<DownloadDocumentHandler>();
+		services.AddScoped<DeleteDocumentHandler>();
 		services.AddSingleton<ScanQueueJob>();
 		services.AddHostedService(sp => sp.GetRequiredService<ScanQueueJob>());
 		return services;

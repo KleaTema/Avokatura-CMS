@@ -32,6 +32,8 @@ public sealed class DocumentsDbContext(IUnitOfWork unitOfWork) : ModuleDbContext
             b.Property(x => x.UploadedBy).HasColumnName("uploaded_by");
             b.Property(x => x.UploadedAt).HasColumnName("uploaded_at");
             b.Property(x => x.DeletedAt).HasColumnName("deleted_at");
+            b.Property(x => x.DeletedBy).HasColumnName("deleted_by");
+            b.Property(x => x.DeleteReason).HasColumnName("delete_reason");
         });
     }
 }
@@ -65,6 +67,9 @@ public sealed class DocumentRow
     public DateTime? ScannedAt { get; set; }
     public uint UploadedBy { get; set; }
     public DateTime UploadedAt { get; set; }
-    /// <summary>Soft delete.</summary>
+    /// <summary>Soft delete (task 034): the row and the stored object stay; the document leaves the timeline.</summary>
     public DateTime? DeletedAt { get; set; }
+    /// <summary>Set together with DeletedAt (ck_documents_delete).</summary>
+    public uint? DeletedBy { get; set; }
+    public string? DeleteReason { get; set; }
 }

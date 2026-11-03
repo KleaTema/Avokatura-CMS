@@ -29,6 +29,28 @@ internal sealed class CaseActivity(CasesDbContext db, ICaseAccessService access,
         return c is null ? null : new CaseRef((long)c.Id, (long)c.DossierId, c.CaseCode, c.LifecycleStatus == Case.Closed);
     }
 
+    public async Task<IReadOnlyList<CaseLevel>> ListLevelsAsync(long dossierId, CancellationToken ct = default)
+    {
+        var id = (ulong)dossierId;
+        var levels = await db.Cases.AsNoTracking()
+            .Where(x => x.DossierId == id)
+            .OrderBy(x => x.LevelSeq)
+            .Select(x => new { x.Id, x.LevelSeq, x.CaseCode, x.LifecycleStatus })
+            .ToListAsync(ct);
+        return levels.Select(x => new CaseLevel((long)x.Id, x.LevelSeq, x.CaseCode, x.LifecycleStatus == Case.Closed)).ToList();
+    }
+
+    public async Task<DocumentLink?> FindDocumentLinkAsync(long documentId, CancellationToken ct = default)
+    {
+        var id = (ulong)documentId;
+        if (await db.CaseDecisions.AnyAsync(d => d.DecisionDocumentId == id, ct))
+        {
+            return DocumentLink.Decision;
+        }
+
+        return await db.CaseSecurityMeasures.AnyAsync(m => m.DocumentId == id, ct) ? DocumentLink.SecurityMeasure : null;
+    }
+
     public async Task AddHistoryAsync(long dossierId, long? caseId, HistoryEventType type, string summary, object? @new = null, CancellationToken ct = default)
     {
         history.Add(dossierId, caseId, type, summary, old: null, @new: @new);

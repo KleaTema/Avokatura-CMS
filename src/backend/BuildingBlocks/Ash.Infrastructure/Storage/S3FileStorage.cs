@@ -147,11 +147,24 @@ public sealed class S3FileStorage : IFileStorage, IDisposable
         return filled;
     }
 
-    public async Task<StoredObject?> OpenReadAsync(string bucket, string key, CancellationToken ct = default)
+    public Task<StoredObject?> OpenReadAsync(string bucket, string key, CancellationToken ct = default) =>
+        GetAsync(new GetObjectRequest { BucketName = bucket, Key = key }, ct);
+
+    public Task<StoredObject?> OpenReadAsync(string bucket, string key, long from, long to, CancellationToken ct = default)
+    {
+        if (from < 0 || to < from)
+        {
+            throw new ArgumentOutOfRangeException(nameof(from), $"Invalid byte range {from}-{to}.");
+        }
+
+        return GetAsync(new GetObjectRequest { BucketName = bucket, Key = key, ByteRange = new ByteRange(from, to) }, ct);
+    }
+
+    private async Task<StoredObject?> GetAsync(GetObjectRequest request, CancellationToken ct)
     {
         try
         {
-            var response = await Client.GetObjectAsync(new GetObjectRequest { BucketName = bucket, Key = key }, ct);
+            var response = await Client.GetObjectAsync(request, ct);
             var contentType = string.IsNullOrEmpty(response.Headers.ContentType) ? "application/octet-stream" : response.Headers.ContentType;
             return new StoredObject(response.ResponseStream, response.ContentLength, contentType, response);
         }

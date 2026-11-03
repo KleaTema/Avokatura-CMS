@@ -21,6 +21,15 @@ public interface ICaseAccessService
     Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(long caseId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Documents (task 034): true when the user can view ANY level of the dossier — and then sees the documents of ALL
+    /// its levels. A deliberate exception to the history rule (task 020: history rows of a level the user cannot view
+    /// are skipped): the workflow treats the documents as ONE dossier timeline, and the lawyer of the appeal works from
+    /// the first-instance file (claim, evidence, decision). The only place this rule lives.
+    /// TODO(client-q-docs-across-levels): confirm that the appeal lawyer sees the first-instance documents (default yes).
+    /// </summary>
+    Task<bool> CanViewDossierDocumentsAsync(long dossierId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// For the registration lookup (task 018) ONLY: which cases Protokoll may FIND to continue at the next level.
     /// It never grants case.view — the lookup shows a few registration fields, nothing else of the case.
     /// </summary>

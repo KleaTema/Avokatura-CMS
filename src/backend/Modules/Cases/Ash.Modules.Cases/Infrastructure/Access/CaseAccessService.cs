@@ -39,6 +39,22 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     public async Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(long caseId, CancellationToken cancellationToken = default) =>
         (await GetAsync(caseId, cancellationToken)).Permissions;
 
+    /// <inheritdoc/>
+    public async Task<bool> CanViewDossierDocumentsAsync(long dossierId, CancellationToken cancellationToken = default)
+    {
+        var id = (ulong)dossierId;
+        var levels = await db.Cases.AsNoTracking().Where(c => c.DossierId == id).Select(c => c.Id).ToListAsync(cancellationToken);
+        foreach (var level in levels)
+        {
+            if (await CanViewAsync((long)level, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public const string LinkPreviousPermission = "case.link_previous";
     public const string ViewPermission = "case.view";
     public const string EditRegistrationPermission = "case.edit_registration";

@@ -10,10 +10,16 @@ namespace Ash.Infrastructure.Storage;
 /// </summary>
 public static class ContentDisposition
 {
-    public static string Attachment(string fileName)
+    /// <summary>Download: the browser saves the file.</summary>
+    public static string Attachment(string fileName) => Build("attachment", fileName);
+
+    /// <summary>Preview: the browser shows the file (task 034; only for types that are safe to show, with a sandbox CSP).</summary>
+    public static string Inline(string fileName) => Build("inline", fileName);
+
+    private static string Build(string type, string fileName)
     {
         var name = Clean(fileName);
-        return $"attachment; filename=\"{AsciiFallback(name)}\"; filename*=UTF-8''{Uri.EscapeDataString(name)}";
+        return $"{type}; filename=\"{AsciiFallback(name)}\"; filename*=UTF-8''{Uri.EscapeDataString(name)}";
     }
 
     /// <summary>The name without control characters or path parts ("..\a/b.pdf" → "b.pdf"); "file" when nothing remains.</summary>

@@ -241,4 +241,29 @@ Upload as avokat1 to an ACTIVE case of theirs (`{id}` = the case's public id fro
 10. Stop ClamAV while a document is PENDING → it stays PENDING (warnings in the log, attempt n of 5); after 5 runs →
     FAILED. Start ClamAV again: new uploads are scanned.
 11. Production / Staging with `Scanner__Mode=NoOp` → the API does not start ("NoOp is allowed only in Development").
-12. PENDING, INFECTED and FAILED documents cannot be downloaded (there is no download yet; task 034 serves CLEAN only).
+12. PENDING, INFECTED and FAILED documents cannot be downloaded (task 034: 409, see below).
+
+## 034 — Documents: timeline, download, delete (backend; the screen comes with task 035)
+With the API (curl / Swagger, `X-Dev-User`); upload a few documents first (033). The automated part is
+`DocumentTimelineTests`. `{case}` = a case's public id, `{doc}` = a documentPublicId from the upload or the list.
+1. `GET /api/cases/{case}/documents` → newest first: title, type, level (X/n), uploader, date, size, scanStatus,
+   canPreview (CLEAN pdf/png/jpg); no storage key, no numeric id. `?type=ANKIM`, `?level=1`, `?limit=2` + `after`
+   (nextCursor) page through without repeating a row.
+2. A dossier with X/1 and X/2: the lawyer who only works on X/2 lists X/2 and sees the X/1 documents too (one
+   timeline); `GET /api/cases/{X/1}/documents` stays 404 for them, but `…/{doc of X/1}/download` works.
+3. `GET /api/documents/{doc}/download` → the file as an attachment (Albanian file name intact), nosniff, no-store.
+   A PENDING document → 409 "Dokumenti po kontrollohet ende"; INFECTED / FAILED → 409 "Dokumenti u refuzua nga
+   kontrolli antivirus".
+4. `GET /api/documents/{doc}/preview` of a PDF in the browser → shown inline; response headers include
+   `Content-Security-Policy: sandbox; default-src 'none'; …`. A .docx → 400 (download it instead).
+5. `curl -H "Range: bytes=0-99" …/download -i` → 206, `Content-Range: bytes 0-99/{size}`, 100 bytes; a range past the
+   end → 416.
+6. Every download and every preview (also each Range request) adds a DOCUMENT_DOWNLOAD row to ash_audit.audit_log
+   with `details.Mode` = download / preview.
+7. As the primary lawyer: `DELETE /api/documents/{doc}` with `{"reason":"U ngarkua gabim."}` → 200; the document
+   leaves the list, download → 404, *Historiku* "Dokumenti u hoq: … Arsyeja: …"; the row keeps deleted_at /
+   deleted_by / delete_reason and the object stays in MinIO.
+8. Without a reason, or with more than 300 characters → 400. As the secondary lawyer → 403. As a user without access
+   to the dossier → 404. On a CLOSED level → 409.
+9. A document linked as the decision (`case_decisions.decision_document_id`) or the security measure
+   (`case_security_measures.document_id`) → 409 "Dokumenti është i lidhur me vendimin / masën e sigurimit…".

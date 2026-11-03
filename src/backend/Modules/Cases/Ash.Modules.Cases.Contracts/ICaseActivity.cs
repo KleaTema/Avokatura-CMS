@@ -3,6 +3,19 @@ namespace Ash.Modules.Cases.Contracts;
 /// <summary>A case as other modules see it: internal ids only for their foreign keys, never sent out.</summary>
 public sealed record CaseRef(long Id, long DossierId, string CaseCode, bool IsClosed);
 
+/// <summary>A level of a dossier: its case code is the "X/n" label.</summary>
+public sealed record CaseLevel(long CaseId, int LevelSeq, string CaseCode, bool IsClosed);
+
+/// <summary>What a document is the official record of (it cannot be removed while linked).</summary>
+public enum DocumentLink
+{
+    /// <summary>case_decisions.decision_document_id — the decision PDF.</summary>
+    Decision,
+
+    /// <summary>case_security_measures.document_id — the security measure's decision.</summary>
+    SecurityMeasure,
+}
+
 /// <summary>
 /// What other modules (Documents first, task 033) may do with a case without touching Cases tables: find it for the
 /// current user, write its history and mark the first data entry — all in the current unit of work (transaction).
@@ -18,6 +31,12 @@ public interface ICaseActivity
     /// (e.g. the scan job writing DOCUMENT_REJECTED). Null when it does not exist.
     /// </summary>
     Task<CaseRef?> FindAsync(long caseId, CancellationToken ct = default);
+
+    /// <summary>Every level of the dossier, first to last (no access check: for labels and the level filter).</summary>
+    Task<IReadOnlyList<CaseLevel>> ListLevelsAsync(long dossierId, CancellationToken ct = default);
+
+    /// <summary>Whether a decision or a security measure points to the document (by its internal id); null when none.</summary>
+    Task<DocumentLink?> FindDocumentLinkAsync(long documentId, CancellationToken ct = default);
 
     /// <summary>
     /// One history row, saved at once in the current transaction (rolled back with it). Without a current user (a

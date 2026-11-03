@@ -22,6 +22,12 @@ public interface IFileStorage
     /// <summary>The object as a stream with its length and content type, or null when it does not exist.</summary>
     Task<StoredObject?> OpenReadAsync(string bucket, string key, CancellationToken ct = default);
 
+    /// <summary>
+    /// Bytes <paramref name="from"/> to <paramref name="to"/> (inclusive, already checked against the object's length)
+    /// — for HTTP Range requests (task 034: a PDF viewer reads a large file in parts). Null when it does not exist.
+    /// </summary>
+    Task<StoredObject?> OpenReadAsync(string bucket, string key, long from, long to, CancellationToken ct = default);
+
     /// <summary>Server-side copy (e.g. quarantine → documents). Fails for an object above the 5 GB single-copy limit.</summary>
     Task CopyAsync(string sourceBucket, string sourceKey, string destinationBucket, string destinationKey, CancellationToken ct = default);
 
