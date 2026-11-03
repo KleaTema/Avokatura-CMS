@@ -41,6 +41,8 @@ public enum HistoryEventType
     HearingCompleted,
     DocumentUploaded,
     DocumentRemoved,
+    /// <summary>DOCUMENT_REJECTED (task 033): the virus scan (or the format check) rejected an uploaded document.</summary>
+    DocumentRejected,
     SecurityMeasureSet,
     /// <summary>SECURITY_MEASURE_LIFTED (task 025): the security measure was lifted (the row is kept).</summary>
     SecurityMeasureLifted,

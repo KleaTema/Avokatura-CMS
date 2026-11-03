@@ -35,6 +35,7 @@ public static class HistoryEventCodes
         HistoryEventType.HearingCompleted => "HEARING_COMPLETED",
         HistoryEventType.DocumentUploaded => "DOCUMENT_UPLOADED",
         HistoryEventType.DocumentRemoved => "DOCUMENT_REMOVED",
+        HistoryEventType.DocumentRejected => "DOCUMENT_REJECTED",
         HistoryEventType.SecurityMeasureSet => "SECURITY_MEASURE_SET",
         HistoryEventType.SecurityMeasureLifted => "SECURITY_MEASURE_LIFTED",
         HistoryEventType.ClaimChanged => "CLAIM_CHANGED",

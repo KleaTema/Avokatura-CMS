@@ -215,3 +215,30 @@ download headers).
    "Unhealthy"; run `docker compose up minio-init` → the bucket is back and /health "Healthy".
 4. Remove the user-secrets keys → the API still starts; /health "Unhealthy" (storage not configured).
 5. The API log (logs/ash-*.log) and the console never show the access or secret key.
+
+## 033 — Document upload (backend; the screen comes with task 035)
+Until the screen exists, upload with curl (fields BEFORE the file). The automated part is `DocumentUploadTests` and
+`ClamAvScannerTests`. **Setup:** as for 032 (MinIO + user-secrets). Scanner: Development uses NoOp (every file CLEAN);
+for a real scan run `docker compose --profile av up -d clamav` (the first start downloads the signatures for several
+minutes) and start the API with `Scanner__Mode=ClamAv`.
+Upload as avokat1 to an ACTIVE case of theirs (`{id}` = the case's public id from the address bar):
+`curl -H "X-Dev-User: avokat1@ash.local" -F documentTypeCode=PADI_PROVA -F title=Padia -F "file=@padia.pdf" http://localhost:5004/api/cases/{id}/documents`
+1. → 201 `{ documentPublicId, scanStatus: "PENDING", warnings: [] }`. Within ~5 s the row in `documents` becomes CLEAN,
+   `storage_bucket` = ash-documents; the MinIO console shows the object in `ash-documents` and no longer in
+   `ash-uploads-quarantine`. *Historiku* shows "Dokumenti u ngarkua: Padia (Padi / Prova, … KB)." (no storage key).
+2. The same file again → 201 with the warning "Ky dokument është ngarkuar më parë më {data} si "Padia"."
+3. An .exe renamed to .pdf → 400 "Lloji i skedarit nuk lejohet"; a .txt → the same.
+4. The file before the fields (`-F "file=@padia.pdf" -F documentTypeCode=PADI_PROVA`) → 400 "Fushat duhet të
+   dërgohen para skedarit."
+5. `documentTypeCode=TJETER` without `otherTypeText` → 400 with the field; a title of 256 characters → 400.
+6. A PDF over 50 MB → 413 "Skedari kalon madhësinë maksimale prej 50 MB."; nothing new in the quarantine bucket.
+7. As institucion (the ministry monitors the case) → 201; as a user of another office → 404; on a CLOSED case → 409.
+8. With ClamAV and a PDF that ClamAV flags (the upload must start with %PDF, so the plain EICAR file is refused at
+   step 3 already; a PDF test sample from your security team, or `clamscan` first to confirm ClamAV flags it) → the
+   row becomes INFECTED, the file stays in quarantine, *Historiku* "Dokumenti "…" u refuzua: u gjet virus (…)". The
+   automated test covers this path with a fake infected scanner.
+9. A .jar (or any zip without [Content_Types].xml) renamed to .docx → INFECTED, "… u refuzua: format i pavlefshëm."
+10. Stop ClamAV while a document is PENDING → it stays PENDING (warnings in the log, attempt n of 5); after 5 runs →
+    FAILED. Start ClamAV again: new uploads are scanned.
+11. Production / Staging with `Scanner__Mode=NoOp` → the API does not start ("NoOp is allowed only in Development").
+12. PENDING, INFECTED and FAILED documents cannot be downloaded (there is no download yet; task 034 serves CLEAN only).

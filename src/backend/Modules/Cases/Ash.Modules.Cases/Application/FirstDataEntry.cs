@@ -10,8 +10,8 @@ namespace Ash.Modules.Cases.Application;
 /// Set once, by a write of someone working ON the case: a current assignment (primary, secondary, legal assistant,
 /// institution jurist) or a user of a DELEGATED institution. The Kryetar's or Protokoll's own actions (assigning,
 /// priority as head, registration fixes) do not count — unless that person is on the team.
-/// Called by every team write: case data (task 025) and parties (017).
-/// TODO(task-030, task-033): hearings and documents must call it too.
+/// Called by every team write: case data (task 025), parties (017), hearings (030) and documents (033, through
+/// ICaseActivity.MarkFirstDataEntryAsync).
 /// </summary>
 internal sealed class FirstDataEntry(CasesDbContext db, ICurrentUser user, IClock clock)
 {

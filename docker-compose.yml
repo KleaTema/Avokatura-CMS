@@ -3,6 +3,7 @@
 #   mysql      MySQL 8.0 (schema is applied by the DbUp project, see README)
 #   minio      S3-compatible object storage for files (stands in for AKSHI's)
 #   minio-init creates the buckets once, then exits
+#   clamav     antivirus for uploads — only with "--profile av" (see below)
 #
 # Start:            docker compose up -d
 # Stop (keep data): docker compose down
@@ -83,6 +84,22 @@ services:
         echo "Buckets ready:"; $$S3 list-buckets --query "Buckets[].Name" --output text
     restart: "no"
 
+  # Antivirus for uploaded documents (task 033), only with the "av" profile:
+  #   docker compose --profile av up -d clamav
+  # The FIRST start downloads the virus signatures (several minutes, ~300 MB) before clamd answers on 3310; the
+  # signatures are kept in the clamav-db volume. Then run the API with Scanner:Mode = ClamAv (default in
+  # Development: NoOp, every file CLEAN). clamd's StreamMaxLength must be at least the largest allowed file size.
+  clamav:
+    image: clamav/clamav:stable
+    container_name: ash-clamav
+    profiles: ["av"]
+    restart: unless-stopped
+    ports:
+      - "3310:3310"   # clamd (INSTREAM) -> Scanner:ClamAv:Host = localhost, Port = 3310
+    volumes:
+      - clamav-db:/var/lib/clamav
+
 volumes:
   mysql-data:
   minio-data:
+  clamav-db:

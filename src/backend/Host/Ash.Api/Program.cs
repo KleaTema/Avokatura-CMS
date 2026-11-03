@@ -4,6 +4,7 @@ using Ash.Api.Health;
 using Ash.Api.Middleware;
 using Ash.Api.Persistence;
 using Ash.Infrastructure;
+using Ash.Infrastructure.Scanning;
 using Ash.Infrastructure.Storage;
 using Ash.Modules.Audit;
 using Ash.Modules.Cases;
@@ -36,6 +37,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddAshInfrastructure(connectionString);
 // object storage (task 032); keys from user-secrets / environment, never logged (StorageOptions.ToString hides them)
 builder.Services.AddAshStorage(builder.Configuration.GetSection(StorageOptions.Section).Get<StorageOptions>() ?? new StorageOptions());
+// virus scanning (task 033): NoOp only in Development — elsewhere the app refuses to start with it
+builder.Services.AddAshScanning(
+    builder.Configuration.GetSection(ScannerOptions.Section).Get<ScannerOptions>() ?? new ScannerOptions(),
+    builder.Environment.IsDevelopment());
 builder.Services.AddHealthChecks()
     .AddCheck<MySqlHealthCheck>("mysql")
     .AddCheck<StorageHealthCheck>("storage");

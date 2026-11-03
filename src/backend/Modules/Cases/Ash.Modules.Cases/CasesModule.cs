@@ -67,6 +67,7 @@ public static class CasesModule
 		services.AddScoped<AssignLawyersHandler>();
 		services.AddScoped<TransferLawyerHandler>();
 		services.AddScoped<FirstDataEntry>();
+		services.AddScoped<ICaseActivity, CaseActivity>();
 		services.AddScoped<CaseDataGate>();
 		services.AddScoped<UpdateClaimHandler>();
 		services.AddScoped<SetCategoryHandler>();

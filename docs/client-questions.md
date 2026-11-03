@@ -12,6 +12,7 @@ until completed, a warning within ±30 minutes, a description required for HELD 
 **Task 031** (agenda) implements Q4 with its default (only hearings) and adds *agenda-ics* (calendar subscription).
 **Task 032** (file storage) moves the storage question into the new "AKSHI questions — storage" section (split into
 its parts) and adds the retention period (Q9).
+**Task 033** (document upload) adds "AKSHI questions — uploads": the proxy limit, the antivirus, retention on copy.
 
 **Numbering note.** The task files use "Client question N" inconsistently: *Q1* stands both for the identity-provider
 claims (005) and for the registration search fields (018), and *Q6* both for the 30-day reminder after a transfer (024)
@@ -57,7 +58,15 @@ Questions for AKSHI's infrastructure team. Until answered, the code uses the def
 | storage-versioning | A mbështetet versionimi i objekteve? | Is object versioning supported? | Left to the bucket configuration (enabled for chat files locally). |
 | storage-encryption | A enkriptohen objektet në ruajtje (SSE-S3, SSE-KMS)? Kush i menaxhon çelësat? | Are objects encrypted at rest (SSE-S3, SSE-KMS)? Who manages the keys? | Left to the bucket's default encryption; the app sends no SSE headers. |
 | storage-presigned | A mbështeten URL-të e nënshkruara (presigned) dhe cila adresë publike arrihet nga shfletuesi? | Are presigned URLs supported, and which public endpoint can the browser reach? | Implemented (at most 2 minutes, signed against `Storage:PublicServiceUrl` when set) but NOT used: downloads go through the API (access check and audit at download time, links cannot be forwarded). |
-| storage-lifecycle | A mbështeten rregullat e ciklit të jetës (fshirja automatike pas 1 dite në kovën e karantinës)? | Are lifecycle rules supported (automatic expiry after 1 day in the quarantine bucket)? | Expected on the quarantine bucket (docker-compose sets it locally); the app may delete from the quarantine bucket only. |
+| storage-lifecycle | A mbështeten rregullat e ciklit të jetës (fshirja automatike pas 1 dite në kovën e karantinës)? | Are lifecycle rules supported (automatic expiry after 1 day in the quarantine bucket)? | Expected on the quarantine bucket (docker-compose sets it locally); the app may delete from the quarantine bucket only. An upload whose database part fails, and a rejected (INFECTED) file, are left there to expire. |
+
+## AKSHI questions — uploads (task 033)
+
+| Id | Question (sq) | Question (en) | Default implemented | Where in code (TODO tag) |
+|---|---|---|---|---|
+| proxy-limit | A lejon proxy-ja (reverse proxy / load balancer) para API-së kërkesa deri në madhësinë më të madhe të lejuar të skedarit + 1 MB (aktualisht 51 MB), dhe pa i ruajtur në disk/memorie para se t'i kalojë? | Does the reverse proxy / load balancer in front of the API allow request bodies up to the largest allowed file size + 1 MB (51 MB today), streamed through without buffering them? | The API sets its own per-request limit to the largest active DOCUMENT/BOTH `max_size_bytes` + 1 MB (Kestrel's default is 30 MB) and streams the file. | `TODO(akshi-q-proxy)` in `Documents/Application/Upload/UploadDocumentHandler.cs` |
+| antivirus | Cilin antivirus ofron AKSHI për skanimin e skedarëve (ClamAV clamd, ICAP, tjetër), në cilën adresë, dhe cila është madhësia maksimale që skanon? | Which antivirus does AKSHI provide for scanning files (ClamAV clamd, ICAP, other), at which address, and what is the largest file it scans? | ClamAV clamd over TCP (INSTREAM), `Scanner:ClamAv:Host/Port`; scanner down → the document stays PENDING, after 5 failed attempts FAILED. Locally: `docker compose --profile av up -d clamav`, or NoOp (Development only). | `TODO(akshi-q-av)` in `Ash.Infrastructure/Scanning/IVirusScanner.cs` and `Documents/Infrastructure/Jobs/ScanQueueJob.cs` |
+| retention-on-copy | Kur dokumenti i pastër kopjohet në kovën `ash-documents`, a vendos AKSHI afatin e ruajtjes (object lock) në nivel kove, apo duhet ta vendosë aplikacioni për çdo objekt? | When a clean document is copied to `ash-documents`, does AKSHI set the retention (object lock) at bucket level, or must the application set it per object? | The bucket's default retention applies; the app sets none per object (see *storage-object-lock* and the retention period Q9). | `TODO(akshi-q-storage, client-q9)` in `Documents/Infrastructure/Jobs/ScanQueueJob.cs` |
 
 ## Open — for tasks not built yet
 
