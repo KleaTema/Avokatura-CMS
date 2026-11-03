@@ -28,15 +28,26 @@ export const setUnauthorizedHandler = (handler: (() => void) | null) => {
 
 export const api = createClient<paths>({ baseUrl: '' })
 
+/**
+ * The login headers of a request. openapi-fetch adds them itself; requests it cannot make — an upload with progress
+ * (XMLHttpRequest), a download turned into a blob (task 035) — add them with this. An <iframe> or <a href> could not.
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  if (authMode === 'dev') {
+    const email = getDevUser()
+    return email ? { 'X-Dev-User': email } : {}
+  }
+
+  const user = await userManager?.getUser()
+  return user && !user.expired ? { Authorization: `Bearer ${user.access_token}` } : {}
+}
+
+/** For requests made outside openapi-fetch: the same 401 handling (back to the login). */
+export const notifyUnauthorized = () => unauthorizedHandler?.()
+
 api.use({
   async onRequest({ request }) {
-    if (authMode === 'dev') {
-      const email = getDevUser()
-      if (email) request.headers.set('X-Dev-User', email)
-    } else {
-      const user = await userManager?.getUser()
-      if (user && !user.expired) request.headers.set('Authorization', `Bearer ${user.access_token}`)
-    }
+    for (const [name, value] of Object.entries(await authHeaders())) request.headers.set(name, value)
     return request
   },
   onResponse({ response }) {

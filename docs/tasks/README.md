@@ -71,7 +71,7 @@ Rules
 | 032 | [File storage abstraction (S3)](032-file-storage.md) | 004 | yes | done |
 | 033 | [Document upload pipeline](033-document-upload.md) | 032, 030 |  | done |
 | 034 | [Documents: timeline, download, delete](034-document-list-download-delete.md) | 033 |  | done |
-| 035 | [UI: hearings, agenda and documents](035-ui-hearings-agenda-documents.md) | 022, 030, 031, 034 |  | todo |
+| 035 | [UI: hearings, agenda and documents](035-ui-hearings-agenda-documents.md) | 022, 030, 031, 034 |  | done |
 
 ### Phase 5 — Decision, closing & archiving
 

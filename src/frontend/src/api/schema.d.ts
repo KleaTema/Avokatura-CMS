@@ -500,6 +500,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListDocuments"];
+        put?: never;
+        post: operations["UploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{docId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DownloadDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{docId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PreviewDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/documents/{docId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["DeleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -1934,6 +1998,29 @@ export interface components {
             linkMode: string;
             category: null | components["schemas"]["CodeName"];
         };
+        DeleteDocumentRequest: {
+            reason: null | string;
+        };
+        DeleteDocumentResponse: {
+            /** Format: uuid */
+            documentPublicId: string;
+        };
+        DocumentListItem: {
+            /** Format: uuid */
+            publicId: string;
+            title: string;
+            documentType: components["schemas"]["DocumentTypeName"];
+            otherTypeText: null | string;
+            level: string;
+            uploadedBy: null | string;
+            /** Format: date-time */
+            uploadedAt: string;
+            /** Format: int64 */
+            sizeBytes: number | string;
+            contentType: string;
+            scanStatus: string;
+            canPreview: boolean;
+        };
         DocumentTypeAdminResponse: {
             code: string;
             name: string;
@@ -1942,10 +2029,18 @@ export interface components {
             sortOrder: number | string;
             isActive: boolean;
         };
+        DocumentTypeName: {
+            code: string;
+            name: string;
+        };
         DocumentTypeResponse: {
             code: string;
             name: string;
             isOther: boolean;
+        };
+        DocumentWarning: {
+            code: string;
+            message: string;
         };
         DossierCodeFormatAdminResponse: {
             /** Format: uint8 */
@@ -2059,6 +2154,8 @@ export interface components {
                 [key: string]: string[];
             };
         };
+        /** Format: binary */
+        IFormFile: string;
         InstitutionAdminResponse: {
             /** Format: uuid */
             publicId: string;
@@ -2115,6 +2212,10 @@ export interface components {
         };
         KeysetPageOfCaseListItem: {
             items: components["schemas"]["CaseListItem"][];
+            nextCursor: null | string;
+        };
+        KeysetPageOfDocumentListItem: {
+            items: components["schemas"]["DocumentListItem"][];
             nextCursor: null | string;
         };
         KeysetPageOfInstitutionAdminResponse: {
@@ -2512,6 +2613,12 @@ export interface components {
             officeId: null | string;
             /** Format: uuid */
             institutionId: null | string;
+        };
+        UploadDocumentResponse: {
+            /** Format: uuid */
+            documentPublicId: string;
+            scanStatus: string;
+            warnings: components["schemas"]["DocumentWarning"][];
         };
         UserResponse: {
             /** Format: uuid */
@@ -3880,6 +3987,283 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListDocuments: {
+        parameters: {
+            query?: {
+                type?: string;
+                level?: number | string;
+                after?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysetPageOfDocumentListItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UploadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["IFormFile"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DownloadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                docId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Partial Content */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PreviewDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                docId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Partial Content */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                docId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

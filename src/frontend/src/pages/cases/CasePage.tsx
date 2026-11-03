@@ -14,8 +14,9 @@ import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { DataTab } from './tabs/DataTab'
+import { DocumentsTab } from './tabs/DocumentsTab'
 import { HearingsTab } from './tabs/HearingsTab'
-import { DecisionTab, DocumentsTab } from './tabs/SummaryTabs'
+import { DecisionTab } from './tabs/SummaryTabs'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PartiesTab } from './tabs/PartiesTab'
 
@@ -58,6 +59,9 @@ export function CasePage() {
   const { header, data } = c
   // from permissions[] only: case.assign_lawyer exists only while REGISTERED (CaseAccessService state rules)
   const canAssign = c.permissions.includes('case.assign_lawyer')
+  // hearings and documents of this level: the counts follow every change (afterCaseChange reloads the case)
+  const counts: Partial<Record<CaseTab, number | string>> = { seancat: c.hearingsCount, dokumentet: c.documentsCount }
+  const tabLabel = (x: CaseTab) => (counts[x] === undefined ? t.tabs[x] : `${t.tabs[x]} (${counts[x]})`)
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(header.caseCode)
@@ -134,7 +138,7 @@ export function CasePage() {
 
       <Tabs value={current} variant="scrollable" allowScrollButtonsMobile aria-label={t.tabsLabel}>
         {CASE_TABS.map((x) => (
-          <Tab key={x} value={x} label={t.tabs[x]} component={Link} to={`/cases/${publicId}/${x}`} />
+          <Tab key={x} value={x} label={tabLabel(x)} component={Link} to={`/cases/${publicId}/${x}`} />
         ))}
       </Tabs>
 

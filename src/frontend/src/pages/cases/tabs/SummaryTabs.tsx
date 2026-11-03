@@ -5,11 +5,6 @@ import { formatDate } from '../../../lib/dates'
 
 const t = sq.cases.page
 
-/** Dokumentet — the count from the case; the list comes with task 034. */
-export function DocumentsTab({ detail }: { detail: CaseDetail }) {
-  return <Summary text={t.documentsCount(Number(detail.documentsCount))} />
-}
-
 /** Vendimi — the decision summary of this level, if any; recording it comes with task 036. */
 export function DecisionTab({ detail }: { detail: CaseDetail }) {
   const decision = detail.decision

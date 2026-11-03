@@ -62,6 +62,24 @@ export const useJudgeSearch = (courtId: number | null, q: string, enabled = true
   })
 }
 
+export type DocumentType = components['schemas']['DocumentTypeResponse']
+export type AllowedFileType = components['schemas']['AllowedFileTypeResponse']
+
+export const useDocumentTypes = () =>
+  useQuery({
+    queryKey: referenceKeys.list('document-types'),
+    staleTime: LIST_STALE_MS,
+    queryFn: () => api.GET('/api/reference/document-types').then(unwrap),
+  })
+
+/** Extensions and size limits (task 035: the upload's quick check before sending — the server checks again). */
+export const useAllowedFileTypes = () =>
+  useQuery({
+    queryKey: referenceKeys.list('allowed-file-types'),
+    staleTime: LIST_STALE_MS,
+    queryFn: () => api.GET('/api/reference/allowed-file-types').then(unwrap),
+  })
+
 export const useCaseCategories = () =>
   useQuery({
     queryKey: referenceKeys.list('case-categories'),

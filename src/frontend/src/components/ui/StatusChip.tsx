@@ -24,7 +24,11 @@ const LINK: Record<string, { color: ChipColor; variant: 'filled' | 'outlined' }>
 /** A hearing (task 030): planned in blue, held in green, postponed in amber, cancelled in grey. */
 const HEARING: Record<string, ChipColor> = { SCHEDULED: 'primary', HELD: 'success', POSTPONED: 'warning', CANCELLED: 'default' }
 
+/** A document's antivirus check (task 035): checking in amber, ready in green, rejected in red. */
+const SCAN: Record<string, ChipColor> = { PENDING: 'warning', CLEAN: 'success', INFECTED: 'error', FAILED: 'error' }
+
 export type StatusChipProps =
+  | { kind: 'scan'; value: string }
   | { kind: 'hearing'; value: string }
   | { kind: 'link'; value: string }
   | { kind: 'status'; value: string }
@@ -55,6 +59,14 @@ export function StatusChip(props: StatusChipProps & { size?: 'small' | 'medium';
           color={PRIORITY[props.value] ?? 'default'}
           variant={props.value === 'NONE' ? 'outlined' : 'filled'}
           label={props.label ?? sq.cases.priority[props.value] ?? props.value}
+        />
+      )
+    case 'scan':
+      return (
+        <Chip
+          size={size}
+          color={SCAN[props.value] ?? 'default'}
+          label={props.label ?? sq.cases.documents.status[props.value] ?? props.value}
         />
       )
     case 'hearing':

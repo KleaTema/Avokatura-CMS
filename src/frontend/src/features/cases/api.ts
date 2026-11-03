@@ -113,6 +113,8 @@ export const caseKeys = {
   picker: (id: string, kind: 'lawyers' | 'assistants' | 'jurists') => ['case-pickers', id, kind] as const,
   hearings: (id: string) => ['case-hearings', id] as const,
   hearingDefaults: (id: string) => ['case-hearing-defaults', id] as const,
+  /** the dossier timeline seen from this case (every filter combination under one prefix) */
+  documents: (id: string) => ['case-documents', id] as const,
 }
 
 /** The agenda (task 031) shows hearings: every hearing change reloads it, whatever its later keys look like. */
@@ -123,7 +125,7 @@ export const agendaKeys = { all: ['agenda'] as const }
  * with `apply`, the changed fields — go into the cached case at once, so the next save of the same user sends the
  * latest rowVersion (one source, never a copy in a screen); then the case (with its team), its history, the case
  * lists with their tab counts and the case's pickers reload. Since task 030 also its hearings (with the defaults for
- * a new one) and the agenda: the next hearing is part of the case header and the lists.
+ * a new one) and the agenda: the next hearing is part of the case header and the lists. Since task 035 the documents.
  */
 export function afterCaseChange(
   qc: QueryClient,
@@ -142,6 +144,7 @@ export function afterCaseChange(
     qc.invalidateQueries({ queryKey: caseKeys.pickers(caseId) }),
     qc.invalidateQueries({ queryKey: caseKeys.hearings(caseId) }),
     qc.invalidateQueries({ queryKey: caseKeys.hearingDefaults(caseId) }),
+    qc.invalidateQueries({ queryKey: caseKeys.documents(caseId) }),
     qc.invalidateQueries({ queryKey: agendaKeys.all }),
     invalidateCaseLists(qc),
   ])

@@ -243,7 +243,7 @@ Upload as avokat1 to an ACTIVE case of theirs (`{id}` = the case's public id fro
 11. Production / Staging with `Scanner__Mode=NoOp` → the API does not start ("NoOp is allowed only in Development").
 12. PENDING, INFECTED and FAILED documents cannot be downloaded (task 034: 409, see below).
 
-## 034 — Documents: timeline, download, delete (backend; the screen comes with task 035)
+## 034 — Documents: timeline, download, delete (the API; the screen: 035 below)
 With the API (curl / Swagger, `X-Dev-User`); upload a few documents first (033). The automated part is
 `DocumentTimelineTests`. `{case}` = a case's public id, `{doc}` = a documentPublicId from the upload or the list.
 1. `GET /api/cases/{case}/documents` → newest first: title, type, level (X/n), uploader, date, size, scanStatus,
@@ -267,3 +267,29 @@ With the API (curl / Swagger, `X-Dev-User`); upload a few documents first (033).
    to the dossier → 404. On a CLOSED level → 409.
 9. A document linked as the decision (`case_decisions.decision_document_id`) or the security measure
    (`case_security_measures.document_id`) → 409 "Dokumenti është i lidhur me vendimin / masën e sigurimit…".
+
+## 035 — The Dokumentet tab (and the acceptance flow with Seancat)
+**Setup:** as 032/033 (MinIO, user-secrets); Development scans with NoOp, so a file becomes *Gati* within ~5 s.
+**User:** avokat1, an ACTIVE case of theirs.
+1. Acceptance: on *Seancat* add a hearing → the tab reads *Seancat (n+1)*; open *Dokumentet* (no page reload),
+   upload a PDF → *Dokumentet (n+1)*; both without leaving the case page.
+2. Drag two PDFs and an .exe onto the dashed area (or *Zgjidh skedarë*, several at once). → Three rows; the .exe shows
+   "Lloji i skedarit nuk lejohet" at once (nothing is sent). A file above 50 MB → "Skedari kalon madhësinë maksimale
+   prej 50 MB." at once.
+3. *Ngarko (2)* without choosing a type → "Zgjidhni llojin e dokumentit." under the row. Choose the types (*Tjetër* →
+   a text field appears, required), edit a title, *Ngarko (2)*: the files go one after another, each with its progress
+   bar ("Po ngarkohet… n%"), the second "Në radhë…". In the browser's DevTools (Network → Slow 3G) the bars are
+   visible; the ✕ on an uploading row cancels it ("Ngarkimi u anulua."), ↻ uploads it again.
+4. Each row then says "U ngarkua — po kontrollohet"; in the list below the document is *Në kontroll*, then *Gati*
+   without a reload (polled every 3 s). If it takes over 2 minutes: "Kontrolli po zgjat — rifreskoni më vonë".
+5. The same file again → a yellow note "Ky dokument është ngarkuar më parë më {data} si "…"." (still uploaded).
+6. The list: newest first, grouped by level (on an X/2 case: X/2 above X/1, the X/1 documents too); each row has
+   the type icon, title, type · uploader · date · size and the chip *Në kontroll* / *Gati* / *Refuzuar*. The filters
+   *Lloji* and *Shkalla* (only with more than one level) narrow it.
+7. *Shiko* on a PDF or image → full-screen preview; *Shkarko* there or on the row saves it under its original name
+   (Albanian letters intact). ✕ / Esc closes it. Each *Shiko* / *Shkarko* writes a DOCUMENT_DOWNLOAD audit row.
+8. *Hiq* (only the primary lawyer, only on documents of this level): without a reason → "Shkruani arsyen e heqjes.";
+   with one → toast, the row disappears, *Dokumentet (n-1)*, *Historiku* shows the removal. A document linked as the
+   decision → the dialog shows "Dokumenti është i lidhur me vendimin dhe nuk mund të hiqet."
+9. As avokat2 (secondary): upload yes, *Hiq* no. As monitor: the list and *Shiko* / *Shkarko*, no upload area.
+10. At 390 px: the actions sit under each document's text; the queue rows stack their fields; no side scrolling.
