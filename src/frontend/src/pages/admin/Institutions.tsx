@@ -1,12 +1,15 @@
-import { Alert, Box, Button, CircularProgress, TableCell, TableRow, TextField } from '@mui/material'
+import { Alert, Box, Button, Stack, TableCell, TableRow, TextField } from '@mui/material'
 import { useState } from 'react'
+import { InstitutionPicker } from '../../components/InstitutionPicker'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { CodeText } from '../../components/ui/CodeText'
-import { DataTable } from '../../components/ui/DataTable'
+import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminInstitutionList, useSetInstitutionActive, type AdminInstitution } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
+import { useKeysetPaging } from '../../lib/paging'
 import { isForbidden, problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
@@ -19,17 +22,24 @@ import { rowSx, useForbiddenRedirect } from './lists/helpers'
 const t = sq.adminInstitutions
 const tl = sq.adminLists
 
+/** Institutions (task 015): search anywhere in the name, short name or NIPT; type, ministry and status filters. */
 export function InstitutionsPage() {
   const [search, setSearch] = useUrlSearch()
+  const [type, setType] = useUrlSearch('type')
+  const [parentId, setParentId] = useUrlSearch('parent')
+  const [parentName, setParentName] = useUrlSearch('parentName')
+  const [active, setActiveFilter] = useUrlSearch('active')
   const q = useDebounced(serverQuery(search), 300)
-  const institutions = useAdminInstitutionList(q)
+  const paging = useKeysetPaging()
+  const institutions = useAdminInstitutionList({ q, type, active, parentId }, { cursor: paging.cursor, size: paging.size })
   const setActive = useSetInstitutionActive()
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ institution: AdminInstitution | null } | null>(null)
 
   if (isForbidden(institutions.error)) return <ForbiddenPage />
 
-  const rows = institutions.data?.pages.flatMap((p) => p.items) ?? []
+  const rows = institutions.data?.items ?? []
+  const filtered = type !== '' || parentId !== '' || active !== ''
   const toggle = (institution: AdminInstitution) =>
     setActive.mutate(
       { publicId: institution.publicId, active: !institution.isActive },
@@ -55,6 +65,43 @@ export function InstitutionsPage() {
         fullWidth
         sx={{ mb: 2 }}
       />
+      {/* a filter for every column a user narrows by: type, ministry, status */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.institutionType}
+          value={type}
+          onChange={setType}
+          options={Object.entries(t.institutionTypes).map(([value, label]) => ({ value, label }))}
+          sx={{ width: { xs: '100%', md: 220 } }}
+        />
+        <Box sx={{ width: { xs: '100%', md: 300 } }}>
+          <InstitutionPicker
+            filter
+            size="small"
+            label={t.columns.parent}
+            onlyType="MINISTRY"
+            value={parentId ? { publicId: parentId, name: parentName } : null}
+            onChange={(picked) => {
+              setParentId(picked?.publicId ?? '')
+              setParentName(picked?.name ?? '')
+            }}
+          />
+        </Box>
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.status}
+          value={active}
+          onChange={setActiveFilter}
+          options={[
+            { value: 'true', label: tl.active },
+            { value: 'false', label: tl.inactive },
+          ]}
+          sx={{ width: { xs: '100%', md: 180 } }}
+        />
+      </Stack>
 
       {institutions.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -80,7 +127,18 @@ export function InstitutionsPage() {
           { key: 'status', label: t.columns.status },
           { key: 'actions', label: sq.common.actions, align: 'right' },
         ]}
-        empty={institutions.isSuccess && rows.length === 0 && !q && <EmptyState title={t.empty} />}
+        empty={institutions.isSuccess && rows.length === 0 && !q && <EmptyState title={filtered ? t.emptyFiltered : t.empty} />}
+        footer={
+          <PaginationFooter
+            mode="keyset"
+            paging={paging}
+            count={rows.length}
+            total={Number(institutions.data?.total ?? 0)}
+            nextCursor={institutions.data?.nextCursor}
+            busy={institutions.isFetching}
+            stale={institutions.isPlaceholderData}
+          />
+        }
       >
             {rows.map((i) => (
               <TableRow key={i.publicId} hover sx={rowSx(i.isActive)}>
@@ -115,16 +173,6 @@ export function InstitutionsPage() {
               <SearchEmptyRow q={search} colSpan={8} onClear={() => setSearch('')} />
             )}
       </DataTable>
-
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        {institutions.isFetchingNextPage ? (
-          <CircularProgress aria-label={sq.errors.loading} />
-        ) : (
-          institutions.hasNextPage && (
-            <Button onClick={() => void institutions.fetchNextPage()}>{sq.common.loadMore}</Button>
-          )
-        )}
-      </Box>
 
       {editing && <InstitutionDialog institution={editing.institution} onClose={() => setEditing(null)} />}
     </Box>

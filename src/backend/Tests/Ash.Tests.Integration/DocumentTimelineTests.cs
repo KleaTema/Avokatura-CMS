@@ -134,6 +134,31 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
     }
 
     [Fact]
+    public async Task Filters_by_status_rejected_meaning_infected_or_failed_and_carries_the_total()
+    {
+        await using var s = await SetupAsync();
+        var clean = await DocAsync(s.Level1, "Gati", T0);
+        var pending = await DocAsync(s.Level1, "Në kontroll", T0.AddHours(1), status: "PENDING");
+        var infected = await DocAsync(s.Level1, "Me virus", T0.AddHours(2), status: "INFECTED");
+        var failed = await DocAsync(s.Level2, "Pa kontroll", T0.AddHours(3), status: "FAILED");
+        using var client = s.As(Primary);
+
+        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?status=CLEAN")).ShouldBe([clean.Id]);
+        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?status=pending")).ShouldBe([pending.Id]);
+        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?status=REJECTED")).ShouldBe([failed.Id, infected.Id]);
+        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?status=REJECTED&level=1")).ShouldBe([infected.Id]);
+        (await client.GetAsync($"/api/cases/{s.Level1Public}/documents?status=INFECTED", Ct)).StatusCode
+            .ShouldBe(HttpStatusCode.BadRequest);
+
+        // the total of the filtered timeline, the same on every page
+        var first = await GetJson(client, $"/api/cases/{s.Level1Public}/documents?limit=1");
+        first.GetProperty("total").GetInt32().ShouldBe(4);
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        (await GetJson(client, $"/api/cases/{s.Level1Public}/documents?limit=1&after={cursor}")).GetProperty("total").GetInt32().ShouldBe(4);
+        (await GetJson(client, $"/api/cases/{s.Level1Public}/documents?status=REJECTED")).GetProperty("total").GetInt32().ShouldBe(2);
+    }
+
+    [Fact]
     public async Task Pages_through_the_timeline_without_duplicates_also_on_equal_times()
     {
         await using var s = await SetupAsync();

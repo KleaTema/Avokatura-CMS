@@ -160,14 +160,15 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Theory]
-    [InlineData("avokat2@ash.local", new[] { "case.view", "chat.case" })] // primary lawyer of /1: may still discuss the appeal
+    // primary lawyer of /1: may still discuss the appeal and complete the decision (its document: VENDIM only, task 036)
+    [InlineData("avokat2@ash.local", new[] { "case.view", "chat.case", "decision.record", "document.upload" })]
     [InlineData("kryetar@ash.local", new[] { "case.view" })] // office actions are off once closed
     [InlineData("admin@ash.local", new[] { "case.view" })]
-    public async Task Closed_case_keeps_only_view_and_chat(string user, string[] expected)
+    public async Task Closed_case_keeps_only_view_chat_and_the_decision(string user, string[] expected)
     {
         var s = await SeedAsync();
         await using var factory = new AshApiFactory(Db);
-        (await Permissions(factory, user, s.Level1)).ShouldBe(expected);
+        (await Permissions(factory, user, s.Level1)).ShouldBe(expected, ignoreOrder: true);
     }
 
     [Theory]

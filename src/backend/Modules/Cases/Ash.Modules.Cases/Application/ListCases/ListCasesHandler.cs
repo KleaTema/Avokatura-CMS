@@ -1,3 +1,4 @@
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Reference.Contracts;
@@ -9,7 +10,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ash.Modules.Cases.Application.ListCases;
 
-/// <summary>Query string of GET /api/cases. hearingFrom/hearingTo are Tirane calendar dates; lawyerId is a user public id.</summary>
+/// <summary>
+/// Query string of GET /api/cases. Status: OPEN (REGISTERED + ACTIVE), ALL, REGISTERED, ACTIVE or CLOSED; without
+/// one, OPEN — or ALL as soon as q is given (a search finds closed cases too). hearingFrom/hearingTo and
+/// registeredFrom/registeredTo are Tirane calendar dates; lawyerId a user, officeId an office, institutionId an
+/// institution that is a party (public ids); courtLevel a court level code; judgeId a judge id.
+/// </summary>
 public sealed record ListCasesQuery(
     string? Tab,
     string? Status,
@@ -23,7 +29,12 @@ public sealed record ListCasesQuery(
     string? Q,
     string? After,
     int? Limit,
-    Guid? OfficeId = null);
+    Guid? OfficeId = null,
+    string? CourtLevel = null,
+    long? JudgeId = null,
+    DateOnly? RegisteredFrom = null,
+    DateOnly? RegisteredTo = null,
+    Guid? InstitutionId = null);
 
 /// <summary>A row of the case list. Public ids only; names from Reference (court) and Identity (lawyer).</summary>
 public sealed record CaseListItem(
@@ -48,16 +59,19 @@ public sealed record CaseListItem(
 internal sealed class ListCasesHandler(
     CasesDbContext db,
     CaseListQueryBuilder builder,
+    ParallelReads parallel,
     IReferenceData reference,
     IUserDirectory users,
     IOfficeDirectory offices,
+    IInstitutionDirectory institutions,
     ICurrentUser user,
     IClock clock)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
 
-    private static readonly string[] Statuses = [Case.Registered, Case.Active, Case.Closed];
+    private static readonly string[] Statuses =
+        [CaseListFilter.OpenStatus, CaseListFilter.AllStatuses, Case.Registered, Case.Active, Case.Closed];
 
     public async Task<Result<KeysetPage<CaseListItem>>> Handle(ListCasesQuery query, CancellationToken ct)
     {
@@ -99,6 +113,8 @@ internal sealed class ListCasesHandler(
         }
 
         var limit = Math.Clamp(query.Limit ?? DefaultLimit, 1, MaxLimit);
+        // the total (same filters, no cursor) on its own connection, beside the page query
+        var total = parallel.RunAsync<CaseListQueryBuilder, int>((b, token) => b.Filtered(filter).CountAsync(token), ct);
         var rows = await builder.Page(filter, after, limit + 1).ToListAsync(ct);
         var hasMore = rows.Count > limit;
         rows = rows.Take(limit).ToList();
@@ -114,7 +130,7 @@ internal sealed class ListCasesHandler(
         }
 
         var next = hasMore ? CaseListQueryBuilder.CursorAfter(rows[^1], filter.Sort).Encode(filter) : null;
-        return new KeysetPage<CaseListItem>(items, next);
+        return new KeysetPage<CaseListItem>(items, next, await total);
     }
 
     private async Task<CaseListFilter?> ParseFilterAsync(CaseListTab tab, ListCasesQuery q, FieldErrors errors, CancellationToken ct)
@@ -125,7 +141,7 @@ internal sealed class ListCasesHandler(
             status = q.Status.Trim().ToUpperInvariant();
             if (!Statuses.Contains(status))
             {
-                errors.Add("status", "Statusi duhet të jetë REGISTERED, ACTIVE ose CLOSED.");
+                errors.Add("status", "Statusi duhet të jetë OPEN, ALL, REGISTERED, ACTIVE ose CLOSED.");
             }
         }
 
@@ -193,9 +209,55 @@ internal sealed class ListCasesHandler(
             }
         }
 
+        IReadOnlyList<ushort>? levelCourtIds = null;
+        if (!string.IsNullOrWhiteSpace(q.CourtLevel))
+        {
+            if (await reference.GetCourtLevelByCode(q.CourtLevel.Trim(), ct) is { } level)
+            {
+                // the courts of that level (cached), so the predicate stays on ix_cases_court
+                levelCourtIds = (await reference.ListCourtsAsync(ct))
+                    .Where(c => c.CourtLevelId == level.Id).Select(c => c.Id).Order().ToList();
+            }
+            else
+            {
+                errors.Add("courtLevel", "Shkalla e gjykimit nuk ekziston.");
+            }
+        }
+
+        uint? judgeId = null;
+        if (q.JudgeId is { } judge)
+        {
+            if (judge is > 0 and <= uint.MaxValue && await reference.GetJudge((uint)judge, ct) is not null)
+            {
+                judgeId = (uint)judge;
+            }
+            else
+            {
+                errors.Add("judgeId", "Gjyqtari nuk ekziston.");
+            }
+        }
+
+        uint? institutionId = null;
+        if (q.InstitutionId is { } institutionPublicId)
+        {
+            if ((await institutions.GetByPublicIdsAsync([institutionPublicId], ct)).FirstOrDefault() is { } institution)
+            {
+                institutionId = (uint)institution.Id;
+            }
+            else
+            {
+                errors.Add("institutionId", "Institucioni nuk u gjet.");
+            }
+        }
+
         if (q.HearingFrom is { } from && q.HearingTo is { } to && to < from)
         {
             errors.Add("hearingTo", "Data e fundit nuk mund të jetë para datës së fillimit.");
+        }
+
+        if (q.RegisteredFrom is { } registeredFrom && q.RegisteredTo is { } registeredTo && registeredTo < registeredFrom)
+        {
+            errors.Add("registeredTo", "Data e fundit nuk mund të jetë para datës së fillimit.");
         }
 
         string? search = null;
@@ -213,11 +275,21 @@ internal sealed class ListCasesHandler(
             return null;
         }
 
+        // no status chosen: a search covers every status (closed cases must be findable), the plain list the open ones
+        status ??= search is null ? CaseListFilter.OpenStatus : CaseListFilter.AllStatuses;
+
         // Tirane calendar dates → UTC half-open range [from 00:00, to+1 00:00)
         return new CaseListFilter(tab, status, courtId, categoryId, priority, q.Suspended, lawyerUserId,
             q.HearingFrom is { } f ? TiraneTime.StartOfDayUtc(f) : null,
             q.HearingTo is { } t ? TiraneTime.StartOfDayUtc(t.AddDays(1)) : null,
-            search, officeId);
+            search, officeId)
+        {
+            LevelCourtIds = levelCourtIds,
+            JudgeId = judgeId,
+            InstitutionId = institutionId,
+            RegisteredFromUtc = q.RegisteredFrom is { } rf ? TiraneTime.StartOfDayUtc(rf) : null,
+            RegisteredToUtc = q.RegisteredTo is { } rt ? TiraneTime.StartOfDayUtc(rt.AddDays(1)) : null,
+        };
     }
 
     /// <summary>The current primary lawyer's name per case, with ONE call to Identity for the whole page.</summary>

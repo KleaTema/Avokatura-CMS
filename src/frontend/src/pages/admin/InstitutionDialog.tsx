@@ -6,7 +6,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
   TextField,
 } from '@mui/material'
@@ -15,6 +14,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { InstitutionPicker, type PickedInstitution } from '../../components/InstitutionPicker'
 import { useSaveInstitution, type AdminInstitution } from '../../features/admin/api'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { sq } from '../../i18n/sq'
 import { tokens } from '../../theme/tokens'
 import { problemMessage } from '../../lib/problem'
@@ -118,20 +118,18 @@ export function InstitutionDialog({ institution, onClose }: { institution: Admin
               name="institutionType"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label={t.columns.institutionType}
+                <AppSelect
                   required
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  label={t.columns.institutionType}
                   error={!!errors.institutionType}
                   helperText={errors.institutionType?.message}
-                >
-                  {Object.entries(t.institutionTypes).map(([code, label]) => (
-                    <MenuItem key={code} value={code}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  options={Object.entries(t.institutionTypes).map(([code, label]) => ({ value: code, label }))}
+                />
               )}
             />
             {!isMinistry && (

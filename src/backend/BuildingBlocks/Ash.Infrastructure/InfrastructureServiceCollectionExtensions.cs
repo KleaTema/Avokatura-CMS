@@ -12,6 +12,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton(new PersistenceOptions(connectionString));
         services.AddScoped<MySqlUnitOfWork>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<MySqlUnitOfWork>());
+        services.AddScoped<InheritedCurrentUser>();
+        services.AddScoped<ParallelReads>();
         services.AddScoped<IEventPublisher, InProcessEventPublisher>();
         return services;
     }

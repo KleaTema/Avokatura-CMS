@@ -7,7 +7,6 @@ import {
   CircularProgress,
   Collapse,
   IconButton,
-  MenuItem,
   Paper,
   Stack,
   Tab,
@@ -24,13 +23,17 @@ import {
   useTheme,
 } from '@mui/material'
 import dayjs from 'dayjs'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CirclePause, UserPlus } from 'lucide-react'
 import { AppDatePicker } from '../../components/AppDatePicker'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
+import { InstitutionPicker } from '../../components/InstitutionPicker'
+import { JudgePicker } from '../../components/JudgePicker'
 import { OptionPicker } from '../../components/OptionPicker'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { CaseCode } from '../../components/ui/CaseCode'
+import { PaginationFooter } from '../../components/ui/DataTable'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { SuccessToast } from '../../components/ui/SuccessToast'
@@ -47,6 +50,7 @@ import { useMe } from '../../features/identity/api'
 import { useCaseCategories, useCourtLevels, useCourts } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
 import { addDays, formatDate, formatDateTime, tiraneDateOf, todayInTirane } from '../../lib/dates'
+import { useKeysetPaging } from '../../lib/paging'
 import { isoDateOf, type PickerValue } from '../../lib/pickerValues'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
@@ -54,21 +58,58 @@ import { useDebounced } from '../../lib/useDebounced'
 
 const t = sq.cases.list
 
-/** URL query parameters of the list (shareable; Back/Forward keep them). */
-type Param = 'tab' | 'q' | 'status' | 'court' | 'category' | 'priority' | 'suspended' | 'from' | 'to' | 'lawyer' | 'office'
-const FILTER_PARAMS: Param[] = ['q', 'status', 'court', 'category', 'priority', 'suspended', 'from', 'to', 'lawyer', 'office']
+/**
+ * URL query parameters of the list (shareable; Back/Forward keep them). judgeName / institutionName only label the
+ * chosen judge / institution (chips, the picker) without another request; they are not sent to the API.
+ */
+type Param =
+  | 'tab'
+  | 'q'
+  | 'status'
+  | 'level'
+  | 'court'
+  | 'judge'
+  | 'judgeName'
+  | 'category'
+  | 'priority'
+  | 'suspended'
+  | 'from'
+  | 'to'
+  | 'regFrom'
+  | 'regTo'
+  | 'lawyer'
+  | 'office'
+  | 'institution'
+  | 'institutionName'
+const FILTER_PARAMS: Param[] = [
+  'q',
+  'status',
+  'level',
+  'court',
+  'judge',
+  'judgeName',
+  'category',
+  'priority',
+  'suspended',
+  'from',
+  'to',
+  'regFrom',
+  'regTo',
+  'lawyer',
+  'office',
+  'institution',
+  'institutionName',
+]
 
 /**
- * Cases waiting for a lawyer have no lawyer, category, priority or suspension yet: those filters and columns are
- * hidden.
+ * Cases waiting for a lawyer have no lawyer, category, priority or suspension yet: those COLUMNS are hidden there.
+ * The filters are not: the "Filtra" panel shows every filter on every tab.
  */
 const TABS_WITHOUT_CLASSIFICATION = new Set(['registered', 'unassigned'])
 
-/** A select whose "" option ("Të hapura", "Të gjitha") is shown as a value, not as an empty field. */
-const SHOW_EMPTY_OPTION = { select: { displayEmpty: true }, inputLabel: { shrink: true } } as const
-
-const HIDE_ON_PHONE ={ display: { xs: 'none', md: 'table-cell' } } as const
+const HIDE_ON_PHONE = { display: { xs: 'none', md: 'table-cell' } } as const
 const TRUNCATE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
+const PANEL_FIELD = { width: { xs: '100%', md: 240 } } as const
 
 interface Column {
   key: 'code' | 'act' | 'court' | 'lawyer' | 'assign' | 'hearing' | 'priority' | 'status' | 'suspended'
@@ -105,10 +146,24 @@ const ASSIGN_COLUMN: Column = {
 /** Less padding on a phone, where every pixel of the row counts. */
 const CELL_PADDING = { px: { xs: 1, md: 2 } } as const
 
+const STATUS_OPTIONS = [
+  { value: 'OPEN', label: t.open },
+  { value: 'CLOSED', label: t.closed },
+  { value: 'ALL', label: t.allStatuses },
+]
+
 /**
- * The case list (task 022): tabs from the API with counts, filters in the URL, keyset paging with infinite scroll.
- * Rows are real links, so Ctrl/middle-click opens a case in a new tab and Back returns to the same list and position
- * (the pages stay cached; Layout restores the scroll).
+ * History state of a case page opened from this list: how many history entries back the list is (1 from the row;
+ * the case page adds one per tab or level link), so its back link returns to the same list page and filters.
+ */
+export interface FromCaseList {
+  listDepth: number
+}
+
+/**
+ * The case list (task 022): tabs from the API with counts, filters in the URL, keyset paging (10 rows by default,
+ * "‹ Para" / "Pas ›", the page in the URL). Rows are real links, so Ctrl/middle-click opens a case in a new tab and
+ * Back returns to the same list and page.
  */
 export function CaseListPage() {
   const me = useMe(true)
@@ -117,6 +172,7 @@ export function CaseListPage() {
   const narrow = useMediaQuery(theme.breakpoints.down('md'))
   const [params, setParams] = useSearchParams()
   const get = (name: Param) => params.get(name) ?? ''
+  // any filter change starts again at page 1
   const set = (updates: Partial<Record<Param, string>>) =>
     setParams(
       (prev) => {
@@ -125,6 +181,7 @@ export function CaseListPage() {
           if (value) next.set(name, value)
           else next.delete(name)
         }
+        next.delete('page')
         return next
       },
       { replace: true },
@@ -143,8 +200,8 @@ export function CaseListPage() {
   const requested = get('tab')
   const tab = userTabs.some((x) => x.tab === requested) ? requested : (tabs.data?.defaultTab ?? '')
   const classification = !TABS_WITHOUT_CLASSIFICATION.has(tab)
-  // the Kryetar filters by the lawyers of the office; the Monitor, in "Të gjitha", by office and lawyer (task 031)
-  const canFilterOffice = permissions.includes('case.view_all') && tab === 'all'
+  // the Kryetar filters by the lawyers of the office; the Monitor by office and lawyer (task 031)
+  const canFilterOffice = permissions.includes('case.view_all')
   const canFilterLawyer = permissions.includes('case.view_office') || canFilterOffice
   const filterOptions = useFilterOptions(canFilterLawyer)
 
@@ -154,18 +211,23 @@ export function CaseListPage() {
     tab,
     q,
     status: get('status'),
+    courtLevel: get('level'),
     courtId: get('court'),
-    // filters the tab does not show are not sent either
-    categoryCode: classification ? get('category') : '',
-    priority: classification ? get('priority') : '',
-    suspended: classification ? get('suspended') : '',
+    judgeId: get('judge'),
+    categoryCode: get('category'),
+    priority: get('priority'),
+    suspended: get('suspended'),
     hearingFrom: get('from'),
     hearingTo: get('to'),
-    lawyerId: classification && canFilterLawyer ? get('lawyer') : '',
+    registeredFrom: get('regFrom'),
+    registeredTo: get('regTo'),
+    lawyerId: canFilterLawyer ? get('lawyer') : '',
     officeId: canFilterOffice ? get('office') : '',
+    institutionId: get('institution'),
   }
-  const list = useCaseList(filters, tab !== '')
-  const items = list.data?.pages.flatMap((p) => p.items) ?? []
+  const paging = useKeysetPaging()
+  const list = useCaseList(filters, { cursor: paging.cursor, size: paging.size }, tab !== '')
+  const items = list.data?.items ?? []
   // the button only for who may assign; the API checks each case again
   const canAssign = tab === 'unassigned' && permissions.includes('case.assign_lawyer')
   const columns = COLUMNS.filter((c) => classification || !c.classification).map((c) =>
@@ -180,17 +242,33 @@ export function CaseListPage() {
     const lawyers = lawyerOptionsOf(filterOptions.data?.lawyers ?? [], office)
     set({ office, lawyer: lawyers.some((x) => x.value === filters.lawyerId) ? filters.lawyerId : '' })
   }
+  const levelOptions = (levels.data ?? []).map((l) => ({ value: l.code, label: l.name }))
+  // a chosen court of another level goes when the level changes
+  const setLevel = (level: string) => {
+    const court = courts.data?.find((c) => String(c.id) === filters.courtId)
+    set({ level, court: court && level && court.courtLevelCode !== level ? '' : filters.courtId })
+  }
+  const courtNameOf = (courtId: string | null) => courts.data?.find((c) => String(c.id) === courtId)?.name
 
   // ---------------------------------------------------------------- active filters (chips + the "Filtra" badge)
-  const courtName = courts.data?.find((c) => String(c.id) === filters.courtId)?.name
+  const courtName = courtNameOf(filters.courtId)
   const categoryName = categories.data?.find((c) => c.code === filters.categoryCode)?.name
+  const range = (from: string, to: string) => `${formatDate(from) || '…'} – ${formatDate(to) || '…'}`
   const chips: { key: string; label: string; clear: Partial<Record<Param, string>>; inPanel: boolean }[] = []
   if (search.trim()) chips.push({ key: 'q', label: `${t.searchChip}: „${search.trim()}“`, clear: { q: '' }, inPanel: false })
   if (filters.status) {
-    chips.push({ key: 'status', label: `${t.status}: ${t.closed}`, clear: { status: '' }, inPanel: narrow })
+    const name = STATUS_OPTIONS.find((o) => o.value === filters.status)?.label ?? filters.status
+    chips.push({ key: 'status', label: `${t.status}: ${name}`, clear: { status: '' }, inPanel: narrow })
+  }
+  if (filters.courtLevel) {
+    const name = levelOptions.find((o) => o.value === filters.courtLevel)?.label ?? filters.courtLevel
+    chips.push({ key: 'level', label: `${t.courtLevel}: ${name}`, clear: { level: '' }, inPanel: true })
   }
   if (filters.courtId) {
     chips.push({ key: 'court', label: `${t.court}: ${courtName ?? filters.courtId}`, clear: { court: '' }, inPanel: narrow })
+  }
+  if (filters.judgeId) {
+    chips.push({ key: 'judge', label: `${t.judge}: ${get('judgeName') || '…'}`, clear: { judge: '', judgeName: '' }, inPanel: true })
   }
   if (filters.officeId) {
     const officeName = officeOptions.find((x) => x.value === filters.officeId)?.label
@@ -199,6 +277,14 @@ export function CaseListPage() {
   if (filters.lawyerId) {
     const lawyerName = lawyerOptions.find((x) => x.value === filters.lawyerId)?.label
     chips.push({ key: 'lawyer', label: `${t.lawyer}: ${lawyerName ?? '…'}`, clear: { lawyer: '' }, inPanel: true })
+  }
+  if (filters.institutionId) {
+    chips.push({
+      key: 'institution',
+      label: `${t.institution}: ${get('institutionName') || '…'}`,
+      clear: { institution: '', institutionName: '' },
+      inPanel: true,
+    })
   }
   if (filters.categoryCode) {
     chips.push({
@@ -227,8 +313,16 @@ export function CaseListPage() {
   if (filters.hearingFrom || filters.hearingTo) {
     chips.push({
       key: 'hearing',
-      label: `${t.hearingRange}: ${formatDate(filters.hearingFrom) || '…'} – ${formatDate(filters.hearingTo) || '…'}`,
+      label: `${t.hearingRange}: ${range(filters.hearingFrom, filters.hearingTo)}`,
       clear: { from: '', to: '' },
+      inPanel: true,
+    })
+  }
+  if (filters.registeredFrom || filters.registeredTo) {
+    chips.push({
+      key: 'registered',
+      label: `${t.registeredRange}: ${range(filters.registeredFrom, filters.registeredTo)}`,
+      clear: { regFrom: '', regTo: '' },
       inPanel: true,
     })
   }
@@ -236,43 +330,27 @@ export function CaseListPage() {
   const anyFilter = chips.length > 0
   const clearFilters = () => set(Object.fromEntries(FILTER_PARAMS.map((name) => [name, ''])))
 
-  // infinite scroll: load the next page when the end of the list comes near
-  const sentinel = useRef<HTMLDivElement>(null)
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list
-  useEffect(() => {
-    const node = sentinel.current
-    if (!node || !hasNextPage) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !isFetchingNextPage) void fetchNextPage()
-      },
-      { rootMargin: '400px' },
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
-
   // ---------------------------------------------------------------- filter controls
+  // not chosen: open cases — or every status while searching (the API's rule; a closed case must be findable)
   const statusField = (
-    <TextField
-      select
+    <AppSelect
+      required
+      hideRequiredMark
       size="small"
       label={t.status}
-      value={get('status')}
-      onChange={(e) => set({ status: e.target.value })}
-      slotProps={SHOW_EMPTY_OPTION}
+      value={filters.status || (search.trim() ? 'ALL' : 'OPEN')}
+      onChange={(status) => set({ status })}
+      options={STATUS_OPTIONS}
       sx={{ width: { xs: '100%', md: 160 } }}
-    >
-      <MenuItem value="">{t.open}</MenuItem>
-      <MenuItem value="CLOSED">{t.closed}</MenuItem>
-    </TextField>
+    />
   )
   const courtField = (
     <Box sx={{ width: { xs: '100%', md: 300 } }}>
       <CourtPicker
+        filter
         courts={courts.data ?? []}
         levels={levels.data ?? []}
-        levelCode=""
+        levelCode={filters.courtLevel}
         value={filters.courtId}
         onChange={(court) => set({ court: court ? String(court.id) : '' })}
         label={t.court}
@@ -341,19 +419,42 @@ export function CaseListPage() {
         </Badge>
       </Stack>
 
+      {/* every filter, on every tab */}
       <Collapse in={panelOpen} id={panelId}>
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-end' } }}>
             {narrow && statusField}
+            <AppSelect
+              filter
+              size="small"
+              label={t.courtLevel}
+              value={filters.courtLevel}
+              onChange={setLevel}
+              options={levelOptions}
+              sx={PANEL_FIELD}
+            />
             {narrow && courtField}
+            <Box sx={{ width: { xs: '100%', md: 280 } }}>
+              <JudgePicker
+                filter
+                size="small"
+                label={t.judge}
+                courtId={filters.courtId ? Number(filters.courtId) : null}
+                showAll={!filters.courtId}
+                courtName={courtNameOf}
+                value={filters.judgeId ? { id: filters.judgeId, name: get('judgeName'), courtId: null } : null}
+                onChange={(judge) => set({ judge: judge?.id ?? '', judgeName: judge?.name ?? '' })}
+              />
+            </Box>
             {canFilterOffice && (
-              <Box sx={{ width: { xs: '100%', md: 260 } }}>
-                <OptionPicker options={officeOptions} value={filters.officeId} onChange={setOffice} label={t.office} size="small" />
+              <Box sx={PANEL_FIELD}>
+                <OptionPicker filter options={officeOptions} value={filters.officeId} onChange={setOffice} label={t.office} size="small" />
               </Box>
             )}
-            {classification && canFilterLawyer && (
-              <Box sx={{ width: { xs: '100%', md: 240 } }}>
+            {canFilterLawyer && (
+              <Box sx={PANEL_FIELD}>
                 <OptionPicker
+                  filter
                   options={lawyerOptions}
                   value={filters.lawyerId}
                   onChange={(lawyer) => set({ lawyer })}
@@ -362,40 +463,61 @@ export function CaseListPage() {
                 />
               </Box>
             )}
-            {classification && (
-              <>
-                <PanelSelect label={t.category} value={filters.categoryCode} onChange={(category) => set({ category })}>
-                  {(categories.data ?? []).map((c) => (
-                    <MenuItem key={c.code} value={c.code}>
-                      {c.name}
-                    </MenuItem>
-                  ))}
-                </PanelSelect>
-                <PanelSelect label={t.priority} value={filters.priority} onChange={(priority) => set({ priority })}>
-                  {Object.entries(sq.cases.priority).map(([code, name]) => (
-                    <MenuItem key={code} value={code}>
-                      {name}
-                    </MenuItem>
-                  ))}
-                </PanelSelect>
-                <PanelSelect label={t.suspended} value={filters.suspended} onChange={(suspended) => set({ suspended })}>
-                  <MenuItem value="true">{t.yes}</MenuItem>
-                  <MenuItem value="false">{t.no}</MenuItem>
-                </PanelSelect>
-              </>
-            )}
-            <Box component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
-              <Typography component="legend" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {t.hearingRange}
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap sx={{ alignItems: { sm: 'center' } }}>
-                <DateFilter label={t.from} value={filters.hearingFrom} maxDate={filters.hearingTo} onChange={(from) => set({ from })} />
-                <Typography aria-hidden sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  –
-                </Typography>
-                <DateFilter label={t.to} value={filters.hearingTo} minDate={filters.hearingFrom} onChange={(to) => set({ to })} />
-              </Stack>
+            <Box sx={{ width: { xs: '100%', md: 300 } }}>
+              <InstitutionPicker
+                filter
+                size="small"
+                label={t.institution}
+                value={filters.institutionId ? { publicId: filters.institutionId, name: get('institutionName') } : null}
+                onChange={(institution) =>
+                  set({ institution: institution?.publicId ?? '', institutionName: institution?.name ?? '' })
+                }
+              />
             </Box>
+            <AppSelect
+              filter
+              size="small"
+              label={t.category}
+              value={filters.categoryCode}
+              onChange={(category) => set({ category })}
+              options={(categories.data ?? []).map((c) => ({ value: c.code, label: c.name }))}
+              sx={PANEL_FIELD}
+            />
+            <AppSelect
+              filter
+              size="small"
+              label={t.priority}
+              value={filters.priority}
+              onChange={(priority) => set({ priority })}
+              options={Object.entries(sq.cases.priority).map(([code, name]) => ({ value: code, label: name }))}
+              sx={{ width: { xs: '100%', md: 170 } }}
+            />
+            <AppSelect
+              filter
+              size="small"
+              label={t.suspended}
+              value={filters.suspended}
+              onChange={(suspended) => set({ suspended })}
+              options={[
+                { value: 'true', label: t.yes },
+                { value: 'false', label: t.no },
+              ]}
+              sx={{ width: { xs: '100%', md: 170 } }}
+            />
+            <RangeFilter
+              legend={t.hearingRange}
+              from={filters.hearingFrom}
+              to={filters.hearingTo}
+              onFrom={(from) => set({ from })}
+              onTo={(to) => set({ to })}
+            />
+            <RangeFilter
+              legend={t.registeredRange}
+              from={filters.registeredFrom}
+              to={filters.registeredTo}
+              onFrom={(regFrom) => set({ regFrom })}
+              onTo={(regTo) => set({ regTo })}
+            />
           </Stack>
         </Paper>
       </Collapse>
@@ -403,11 +525,7 @@ export function CaseListPage() {
       {anyFilter && (
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }} aria-label={t.activeFilters}>
           {chips.map((chip) => (
-            <Chip
-              key={chip.key}
-              label={chip.label}
-              onDelete={() => set(chip.clear)}
-            />
+            <Chip key={chip.key} label={chip.label} onDelete={() => set(chip.clear)} />
           ))}
           <Button size="small" onClick={clearFilters}>
             {t.clearFilters}
@@ -481,14 +599,15 @@ export function CaseListPage() {
               </TableBody>
             </Table>
           </Paper>
-          <Box ref={sentinel} sx={{ height: 1 }} />
-          <Stack direction="row" spacing={2} sx={{ py: 2, alignItems: 'center' }}>
-            {isFetchingNextPage && <Typography color="text.secondary">{t.loadingMore}</Typography>}
-            {hasNextPage && !isFetchingNextPage && (
-              <Button onClick={() => void fetchNextPage()}>{sq.common.loadMore}</Button>
-            )}
-            {!hasNextPage && <Typography color="text.secondary">{t.end(items.length)}</Typography>}
-          </Stack>
+          <PaginationFooter
+            mode="keyset"
+            paging={paging}
+            count={items.length}
+            total={Number(list.data?.total ?? 0)}
+            nextCursor={list.data?.nextCursor}
+            busy={list.isFetching}
+            stale={list.isPlaceholderData}
+          />
         </Box>
       )}
 
@@ -506,6 +625,8 @@ export function CaseListPage() {
     </Stack>
   )
 }
+
+const FROM_LIST: FromCaseList = { listDepth: 1 }
 
 /**
  * One case as a real link: Tab reaches it, Enter opens it, Ctrl/middle-click opens a new tab. With `onAssign` the row
@@ -527,6 +648,7 @@ function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Col
             <Box
               component={Link}
               to={`/cases/${item.publicId}`}
+              state={FROM_LIST}
               sx={{
                 textDecoration: 'none',
                 outline: 'none',
@@ -622,6 +744,7 @@ function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Col
       hover
       component={Link}
       to={`/cases/${item.publicId}`}
+      state={FROM_LIST}
       sx={{
         textDecoration: 'none',
         color: 'inherit',
@@ -634,36 +757,40 @@ function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Col
   )
 }
 
-function PanelSelect({
-  label,
-  value,
-  onChange,
-  children,
+/** A "nga – deri" pair of date filters under one legend (hearing dates, registration dates). */
+function RangeFilter({
+  legend,
+  from,
+  to,
+  onFrom,
+  onTo,
 }: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: ReactNode
+  legend: string
+  from: string
+  to: string
+  onFrom: (isoDate: string) => void
+  onTo: (isoDate: string) => void
 }) {
   return (
-    <TextField
-      select
-      size="small"
-      label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      slotProps={SHOW_EMPTY_OPTION}
-      sx={{ width: { xs: '100%', md: 170 } }}
-    >
-      <MenuItem value="">{t.any}</MenuItem>
-      {children}
-    </TextField>
+    <Box component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
+      <Typography component="legend" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        {legend}
+      </Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap sx={{ alignItems: { sm: 'center' } }}>
+        {/* short labels; the legend names the pair (fieldset) */}
+        <DateFilter label={t.from} value={from} maxDate={to} onChange={onFrom} />
+        <Typography aria-hidden sx={{ display: { xs: 'none', sm: 'block' } }}>
+          –
+        </Typography>
+        <DateFilter label={t.to} value={to} minDate={from} onChange={onTo} />
+      </Stack>
+    </Box>
   )
 }
 
 /**
- * A hearing-date filter kept in the URL as yyyy-MM-dd. Local picker state holds a half-typed date; only a complete
- * date (or clearing it) reaches the URL, and a change of the URL (e.g. "Pastro filtrat") resets the picker.
+ * A date filter kept in the URL as yyyy-MM-dd. Local picker state holds a half-typed date; only a complete date (or
+ * clearing it) reaches the URL, and a change of the URL (e.g. "Pastro filtrat") resets the picker.
  */
 function DateFilter({
   label,

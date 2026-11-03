@@ -52,7 +52,12 @@ public sealed record CaseData(
     bool NextHearingIsOverdue,
     DateTime RegisteredAt,
     UserView? RegisteredBy,
-    DateTime? ClosedAt);
+    DateTime? ClosedAt,
+    /// <summary>
+    /// court_levels.appeal_kind of the level: ANKIM → the decision offers "Ankimuar", REKURS → "Rekursuar", null →
+    /// neither ("Formë e prerë" on every level).
+    /// </summary>
+    string? AppealKind = null);
 
 /// <summary>A current assignment: PRIMARY_LAWYER | SECONDARY_LAWYER | LEGAL_ASSISTANT | INSTITUTION_JURIST.</summary>
 public sealed record CaseTeamMember(string Role, Guid UserPublicId, string Name, DateTime AssignedAt);
@@ -60,6 +65,10 @@ public sealed record CaseTeamMember(string Role, Guid UserPublicId, string Name,
 /// <summary>An active institution link (MONITORING | DELEGATED) with the institution's jurists currently on the case.</summary>
 public sealed record CaseInstitutionView(Guid InstitutionPublicId, string Name, string Mode, IReadOnlyList<string> JuristNames);
 
+/// <summary>
+/// The whole decision of the level (tasks 036/037): money and m² as decimal strings with two decimals, the linked
+/// decision document by public id and title, the decision's own RowVersion (PUT /decision sends it back).
+/// </summary>
 public sealed record CaseDecisionSummary(
     CodeName Result,
     string? ResultOtherText,
@@ -68,7 +77,24 @@ public sealed record CaseDecisionSummary(
     bool DecisionReceived,
     bool IsAppealed,
     bool IsRecursed,
-    bool IsFinal);
+    bool IsFinal,
+    string? Dispositive,
+    string Currency,
+    string? WonAmount,
+    string? WonAreaM2,
+    string? LostAmount,
+    string? LostAreaM2,
+    string? PreventedDamageAmount,
+    string? PreventedDamageAreaM2,
+    string? CausedDamageAmount,
+    string? CausedDamageAreaM2,
+    string? CourtCostsAmount,
+    DateTime? DecisionReceivedAt,
+    RecordDecision.DecisionDocumentView? Document,
+    /// <summary>The result sends the case back for retrial (decision_results.sends_back_for_retrial).</summary>
+    bool SendsBackForRetrial,
+    DateTime RecordedAt,
+    uint RowVersion);
 
 /// <summary>A level X/n of the dossier. PublicId only when the user can open it.</summary>
 public sealed record CaseLevelView(string CaseCode, int LevelSeq, string CourtLevelName, string Status, Guid? PublicId, bool CanOpen);

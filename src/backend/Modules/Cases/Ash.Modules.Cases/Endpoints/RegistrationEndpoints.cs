@@ -29,9 +29,10 @@ public static class RegistrationEndpoints
 
         // Find the existing dispute a new summons belongs to (task 018): a registration lookup, not case.view.
         endpoints.MapGet("/api/cases/registration-search",
-                async (string? q, int? courtId, string? after, int? limit, RegistrationSearchHandler handler, CancellationToken ct) =>
+                async (string? q, int? courtId, string? after, int? limit, string? status, RegistrationSearchHandler handler,
+                    CancellationToken ct) =>
                 {
-                    var result = await handler.Handle(new RegistrationSearchQuery(q, courtId, after, limit), ct);
+                    var result = await handler.Handle(new RegistrationSearchQuery(q, courtId, after, limit, status), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequirePermission("case.link_previous")
@@ -80,6 +81,19 @@ public static class RegistrationEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("NotifyPreviousLevelNotClosed");
+
+        // who the notification above would reach — shown in its dialog before sending
+        endpoints.MapGet("/api/cases/{previousCasePublicId:guid}/notify-not-closed/recipients",
+                async (Guid previousCasePublicId, NotifyNotClosedHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Recipients(previousCasePublicId, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission("case.link_previous")
+            .Produces<NotifyRecipientsResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("NotifyPreviousLevelNotClosedRecipients");
 
         return endpoints;
     }

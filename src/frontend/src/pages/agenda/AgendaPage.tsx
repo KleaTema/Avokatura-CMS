@@ -33,11 +33,13 @@ import { ChevronLeft, ChevronRight, Printer, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { OptionPicker } from '../../components/OptionPicker'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAgenda, type AgendaItem } from '../../features/agenda/api'
 import { lawyerOptionsOf, useFilterOptions } from '../../features/cases/api'
 import { useMe } from '../../features/identity/api'
+import { useHearingTypes } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
 import {
   AGENDA_VIEWS,
@@ -55,7 +57,7 @@ import { tokens, tones, type Tone } from '../../theme/tokens'
 
 const t = sq.agenda
 
-type Param = 'view' | 'date' | 'office' | 'lawyer' | 'cancelled'
+type Param = 'view' | 'date' | 'office' | 'lawyer' | 'cancelled' | 'court' | 'type'
 
 const STATUS_TONE: Record<string, Tone> = { SCHEDULED: 'blue', HELD: 'green', POSTPONED: 'orange', CANCELLED: 'neutral' }
 
@@ -122,7 +124,18 @@ export function AgendaPage() {
   }
 
   const agenda = useAgenda({ ...range, lawyerId, officeId, includeCancelled })
-  const items = useMemo(() => agenda.data ?? [], [agenda.data])
+  // court and hearing type (the calendar's other columns): narrowed in the browser — the range is loaded whole
+  const court = get('court')
+  const type = get('type')
+  const loaded = useMemo(() => agenda.data ?? [], [agenda.data])
+  const items = useMemo(
+    () => loaded.filter((i) => (court === '' || i.courtName === court) && (type === '' || i.hearingType.code === type)),
+    [loaded, court, type],
+  )
+  const courtOptions = [...new Set(loaded.map((i) => i.courtName))]
+    .sort((a, b) => a.localeCompare(b, 'sq'))
+    .map((name) => ({ value: name, label: name }))
+  const hearingTypes = useHearingTypes()
   const byId = useMemo(() => new Map(items.map((i) => [i.hearingPublicId, i])), [items])
   const events: EventInput[] = useMemo(
     () =>
@@ -242,12 +255,13 @@ export function AgendaPage() {
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'center' } }}>
                 {canFilterOffice && (
                   <Box sx={{ width: { xs: '100%', md: 280 } }}>
-                    <OptionPicker options={officeOptions} value={officeId} onChange={setOffice} label={t.office} size="small" />
+                    <OptionPicker filter options={officeOptions} value={officeId} onChange={setOffice} label={t.office} size="small" />
                   </Box>
                 )}
                 {canFilterLawyer && (
                   <Box sx={{ width: { xs: '100%', md: 260 } }}>
                     <OptionPicker
+                      filter
                       options={lawyerOptions}
                       value={lawyerId}
                       onChange={(lawyer) => set({ lawyer })}
@@ -256,6 +270,25 @@ export function AgendaPage() {
                     />
                   </Box>
                 )}
+                <Box sx={{ width: { xs: '100%', md: 280 } }}>
+                  <OptionPicker
+                    filter
+                    options={courtOptions}
+                    value={court}
+                    onChange={(value) => set({ court: value })}
+                    label={t.columns.court}
+                    size="small"
+                  />
+                </Box>
+                <AppSelect
+                  filter
+                  size="small"
+                  label={t.columns.type}
+                  value={type}
+                  onChange={(value) => set({ type: value })}
+                  options={(hearingTypes.data ?? []).map((h) => ({ value: h.code, label: h.name }))}
+                  sx={{ width: { xs: '100%', md: 220 } }}
+                />
                 <FormControlLabel
                   control={<Switch checked={includeCancelled} onChange={(e) => set({ cancelled: e.target.checked ? '1' : '' })} />}
                   label={t.showCancelled}

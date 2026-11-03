@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
 using Ash.SharedKernel.Identity;
@@ -22,7 +22,10 @@ public enum CaseListSort
     ClosedDesc
 }
 
-/// <summary>A parsed, validated list request. Status null = open cases (REGISTERED + ACTIVE).</summary>
+/// <summary>
+/// A parsed, validated list request. Status: <see cref="OpenStatus"/> (REGISTERED + ACTIVE), <see cref="AllStatuses"/>
+/// or one lifecycle status; null counts as open.
+/// </summary>
 public sealed record CaseListFilter(
     CaseListTab Tab,
     string? Status,
@@ -36,8 +39,23 @@ public sealed record CaseListFilter(
     string? Q,
     ushort? OfficeId = null)
 {
+    public const string OpenStatus = "OPEN";
+    public const string AllStatuses = "ALL";
+
+    /// <summary>The courts of the chosen court level (Shkalla e gjykimit); empty = the level has no court.</summary>
+    public IReadOnlyList<ushort>? LevelCourtIds { get; init; }
+
+    public uint? JudgeId { get; init; }
+
+    /// <summary>An institution that is a (not deleted) party of the case.</summary>
+    public uint? InstitutionId { get; init; }
+
+    public DateTime? RegisteredFromUtc { get; init; }
+
+    public DateTime? RegisteredToUtc { get; init; }
+
     /// <summary>The tab's open cases without filters (tab counts, default tab).</summary>
-    public static CaseListFilter Open(CaseListTab tab) => new(tab, null, null, null, null, null, null, null, null, null);
+    public static CaseListFilter Open(CaseListTab tab) => new(tab, OpenStatus, null, null, null, null, null, null, null, null);
 
     public CaseListSort Sort => Status == Case.Closed
         ? CaseListSort.ClosedDesc
@@ -46,8 +64,10 @@ public sealed record CaseListFilter(
     /// <summary>Binds a cursor to the request that produced it: same tab, filters and sort, or the cursor is refused.</summary>
     public string Hash()
     {
-        var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? "open", CourtId, CategoryId, Priority, Suspended,
-            LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort, OfficeId);
+        var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? OpenStatus, CourtId, CategoryId, Priority, Suspended,
+            LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort, OfficeId,
+            LevelCourtIds is null ? null : string.Join(',', LevelCourtIds), JudgeId, InstitutionId,
+            RegisteredFromUtc?.Ticks, RegisteredToUtc?.Ticks);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
     }
 }
@@ -89,7 +109,7 @@ public sealed record CaseListCursor(DateTime? SortKey, ulong Id)
 /// Builds the case-list query: the tab's own index-friendly predicate (no OR across access paths), the filters,
 /// then the access scope ON TOP (defence in depth), then keyset order. Public so tests can EXPLAIN the real SQL.
 /// </summary>
-public sealed partial class CaseListQueryBuilder(CasesDbContext db, CaseAccessService access, ICurrentUser user)
+public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService access, ICurrentUser user)
 {
     private static readonly string[] OpenStatuses = [Case.Registered, "ACTIVE"];
 
@@ -98,13 +118,44 @@ public sealed partial class CaseListQueryBuilder(CasesDbContext db, CaseAccessSe
     {
         var cases = TabPredicate(db.Cases.AsNoTracking(), f.Tab);
 
-        cases = f.Status is null
-            ? cases.Where(c => OpenStatuses.Contains(c.LifecycleStatus))
-            : cases.Where(c => c.LifecycleStatus == f.Status);
+        cases = f.Status switch
+        {
+            null or CaseListFilter.OpenStatus => cases.Where(c => OpenStatuses.Contains(c.LifecycleStatus)),
+            CaseListFilter.AllStatuses => cases,
+            var status => cases.Where(c => c.LifecycleStatus == status)
+        };
 
         if (f.CourtId is { } courtId)
         {
             cases = cases.Where(c => c.CourtId == courtId);
+        }
+
+        if (f.LevelCourtIds is { } levelCourts)
+        {
+            // ix_cases_court (court_id, lifecycle_status): an IN list of the level's courts
+            cases = cases.Where(c => levelCourts.Contains(c.CourtId));
+        }
+
+        if (f.JudgeId is { } judgeId)
+        {
+            // ix_cases_judge (judge_id)
+            cases = cases.Where(c => c.JudgeId == judgeId);
+        }
+
+        if (f.InstitutionId is { } institutionId)
+        {
+            // ix_cp_institution (institution_id): a semi-join on the parties
+            cases = cases.Where(c => db.CaseParties.Any(p => p.CaseId == c.Id && p.InstitutionId == institutionId && p.DeletedAt == null));
+        }
+
+        if (f.RegisteredFromUtc is { } registeredFrom)
+        {
+            cases = cases.Where(c => c.RegisteredAt >= registeredFrom);
+        }
+
+        if (f.RegisteredToUtc is { } registeredTo)
+        {
+            cases = cases.Where(c => c.RegisteredAt < registeredTo);
         }
 
         if (f.CategoryId is { } categoryId)
@@ -224,42 +275,24 @@ public sealed partial class CaseListQueryBuilder(CasesDbContext db, CaseAccessSe
     }
 
     /// <summary>
-    /// Case ids matching q, as separate index-friendly queries joined by UNION (composed into the list query as a
-    /// subquery, never materialized): unique code / case code prefix (when q looks like a code), act number prefix,
-    /// FULLTEXT on the object and on party names (every word as a prefix).
+    /// Case ids matching q anywhere inside a value (substring, script 014): separate index-friendly MATCH queries over
+    /// the ngram FULLTEXT indexes, joined by UNION and composed into the list query as a subquery (never
+    /// materialized) — case code / act number / summons number (ftn_cases_numbers), the object (ftn_cases_object),
+    /// party names and NIPT (ftn_cp_name_identifier). Every word of q must be in the same source.
     /// </summary>
     private IQueryable<ulong> SearchIds(string q)
     {
-        var prefix = q.Replace("!", "!!").Replace("%", "!%").Replace("_", "!_") + "%";
-        var words = BooleanPrefixWords(q);
-        var parts = new List<string>();
-        if (CodeRegex().IsMatch(q))
+        var words = NgramSearch.BooleanQuery(q);
+        if (words.Length == 0)
         {
-            parts.Add("SELECT c.id AS Value FROM cases c JOIN dossiers d ON d.id = c.dossier_id WHERE d.unique_code LIKE @list_prefix ESCAPE '!'");
-            parts.Add("SELECT id AS Value FROM cases WHERE case_code LIKE @list_prefix ESCAPE '!'");
+            return db.Database.SqlQueryRaw<ulong>("SELECT id AS Value FROM cases WHERE FALSE");
         }
 
-        parts.Add("SELECT id AS Value FROM cases WHERE act_number LIKE @list_prefix ESCAPE '!'");
-        if (words.Length > 0)
-        {
-            parts.Add("SELECT id AS Value FROM cases WHERE MATCH(object_text) AGAINST (@list_words IN BOOLEAN MODE)");
-            parts.Add("SELECT case_id AS Value FROM case_parties WHERE deleted_at IS NULL AND MATCH(display_name) AGAINST (@list_words IN BOOLEAN MODE)");
-        }
-
-        return db.Database.SqlQueryRaw<ulong>(string.Join(" UNION ", parts),
-            new MySqlParameter("@list_prefix", prefix), new MySqlParameter("@list_words", words));
+        const string sql = """
+            SELECT id AS Value FROM cases WHERE MATCH(case_code, act_number, summons_number) AGAINST (@list_words IN BOOLEAN MODE)
+            UNION SELECT id AS Value FROM cases WHERE MATCH(object_text) AGAINST (@list_words IN BOOLEAN MODE)
+            UNION SELECT case_id AS Value FROM case_parties WHERE deleted_at IS NULL AND MATCH(display_name, identifier) AGAINST (@list_words IN BOOLEAN MODE)
+            """;
+        return db.Database.SqlQueryRaw<ulong>(sql, new MySqlParameter("@list_words", words));
     }
-
-    /// <summary>"+word1* +word2*": every word required, as a prefix; only letters and digits (no boolean operators).</summary>
-    private static string BooleanPrefixWords(string q)
-    {
-        var words = WordRegex().Matches(q).Select(m => m.Value).Where(w => w.Length >= 2);
-        return string.Join(' ', words.Select(w => $"+{w}*"));
-    }
-
-    [GeneratedRegex(@"^\d{4}-\d")]
-    private static partial Regex CodeRegex();
-
-    [GeneratedRegex(@"[\p{L}\p{N}]+")]
-    private static partial Regex WordRegex();
 }

@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -9,9 +8,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import { Controller, useForm, useWatch, type Path, type Resolver } from 'react-hook-form'
@@ -21,6 +18,8 @@ import { sq } from '../i18n/sq'
 import { matches } from '../lib/search'
 import { problemMessage } from '../lib/problem'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { AppAutocomplete } from './ui/AppAutocomplete'
+import { AppSelect } from './ui/AppSelect'
 import { CaseCode } from './ui/CaseCode'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
@@ -111,10 +110,10 @@ export function AssignLawyerDialog({
       name={name}
       control={control}
       render={({ field }) => (
-        <Autocomplete<AssignableLawyer>
+        <AppAutocomplete<AssignableLawyer>
           options={options}
           value={field.value}
-          onChange={(_, picked) => {
+          onChange={(picked) => {
             field.onChange(picked)
             // the secondary cannot be the new primary
             if (name === 'primary' && picked && getValues('secondary')?.publicId === picked.publicId) {
@@ -122,38 +121,30 @@ export function AssignLawyerDialog({
             }
           }}
           getOptionLabel={lawyerLabel}
-          isOptionEqualToValue={(a, b) => a.publicId === b.publicId}
+          getOptionKey={(o) => o.publicId}
           getOptionDisabled={name === 'secondary' ? (o) => o.publicId === primary?.publicId : undefined}
-          filterOptions={(all, state) => all.filter((o) => matches(state.inputValue, o.fullName))}
-          noOptionsText={sq.search.noOptions}
-          renderOption={({ key, ...props }, o) => (
-            <Box component="li" key={key} {...props}>
-              <Box>
-                <Typography variant="body1">{lawyerLabel(o)}</Typography>
-                <Typography variant="caption" component="p" color="text.secondary">
-                  {name === 'secondary' && o.publicId === primary?.publicId
-                    ? t.sameAsPrimary
-                    : t.workload(Number(o.workload.activePrimary), Number(o.workload.activeSecondary))}
-                </Typography>
-              </Box>
+          filterOptions={(all, input) => all.filter((o) => matches(input, o.fullName))}
+          renderOptionLabel={(o) => (
+            <Box>
+              <Typography variant="body1">{lawyerLabel(o)}</Typography>
+              <Typography variant="caption" component="p" color="text.secondary">
+                {name === 'secondary' && o.publicId === primary?.publicId
+                  ? t.sameAsPrimary
+                  : t.workload(Number(o.workload.activePrimary), Number(o.workload.activeSecondary))}
+              </Typography>
             </Box>
           )}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              inputRef={field.ref}
-              label={label}
-              required={required}
-              autoFocus={name === 'primary'}
-              error={!!errors[name]}
-              helperText={
-                errors[name]?.message ??
-                (field.value
-                  ? t.workload(Number(field.value.workload.activePrimary), Number(field.value.workload.activeSecondary))
-                  : undefined)
-              }
-            />
-          )}
+          inputRef={field.ref}
+          label={label}
+          required={required}
+          autoFocus={name === 'primary'}
+          error={!!errors[name]}
+          helperText={
+            errors[name]?.message ??
+            (field.value
+              ? t.workload(Number(field.value.workload.activePrimary), Number(field.value.workload.activeSecondary))
+              : undefined)
+          }
         />
       )}
     />
@@ -196,21 +187,16 @@ export function AssignLawyerDialog({
                   name="priority"
                   control={control}
                   render={({ field }) => (
-                    <TextField
-                      select
+                    <AppSelect
+                      required
                       label={t.priority}
                       value={field.value || c.header.priority}
                       onChange={field.onChange}
                       inputRef={field.ref}
                       error={!!errors.priority}
                       helperText={errors.priority?.message}
-                    >
-                      {Object.entries(sq.cases.priority).map(([code, name]) => (
-                        <MenuItem key={code} value={code}>
-                          {name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                      options={Object.entries(sq.cases.priority).map(([code, name]) => ({ value: code, label: name }))}
+                    />
                   )}
                 />
               )}

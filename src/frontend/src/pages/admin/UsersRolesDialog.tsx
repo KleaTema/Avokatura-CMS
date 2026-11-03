@@ -6,13 +6,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
 import { useAdminRoles, useGrantRole, useRevokeRole, type AdminUser } from '../../features/admin/api'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { sq } from '../../i18n/sq'
 import { problemMessage } from '../../lib/problem'
 
@@ -78,19 +77,15 @@ export function UsersRolesDialog({ user, onClose }: { user: AdminUser; onClose: 
             roles.isSuccess && <Typography color="text.secondary">{t.noneAvailable}</Typography>
           ) : (
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <TextField
-                select
+              {/* the role to grant: required for "Jep", so no empty option */}
+              <AppSelect
+                required
                 label={t.grantLabel}
                 value={selected}
-                onChange={(e) => setSelected(e.target.value)}
+                onChange={setSelected}
+                options={grantable.map((r) => ({ value: r.code, label: r.name }))}
                 sx={{ flexGrow: 1 }}
-              >
-                {grantable.map((r) => (
-                  <MenuItem key={r.code} value={r.code}>
-                    {r.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+              />
               <Button variant="contained" onClick={() => void onGrant()} disabled={!selected || busy}>
                 {t.grant}
               </Button>

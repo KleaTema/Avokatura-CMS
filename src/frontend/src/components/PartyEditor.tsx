@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -22,6 +21,7 @@ import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { serverQuery } from '../lib/search'
 import { useDebounced } from '../lib/useDebounced'
+import { AppSelect } from './ui/AppSelect'
 import {
   draftPartySchema,
   newDraftParty,
@@ -151,40 +151,28 @@ function PartyRow({
     <Paper variant="outlined" sx={{ p: 2 }} role="group" aria-label={rowLabel}>
       <Stack spacing={2}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-          <TextField
-            select
-            label={t.role}
+          <AppSelect
             required
+            label={t.role}
             value={party.partyRoleCode}
-            onChange={(e) => onChange({ partyRoleCode: e.target.value })}
+            onChange={(partyRoleCode) => onChange({ partyRoleCode })}
             inputRef={firstFieldRef}
             error={!!errors?.partyRoleCode}
             helperText={errors?.partyRoleCode}
+            options={roles.map((r) => ({ value: r.code, label: r.name }))}
             sx={{ minWidth: 180 }}
-          >
-            {roles.map((r) => (
-              <MenuItem key={r.code} value={r.code}>
-                {r.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label={t.kind}
+          />
+          <AppSelect
             required
+            label={t.kind}
             value={party.kind}
-            onChange={(e) => changeKind(e.target.value as PartyKind)}
+            onChange={(kind) => changeKind(kind as PartyKind)}
             disabled={kindLocked}
             error={!!errors?.kind}
             helperText={errors?.kind}
+            options={PARTY_KINDS.map((kind) => ({ value: kind, label: t.kinds[kind] }))}
             sx={{ minWidth: 180 }}
-          >
-            {PARTY_KINDS.map((kind) => (
-              <MenuItem key={kind} value={kind}>
-                {t.kinds[kind]}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
           {party.kind === 'INSTITUTION' && kindLocked ? (
             <TextField label={t.institution} value={party.institution?.name ?? ''} disabled sx={{ flex: 1 }} />
           ) : party.kind === 'INSTITUTION' ? (

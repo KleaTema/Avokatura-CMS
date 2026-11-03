@@ -285,7 +285,7 @@ With the API (curl / Swagger, `X-Dev-User`); upload a few documents first (033).
 5. The same file again → a yellow note "Ky dokument është ngarkuar më parë më {data} si "…"." (still uploaded).
 6. The list: newest first, grouped by level (on an X/2 case: X/2 above X/1, the X/1 documents too); each row has
    the type icon, title, type · uploader · date · size and the chip *Në kontroll* / *Gati* / *Refuzuar*. The filters
-   *Lloji* and *Shkalla* (only with more than one level) narrow it.
+   *Lloji*, *Shkalla* and *Statusi* (always shown — see "Fixes after browser testing") narrow it.
 7. *Shiko* on a PDF or image → full-screen preview; *Shkarko* there or on the row saves it under its original name
    (Albanian letters intact). ✕ / Esc closes it. Each *Shiko* / *Shkarko* writes a DOCUMENT_DOWNLOAD audit row.
 8. *Hiq* (only the primary lawyer, only on documents of this level): without a reason → "Shkruani arsyen e heqjes.";
@@ -293,3 +293,78 @@ With the API (curl / Swagger, `X-Dev-User`); upload a few documents first (033).
    decision → the dialog shows "Dokumenti është i lidhur me vendimin dhe nuk mund të hiqet."
 9. As avokat2 (secondary): upload yes, *Hiq* no. As monitor: the list and *Shiko* / *Shkarko*, no upload area.
 10. At 390 px: the actions sit under each document's text; the queue rows stack their fields; no side scrolling.
+
+## Fixes after browser testing (after 035)
+**Setup:** the migrator applied script 014 (`dotnet run --project src/backend/Database/Ash.Database -- --local`; a
+second run says "Scripts applied: 0"). The local MySQL runs with `--innodb-ft-enable-stopword=OFF`
+(docker-compose.yml; after pulling, `docker compose up -d` recreates the container once).
+1. **Back link.** From *Çështjet* page 2 (filters set) open a case, switch two tabs, click
+   "← Kthehu te lista e çështjeve" → the list on page 2 with the same filters and search. Open a case from a link or
+   after F5 → the link goes to */cases*.
+2. **Selects.** Every filter starts with *Të gjitha*; an optional field (e.g. *Tipi i fletëthirrjes*, *Ministria* of an
+   institution, the new primary in *Transfero*) has "— Asnjë —" first and the × of the picker clears it; a required
+   field (e.g. *Shkalla e gjykimit* at registration, *Roli* of a party) has no empty option but can still be changed.
+3. **Paging.** *Çështjet*, *Përdoruesit*, *Institucionet*, *Gjyqtarët*, *Vazhdo çështje*, *Dokumentet*, *Historiku*:
+   10 rows, under the table "1–10 nga N", *Rreshta për faqe* 10 / 25 / 50, "‹ Para" / "Pas ›" (disabled at the ends).
+   *Pas ›* → "11–20 nga N" and `page=2` in the URL; F5 keeps page 2; changing a filter goes back to page 1. Lookup
+   lists, courts, *Zyrat*, *Llojet e skedarëve*, *Formati i kodit*: numbered pages 1 2 3 … with the same size select.
+   No list loads more rows when scrolled.
+4. **Substring search.** As monitor, *Çështjet*: "640" finds 2026-…640/…, "86640" too; four digits of an act
+   number; three letters inside a party name ("rbe" → Arben); "minist", "stri", "inan" (Financave), "tiran" (Tiranë)
+   and "an" (2 letters) find the cases with those letters; "shendetesise" finds "Shëndetësisë", "HOXHA" finds "Hoxha".
+   The same in the header search, *Vazhdo çështje* (also inside a NIPT), *Gjyqtarët* ("oxh" → Besnik Hoxha,
+   "deshira" → Dëshira), *Institucionet* and *Përdoruesit* ("okat1" → avokat1, also inside the email). Lookup lists
+   and *Zyrat* filter in the browser with "contains" (accent-insensitive).
+5. **Filters.** *Çështjet* → *Filtra*: on every tab *Statusi*, *Shkalla e gjykimit*, *Gjykata* (only the chosen
+   level's courts), *Gjyqtari*, *Avokati* (Kryetar / Monitor), *Zyra* (Monitor), *Institucioni*, *Kategoria*,
+   *Prioriteti*, *Pezulluar*, *Seanca nga – deri*, *Data e regjistrimit nga – deri*; each shows a chip, "Pastro filtrat"
+   clears all. Other pages: *Përdoruesit* (Rolet, Zyra, Institucioni, Statusi), *Institucionet* (Lloji, Ministria,
+   Statusi), *Gjyqtarët* (Gjykata, Statusi), lookup lists (Statusi; Grupi in the lists that have one), *Gjykatat*
+   (Shkalla, Jashtë vendit, Statusi), *Zyrat* (Lloji, Zyra mëmë, Statusi), *Agjenda* (Zyra, Avokati, Gjykata, Lloji,
+   të anuluarat), *Dokumentet* (Lloji, Shkalla, Statusi), *Vazhdo çështje* (Gjykata, Statusi).
+6. **Dashboard:** no "Regjistro çështje të re" button (it stays on *Çështjet*).
+7. **Notify a not-closed level.** As protokoll, *Vazhdo çështje*, search an open case:
+   - with a primary lawyer: the button reads "Njofto avokatin dhe Kryetarin"; the dialog "Do të njoftohen: Avokat1 Dev
+     (avokati), Kryetar Dev (Kryetari)."; after sending "Avokati dhe Kryetari u njoftuan: …".
+   - without one (REGISTERED): "Njofto Kryetarin"; the dialog lists only the Kryetar and warns "Çështja nuk ka avokat
+     të caktuar; Kryetari i zyrës duhet ta caktojë."; after sending "Kryetari u njoftua: Kryetar Dev (Kryetari).".
+   - the same summons again within 24 h: "Janë njoftuar më …: …" (no new history row). *Historiku* of the case shows
+     the row with "U njoftuan: …".
+8. **Closed cases.** Close one of avokat1's cases with the SQL command of 018. Then: avokat1 *Çështjet e mia* →
+   not in *Të hapura*, found with *Të mbyllura* and *Të gjitha*, and by a search (no status chosen); kryetar *Të zyrës*
+   and monitor *Të gjitha* the same; the header search finds it for each of them (it opens the user's widest tab);
+   protokoll does not see it in *Të regjistruara nga unë* but *Vazhdo çështje* finds it with "Vazhdo në shkallën e
+   radhës". Choosing *Të hapura* explicitly and then searching keeps the search to open cases.
+
+## 036 / 037 — Record the decision and close; complete it later (API; the screens come with 039)
+**User:** avokat1, an ACTIVE first-instance case of theirs (appeal kind ANKIM). Calls with the dev header
+`X-Dev-User: avokat1@ash.local`; `rowVersion` from `GET /api/cases/{id}` (`header.rowVersion`).
+1. `GET /api/cases/{id}` → `data.appealKind` = "ANKIM" (an appeal level: "REKURS"); `decision` null.
+2. `POST /api/cases/{id}/decision` `{ "resultCode": "HUMBUR", "decisionReceived": false, "rowVersion": n }` → 200,
+   `caseRowVersion` n+1, `suggestions` []. The case is CLOSED (header and list); `next_hearing_at` NULL; the team is
+   unchanged — avokat1 finds it under *Çështjet e mia* with *Të mbyllura* / *Të gjitha*; *Historiku*:
+   DECISION_RECORDED ("… (pa vendimin e arsyetuar).") and CASE_CLOSED. In the database `decision_received = 0`
+   (statistics: "mbartur në pritje të vendimit të arsyetuar").
+3. Refusals (nothing changes): `isFinal` + `isAppealed` → 400 "Një vendim në formë të prerë nuk mund të jetë i
+   ankimuar/rekursuar."; `isRecursed` on a first-instance level → 400 (`isRecursed`); "TJETER" without
+   `resultOtherText` → 400; `decisionReceived: true` without a document, or with a document that is still *Në
+   kontroll*, of another type or another dossier → 400 (`decisionDocumentPublicId`); a decision date in the future or
+   before the act date → 400; a negative or "1,5" amount → 400; as avokat2 (secondary) → 403; an old `rowVersion` →
+   409; on a REGISTERED case → 409 "Vendimi regjistrohet vetëm për një çështje aktive …".
+4. With a SCHEDULED hearing: the POST → 409 `case.open_hearings` with `hearings` (time, type); again with
+   `"cancelOpenHearings": true` → 200, the hearings are *Anuluar* with "Anuluar në mbyllje të çështjes" (one
+   history row each), the agenda no longer shows them.
+5. Money: `"wonAmount": "9999999999999999.99"`, `"preventedDamageAmount": "1250000.5"`, `"currency": "EUR"` →
+   GET returns exactly "9999999999999999.99", "1250000.50", "EUR".
+6. Result "KTHIM_RIGJYKIM" → `suggestions` ["RETRIAL_EXPECTED"]; `isFinal: true` → "ARCHIVE_SUGGESTED".
+7. On the CLOSED case: upload a PADI_PROVA document → 409 "Në një çështje të mbyllur ngarkohet vetëm vendimi.";
+   upload a VENDIM PDF → 201 (*Gati* after the scan). Other actions (hearings, parties, data) stay 409.
+8. `PUT /api/cases/{id}/decision` with the decision's `rowVersion` (`decision.rowVersion`), `"decisionReceived": true`
+   and that document's `decisionDocumentPublicId` → 200; `decision.decisionReceivedAt` set, `decision.document` shows
+   its title; *Historiku* DECISION_UPDATED shows only *decisionReceived* and *decisionDocument*. The same PUT again →
+   400 "Nuk ka ndryshime."; `"decisionReceived": false` → 400 (cannot be undone); an old `rowVersion` → 409.
+9. Appeal later: PUT `"isAppealed": true` → 200. Continue the dossier at X/2 (*Vazhdo çështje*); then PUT
+   `"isFinal": true` (or `"isAppealed": false`) on X/1 → 409 "Kjo çështje ka vazhduar në …/2". On a case without a
+   newer level, `"isFinal": true` → 200 with `suggestions` ["ARCHIVE_SUGGESTED"].
+10. A case whose ministry link is DELEGATED: the jurist (`jurist@ash.local`) sees `decision.record` in `permissions`
+    and may close it.

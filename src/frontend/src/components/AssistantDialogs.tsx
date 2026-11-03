@@ -1,6 +1,5 @@
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -10,7 +9,6 @@ import {
   DialogContentText,
   DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
@@ -27,6 +25,7 @@ import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { matches } from '../lib/search'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { AppAutocomplete } from './ui/AppAutocomplete'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.assistants
@@ -92,37 +91,29 @@ export function AddAssistantDialog({
             <Stack spacing={2} sx={{ pt: 1 }}>
               {outcome.feedback}
               {list.length === 0 && <Alert severity="info">{t.none}</Alert>}
-              <Autocomplete<AssignableAssistant>
+              <AppAutocomplete<AssignableAssistant>
                 options={list}
                 value={picked}
-                onChange={(_, value) => {
+                onChange={(value) => {
                   setPicked(value)
                   setFieldError(null)
                 }}
                 getOptionLabel={(o) => o.fullName}
-                isOptionEqualToValue={(a, b) => a.publicId === b.publicId}
-                filterOptions={(all, state) => all.filter((o) => matches(state.inputValue, o.fullName))}
-                noOptionsText={sq.search.noOptions}
-                renderOption={({ key, ...props }, o) => (
-                  <Box component="li" key={key} {...props}>
-                    <Box>
-                      <Typography variant="body1">{o.fullName}</Typography>
-                      <Typography variant="caption" component="p" color="text.secondary">
-                        {t.workload(Number(o.activeAssignments))}
-                      </Typography>
-                    </Box>
+                getOptionKey={(o) => o.publicId}
+                filterOptions={(all, input) => all.filter((o) => matches(input, o.fullName))}
+                renderOptionLabel={(o) => (
+                  <Box>
+                    <Typography variant="body1">{o.fullName}</Typography>
+                    <Typography variant="caption" component="p" color="text.secondary">
+                      {t.workload(Number(o.activeAssignments))}
+                    </Typography>
                   </Box>
                 )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={t.picker}
-                    required
-                    autoFocus
-                    error={!!fieldError}
-                    helperText={fieldError ?? (picked ? t.workload(Number(picked.activeAssignments)) : undefined)}
-                  />
-                )}
+                label={t.picker}
+                required
+                autoFocus
+                error={!!fieldError}
+                helperText={fieldError ?? (picked ? t.workload(Number(picked.activeAssignments)) : undefined)}
               />
             </Stack>
           )}

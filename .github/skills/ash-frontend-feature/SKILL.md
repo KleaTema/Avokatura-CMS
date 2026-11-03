@@ -21,7 +21,8 @@ export const useCase = (id: string) =>
   useQuery({ queryKey: ['case', id], queryFn: () => api.GET('/api/cases/{id}', { params: { path: { id } } }).then(unwrap) });
 ```
 - After a mutation, invalidate the exact keys it affects (`['case', id]`, `['case-history', id]`), do not refetch everything.
-- Lists use the keyset cursor: `useInfiniteQuery` with `getNextPageParam: p => p.nextCursor ?? undefined`.
+- Server lists use the keyset cursor one page at a time: `useQuery` keyed by the filters + `cursor` + `size`, with
+  `placeholderData: keepPreviousData`; the page comes from `useKeysetPaging()` (`lib/paging.ts`). Never `useInfiniteQuery` for a table.
 
 ## Permissions
 - Show an action only if its code is in `case.permissions` (case page) or `me.permissions` (global). Never decide by role name.
@@ -49,6 +50,16 @@ Every list, table and picker gets search unless it will never have more than ~10
 - Pickers with more than ~10 options: MUI Autocomplete with typing, not a plain Select.
 - Empty result: "Nuk u gjet asnjë rezultat për „{q}“." with a button to clear the search.
 - Search box placeholder lists what can be searched, e.g. "Kërko (emër, kod)".
+- Search: substring (min 2 chars) via ngram FULLTEXT on the server, 'contains' on the client; a search covers all statuses unless a status is chosen.
+- Filter panels show every filter relevant to the page; never hide filters per tab.
+
+## Selects and tables
+- Selects: AppSelect/AppAutocomplete only; filters start with 'Të gjitha', optional fields with '— Asnjë —'.
+  (`components/ui/AppSelect.tsx` for short fixed lists, `AppAutocomplete.tsx` — also inside OptionPicker, CourtPicker,
+  JudgePicker, InstitutionPicker — for longer or searched ones; `filter` / `required` props; required fields have no empty option.)
+- Tables: 10 rows by default with the shared pagination footer (keyset Para/Pas for server lists, numbered for client lists); never infinite scroll in tables.
+  (`PaginationFooter` in `components/ui/DataTable.tsx`: `mode="keyset"` with `useKeysetPaging()` and the API's `total`,
+  `mode="numbered"` with `useClientPaging(items)`; page and size live in the URL, so Back returns to the same page.)
 ## Dates and times
 Always use components/AppDatePicker and AppTimePicker (DD.MM.YYYY, 24h, 5-minute steps). Click opens the picker; Tab focus does not. Never a plain text field for dates or times.
 Not needed: lists that are always tiny (file types, code formats).

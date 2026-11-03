@@ -24,6 +24,7 @@ internal sealed class GetCaseHandler(
     IUserDirectory users,
     IInstitutionDirectory institutions,
     IDocumentService documents,
+    RecordDecision.DecisionSupport decisions,
     IAuditLog audit,
     IClock clock)
 {
@@ -122,15 +123,12 @@ internal sealed class GetCaseHandler(
             c.NextHearingAt < clock.UtcNow,
             c.RegisteredAt,
             registeredBy is null ? null : new UserView(registeredBy.PublicId, registeredBy.Name),
-            c.ClosedAt);
+            c.ClosedAt,
+            level?.AppealKind);
     }
 
-    private async Task<CaseDecisionSummary> DecisionAsync(CaseDecision d, CancellationToken ct)
-    {
-        var result = (await reference.ListDecisionResultsAsync(ct)).FirstOrDefault(r => r.Id == d.ResultId);
-        return new CaseDecisionSummary(new CodeName(result?.Code ?? string.Empty, result?.Name ?? string.Empty),
-            d.ResultOtherText, d.DecisionNumber, d.DecisionDate, d.DecisionReceived, d.IsAppealed, d.IsRecursed, d.IsFinal);
-    }
+    /// <summary>The whole decision (tasks 036/037), the same view the decision endpoints return.</summary>
+    private Task<CaseDecisionSummary> DecisionAsync(CaseDecision d, CancellationToken ct) => decisions.ViewAsync(d, ct);
 
     /// <summary>Every level of the dossier; a level the user cannot view shows only its code, court level and status.</summary>
     private async Task<IReadOnlyList<CaseLevelView>> LevelsAsync(Case c, CancellationToken ct)

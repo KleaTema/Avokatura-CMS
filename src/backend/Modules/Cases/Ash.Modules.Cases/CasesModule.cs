@@ -17,7 +17,9 @@ using Ash.Modules.Cases.Application.Hearings;
 using Ash.Modules.Cases.Application.GetHistory;
 using Ash.Modules.Cases.Application.ListCases;
 using Ash.Modules.Cases.Application.Parties;
+using Ash.Modules.Cases.Application.RecordDecision;
 using Ash.Modules.Cases.Application.RegisterCase;
+using Ash.Modules.Cases.Application.UpdateDecision;
 using Ash.Modules.Cases.Application.RegisterNextLevel;
 using Ash.Modules.Cases.Application.RegistrationSearch;
 using Ash.Modules.Cases.Application.TransferLawyer;
@@ -90,6 +92,9 @@ public static class CasesModule
 		services.AddScoped<AddHearingHandler>();
 		services.AddScoped<UpdateHearingHandler>();
 		services.AddScoped<CompleteHearingHandler>();
+		services.AddScoped<DecisionSupport>();
+		services.AddScoped<RecordDecisionHandler>();
+		services.AddScoped<UpdateDecisionHandler>();
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();
 		return services;
@@ -98,6 +103,6 @@ public static class CasesModule
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
-			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda();
+			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision();
 	}
 }

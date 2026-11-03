@@ -13,7 +13,8 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { CodeText } from '../../components/ui/CodeText'
-import { DataTable } from '../../components/ui/DataTable'
+import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
+import { useClientPaging } from '../../lib/paging'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useActivateCodeFormat, useAdminCodeFormats, type AdminCodeFormat } from '../../features/admin/api'
@@ -30,6 +31,7 @@ export function CodeFormatPage() {
   const formats = useAdminCodeFormats()
   const [creating, setCreating] = useState(false)
   const [activating, setActivating] = useState<AdminCodeFormat | null>(null)
+  const paging = useClientPaging(formats.data ?? [])
 
   if (isForbidden(formats.error)) return <ForbiddenPage />
 
@@ -62,8 +64,9 @@ export function CodeFormatPage() {
           { key: 'actions', label: sq.common.actions, align: 'right' },
         ]}
         empty={formats.isSuccess && formats.data.length === 0 && <EmptyState title={t.empty} />}
+        footer={<PaginationFooter mode="numbered" paging={paging} />}
       >
-              {(formats.data ?? []).map((f) => (
+              {paging.items.map((f) => (
                 <TableRow key={f.id} hover sx={rowSx(f.isActive)}>
                   <TableCell>
                     <CodeText>{f.template}</CodeText>

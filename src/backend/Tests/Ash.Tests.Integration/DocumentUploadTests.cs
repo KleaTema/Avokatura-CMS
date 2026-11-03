@@ -318,16 +318,21 @@ public class DocumentUploadTests(MySqlFixture db, MinioFixture minio) : Integrat
     }
 
     [Fact]
-    public async Task A_closed_case_refuses_uploads()
+    public async Task A_closed_case_takes_only_the_decision_document()
     {
         await using var s = await SetupAsync();
         await Execute($"UPDATE cases SET lifecycle_status = 'CLOSED', closed_at = UTC_TIMESTAMP(3), closed_by = {s.Seed.User("kryetar").Id} " +
                       $"WHERE id = {s.Seed.ActiveCaseId}");
         using var client = s.As(Primary);
 
+        // any other type: 409, nothing stored
         var text = await Problem(await Upload(client, s.Case, Form(new ByteArrayContent(Pdf(1000)), "a.pdf")), HttpStatusCode.Conflict);
+        text.ShouldContain("document.closed_only_decision");
+        text.ShouldContain("Në një çështje të mbyllur ngarkohet vetëm vendimi.");
+        (await Scalar($"SELECT COUNT(*) FROM documents WHERE case_id = {s.Seed.ActiveCaseId}")).ShouldBe(0L);
 
-        text.ShouldContain("case.closed");
+        // the reasoned decision (task 037): accepted
+        await Created(await Upload(client, s.Case, Form(new ByteArrayContent(Pdf(1000)), "vendimi.pdf", type: "VENDIM")));
     }
 
     // ---------------------------------------------------------------- memory

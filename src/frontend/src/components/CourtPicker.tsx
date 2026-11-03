@@ -1,12 +1,12 @@
-import { Autocomplete, TextField } from '@mui/material'
 import type { Ref } from 'react'
 import type { Court } from '../features/reference/api'
 import { sq } from '../i18n/sq'
 import { matches } from '../lib/search'
+import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 /**
  * The active courts, searchable (accent-insensitive, name or city) and grouped by court level in the levels' order.
- * With `levelCode` only that level's courts are offered.
+ * With `levelCode` only that level's courts are offered. `filter` / `required`: see AppAutocomplete.
  */
 export function CourtPicker({
   courts,
@@ -16,11 +16,12 @@ export function CourtPicker({
   onChange,
   label,
   required,
+  filter,
   error,
   helperText,
   inputRef,
   size,
-}: {
+}: EmptyChoice & {
   size?: 'small' | 'medium'
   courts: Court[]
   levels: { code: string; name: string }[]
@@ -28,7 +29,6 @@ export function CourtPicker({
   value: string
   onChange: (court: Court | null) => void
   label: string
-  required?: boolean
   error?: boolean
   helperText?: string
   inputRef?: Ref<HTMLInputElement>
@@ -39,29 +39,24 @@ export function CourtPicker({
   const options = courts
     .filter((c) => !levelCode || c.courtLevelCode === levelCode)
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'sq'))
-  const selected = options.find((c) => String(c.id) === value) ?? null
 
   return (
-    <Autocomplete<Court>
+    <AppAutocomplete<Court>
       options={options}
-      value={selected}
-      onChange={(_, court) => onChange(court)}
+      value={options.find((c) => String(c.id) === value) ?? null}
+      onChange={onChange}
       groupBy={(c) => levelName.get(c.courtLevelCode ?? '') ?? ''}
       getOptionLabel={(c) => c.name}
-      isOptionEqualToValue={(a, b) => a.id === b.id}
-      filterOptions={(all, state) => all.filter((c) => matches(state.inputValue, c.name, c.city))}
+      getOptionKey={(c) => String(c.id)}
+      filterOptions={(all, input) => all.filter((c) => matches(input, c.name, c.city))}
       noOptionsText={sq.cases.register.noCourts}
       size={size}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          inputRef={inputRef}
-          label={label}
-          required={required}
-          error={error}
-          helperText={helperText}
-        />
-      )}
+      inputRef={inputRef}
+      label={label}
+      required={required}
+      filter={filter}
+      error={error}
+      helperText={helperText}
     />
   )
 }

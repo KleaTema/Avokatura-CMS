@@ -1,7 +1,8 @@
 import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
 import { CodeText } from '../../components/ui/CodeText'
-import { DataTable } from '../../components/ui/DataTable'
+import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
+import { useClientPaging } from '../../lib/paging'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminFileTypes, type AdminFileType } from '../../features/admin/api'
@@ -18,6 +19,7 @@ const t = sq.adminFileTypes
 export function FileTypesPage() {
   const fileTypes = useAdminFileTypes()
   const [editing, setEditing] = useState<{ fileType: AdminFileType | null } | null>(null)
+  const paging = useClientPaging(fileTypes.data ?? [])
 
   if (isForbidden(fileTypes.error)) return <ForbiddenPage />
 
@@ -51,8 +53,9 @@ export function FileTypesPage() {
           { key: 'actions', label: sq.common.actions, align: 'right' },
         ]}
         empty={fileTypes.isSuccess && fileTypes.data.length === 0 && <EmptyState title={t.empty} />}
+        footer={<PaginationFooter mode="numbered" paging={paging} />}
       >
-        {(fileTypes.data ?? []).map((f) => (
+        {paging.items.map((f) => (
           <TableRow key={f.id} hover sx={rowSx(f.isActive)}>
             <TableCell>{f.extension}</TableCell>
             <TableCell>{f.contentType}</TableCell>

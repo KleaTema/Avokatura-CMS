@@ -45,7 +45,8 @@ public sealed class MySqlFixture : IAsyncLifetime
             "--default-time-zone=+00:00",
             "--event-scheduler=ON",
             "--character-set-server=utf8mb4",
-            "--collation-server=utf8mb4_0900_ai_ci")
+            "--collation-server=utf8mb4_0900_ai_ci",
+            "--innodb-ft-enable-stopword=OFF")
         .Build();
 
     /// <summary>Application connection (ash_dev, ash_core).</summary>

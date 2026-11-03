@@ -1,12 +1,12 @@
-import { Alert, Box, Button, CircularProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
-import { UserPlus } from 'lucide-react'
+import { Alert, Box, Button, CircularProgress, Link as MuiLink, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { ArrowLeft, UserPlus } from 'lucide-react'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
 import { HeaderPrioritySelect } from '../../components/caseData/HeaderPrioritySelect'
 import { CaseCode } from '../../components/ui/CaseCode'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { SuccessToast } from '../../components/ui/SuccessToast'
 import { useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../../api/client'
 import { LevelSwitcher } from '../../components/LevelSwitcher'
 import { useCase } from '../../features/cases/api'
@@ -17,6 +17,7 @@ import { DataTab } from './tabs/DataTab'
 import { DocumentsTab } from './tabs/DocumentsTab'
 import { HearingsTab } from './tabs/HearingsTab'
 import { DecisionTab } from './tabs/SummaryTabs'
+import type { FromCaseList } from './CaseList'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PartiesTab } from './tabs/PartiesTab'
 
@@ -30,14 +31,47 @@ const isCaseTab = (value: string | undefined): value is CaseTab => CASE_TABS.som
  * The case page (task 022): /cases/:publicId/:tab. Every action button comes from `permissions` of the case
  * (GET /api/cases/{id}) — never from role names or the status. 404 never says whether the case exists.
  */
+/** How many history entries back the case list is, when this page was opened from it (CaseList's FromCaseList). */
+function listDepthOf(state: unknown): number | null {
+  const depth = (state as Partial<FromCaseList> | null)?.listDepth
+  return typeof depth === 'number' && Number.isInteger(depth) && depth > 0 ? depth : null
+}
+
+/**
+ * "← Kthehu te lista e çështjeve": opened from the case list → back through the history to that list entry (its
+ * filters and page in the URL, the cursors in sessionStorage); otherwise (a link, a refresh) → /cases.
+ */
+function BackToList({ depth }: { depth: number | null }) {
+  const navigate = useNavigate()
+  return (
+    <Box>
+      <MuiLink
+        component="button"
+        type="button"
+        variant="body2"
+        underline="hover"
+        onClick={() => void (depth ? navigate(-depth) : navigate('/cases'))}
+        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+      >
+        <ArrowLeft size={18} aria-hidden />
+        {t.backToList}
+      </MuiLink>
+    </Box>
+  )
+}
+
 export function CasePage() {
   const { publicId = '', tab } = useParams()
+  const location = useLocation()
+  const listDepth = listDepthOf(location.state)
+  // every tab or level link of this page is one more entry between here and the list
+  const linkState: FromCaseList | undefined = listDepth ? { listDepth: listDepth + 1 } : undefined
   const detail = useCase(publicId)
   const [copied, setCopied] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  if (tab !== undefined && !isCaseTab(tab)) return <Navigate to={`/cases/${publicId}`} replace />
+  if (tab !== undefined && !isCaseTab(tab)) return <Navigate to={`/cases/${publicId}`} replace state={location.state} />
   const current: CaseTab = isCaseTab(tab) ? tab : 'te-dhenat'
 
   if (detail.isPending) return <CircularProgress aria-label={sq.errors.loading} />
@@ -46,11 +80,7 @@ export function CasePage() {
     return (
       <Stack spacing={2}>
         <Alert severity={notFound ? 'warning' : 'error'}>{notFound ? t.notFound : problemMessage(detail.error)}</Alert>
-        <Box>
-          <Button component={Link} to="/cases">
-            {t.backToList}
-          </Button>
-        </Box>
+        <BackToList depth={listDepth} />
       </Stack>
     )
   }
@@ -73,11 +103,7 @@ export function CasePage() {
 
   return (
     <Stack spacing={2}>
-      <Box>
-        <Button component={Link} to="/cases" size="small">
-          {t.backToList}
-        </Button>
-      </Box>
+      <BackToList depth={listDepth} />
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={1.5}>
@@ -132,13 +158,13 @@ export function CasePage() {
             {' · '}
             <strong>{t.registeredAt}:</strong> {formatDateTime(data.registeredAt)}
           </Typography>
-          <LevelSwitcher levels={c.levels} currentPublicId={header.publicId} tab={current} />
+          <LevelSwitcher levels={c.levels} currentPublicId={header.publicId} tab={current} linkState={linkState} />
         </Stack>
       </Paper>
 
       <Tabs value={current} variant="scrollable" allowScrollButtonsMobile aria-label={t.tabsLabel}>
         {CASE_TABS.map((x) => (
-          <Tab key={x} value={x} label={tabLabel(x)} component={Link} to={`/cases/${publicId}/${x}`} />
+          <Tab key={x} value={x} label={tabLabel(x)} component={Link} to={`/cases/${publicId}/${x}`} state={linkState} />
         ))}
       </Tabs>
 

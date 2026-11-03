@@ -8,9 +8,17 @@ namespace Ash.Modules.Documents.Application;
 /// <summary><see cref="IDocumentService"/>: what other modules may ask about documents.</summary>
 internal sealed class DocumentService(DocumentsDbContext db, IReferenceData reference) : IDocumentService
 {
-    public async Task<DocumentInfo?> GetAsync(Guid publicId, CancellationToken ct = default)
+    public async Task<DocumentInfo?> GetAsync(Guid publicId, CancellationToken ct = default) =>
+        await InfoAsync(await db.Documents.AsNoTracking().SingleOrDefaultAsync(d => d.PublicId == publicId, ct), ct);
+
+    public async Task<DocumentInfo?> GetByIdAsync(long id, CancellationToken ct = default)
     {
-        var row = await db.Documents.AsNoTracking().SingleOrDefaultAsync(d => d.PublicId == publicId, ct);
+        var key = (ulong)id;
+        return await InfoAsync(await db.Documents.AsNoTracking().SingleOrDefaultAsync(d => d.Id == key, ct), ct);
+    }
+
+    private async Task<DocumentInfo?> InfoAsync(DocumentRow? row, CancellationToken ct)
+    {
         if (row is null)
         {
             return null;

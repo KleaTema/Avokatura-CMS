@@ -11,7 +11,6 @@ import {
   FormControlLabel,
   FormHelperText,
   FormLabel,
-  MenuItem,
   Radio,
   RadioGroup,
   Stack,
@@ -39,6 +38,7 @@ import { AppDatePicker } from './AppDatePicker'
 import { AppTimePicker } from './AppTimePicker'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
 import { checkHearing } from './registration/registrationValues'
+import { AppSelect } from './ui/AppSelect'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.hearings
@@ -140,21 +140,15 @@ function ScheduleFields({
           sx={{ width: { xs: '100%', sm: 150 }, flexShrink: 0 }}
         />
       </Stack>
-      <TextField
-        select
+      <AppSelect
+        required
         label={t.hearingType}
         value={value.typeCode}
-        onChange={(e) => onChange({ ...value, typeCode: e.target.value })}
-        required
+        onChange={(typeCode) => onChange({ ...value, typeCode })}
         error={!!errors.typeCode}
         helperText={errors.typeCode}
-      >
-        {options.map((x) => (
-          <MenuItem key={x.code} value={x.code}>
-            {x.name}
-          </MenuItem>
-        ))}
-      </TextField>
+        options={options.map((x) => ({ value: x.code, label: x.name }))}
+      />
       {isOther && (
         <TextField
           label={t.otherType}

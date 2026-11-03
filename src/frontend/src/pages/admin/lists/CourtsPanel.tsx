@@ -15,10 +15,13 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
+import { AppSelect } from '../../../components/ui/AppSelect'
+import { PaginationFooter } from '../../../components/ui/DataTable'
 import { useAdminCourts, useSetCourtActive, type AdminCourt } from '../../../features/admin/api'
 import { useCourtLevels } from '../../../features/reference/api'
 import { sq } from '../../../i18n/sq'
 import { isForbidden, problemMessage } from '../../../lib/problem'
+import { useClientPaging } from '../../../lib/paging'
 import { matches } from '../../../lib/search'
 import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
@@ -35,13 +38,23 @@ export function CourtsPanel() {
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ court: AdminCourt | null } | null>(null)
   const [q, setQ] = useUrlSearch()
-
-  if (isForbidden(courts.error)) return <ForbiddenPage />
+  const [level, setLevel] = useUrlSearch('level')
+  const [foreign, setForeign] = useUrlSearch('foreign')
+  const [active, setActiveFilter] = useUrlSearch('active')
 
   const levelName = (code: string) => levels.data?.find((l) => l.code === code)?.name ?? code
-  // about 100 courts: filtered in the browser
+  // about 100 courts: "contains" search and the column filters in the browser
   const all = courts.data ?? []
-  const visible = all.filter((c) => matches(q, c.name, c.city, levelName(c.courtLevel)))
+  const filtered = all.filter(
+    (c) =>
+      matches(q, c.name, c.city, levelName(c.courtLevel)) &&
+      (level === '' || c.courtLevel === level) &&
+      (foreign === '' || String(c.isForeign) === foreign) &&
+      (active === '' || String(c.isActive) === active),
+  )
+  const paging = useClientPaging(filtered)
+  if (isForbidden(courts.error)) return <ForbiddenPage />
+  const visible = paging.items
   const toggle = (court: AdminCourt) =>
     setActive.mutate({ id: Number(court.id), active: !court.isActive }, { onError: redirectIfForbidden })
 
@@ -54,14 +67,45 @@ export function CourtsPanel() {
         </Button>
       </Stack>
 
-      <TextField
-        label={t.searchCourts}
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        fullWidth
-        sx={{ mb: 2 }}
-      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <TextField
+          label={t.searchCourts}
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          sx={{ flexGrow: 1 }}
+        />
+        <AppSelect
+          filter
+          label={t.columns.courtLevel}
+          value={level}
+          onChange={setLevel}
+          options={(levels.data ?? []).map((l) => ({ value: l.code, label: l.name }))}
+          sx={{ minWidth: 220 }}
+        />
+        <AppSelect
+          filter
+          label={t.columns.isForeign}
+          value={foreign}
+          onChange={setForeign}
+          options={[
+            { value: 'true', label: t.yes },
+            { value: 'false', label: t.no },
+          ]}
+          sx={{ minWidth: 140 }}
+        />
+        <AppSelect
+          filter
+          label={t.activeFilter.label}
+          value={active}
+          onChange={setActiveFilter}
+          options={[
+            { value: 'true', label: t.activeFilter.active },
+            { value: 'false', label: t.activeFilter.inactive },
+          ]}
+          sx={{ minWidth: 160 }}
+        />
+      </Stack>
 
       {courts.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -127,6 +171,7 @@ export function CourtsPanel() {
           </Table>
         </TableContainer>
       )}
+      <PaginationFooter mode="numbered" paging={paging} />
 
       {editing && <CourtDialog court={editing.court} onClose={() => setEditing(null)} />}
     </>

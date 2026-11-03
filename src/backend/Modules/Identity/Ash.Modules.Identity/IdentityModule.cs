@@ -1,3 +1,4 @@
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Identity.Application;
 using Ash.Modules.Identity.Application.GetMe;
 using Ash.Modules.Identity.Application.Institutions;
@@ -45,7 +46,9 @@ public static class IdentityModule
 		services.AddScoped<IOfficeDirectory, OfficeDirectory>();
 		services.AddScoped<IInstitutionDirectory, InstitutionDirectory>();
 		services.AddScoped<CurrentUser>();
-		services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+		// a ParallelReads child scope reads with the user of the request that started it
+		services.AddScoped<ICurrentUser>(sp =>
+			sp.GetRequiredService<InheritedCurrentUser>().User ?? sp.GetRequiredService<CurrentUser>());
 		return services;
 	}
 

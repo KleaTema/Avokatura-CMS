@@ -10,7 +10,6 @@ import {
   FormControl,
   FormControlLabel,
   FormLabel,
-  MenuItem,
   Radio,
   RadioGroup,
   Stack,
@@ -21,6 +20,7 @@ import { useState } from 'react'
 import { useDelegateCase, useUndelegateCase, type CaseDetail } from '../features/cases/api'
 import { sq } from '../i18n/sq'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { AppSelect } from './ui/AppSelect'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.institutions
@@ -83,25 +83,19 @@ export function DelegateDialog({
               <Alert severity="info">{t.noMonitoring}</Alert>
             ) : (
               <>
-                <TextField
-                  select
+                <AppSelect
+                  required
                   label={t.institution}
                   value={institution}
-                  onChange={(e) => {
-                    setInstitution(e.target.value)
+                  onChange={(value) => {
+                    setInstitution(value)
                     setMissing(false)
                   }}
-                  required
                   autoFocus
                   error={missing}
                   helperText={missing ? t.institutionRequired : undefined}
-                >
-                  {monitoring.map((i) => (
-                    <MenuItem key={i.institutionPublicId} value={i.institutionPublicId}>
-                      {i.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  options={monitoring.map((i) => ({ value: i.institutionPublicId, label: i.name }))}
+                />
                 <FormControl component="fieldset">
                   <FormLabel component="legend">{t.mode}</FormLabel>
                   <RadioGroup row value={mode} onChange={(e) => setMode(e.target.value)}>

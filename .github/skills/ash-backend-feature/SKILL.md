@@ -27,7 +27,11 @@ Real types (namespaces):
 - `Ash.SharedKernel.Identity`: `ICurrentUser` (`UserId`, `PublicId`, `OfficeId`, `InstitutionId`, `Roles`, `HasPermission(string)`).
 - `Ash.SharedKernel.Events`: `IEvent`, `IEventHandler<TEvent>`, `IEventPublisher.PublishAsync<TEvent>(event, ct)`. Event records live in the publishing module's `.Contracts` (e.g. `Ash.Modules.Cases.Contracts.Events.CaseRegistered`).
 - `Ash.SharedKernel.Concurrency`: `RowVersionMismatchException` (mapped to 409 by `ApiExceptionHandler`).
-- `Ash.SharedKernel.Paging`: `Cursor.Encode/TryDecode`, `KeysetPage<T>(Items, NextCursor)`.
+- `Ash.SharedKernel.Paging`: `Cursor.Encode/TryDecode`, `KeysetPage<T>(Items, NextCursor, Total)` — Total = COUNT with
+  the same filters (no cursor), run beside the page query with `ParallelReads.RunAsync<TContext, int>(…)` (its own scope
+  and connection; `Ash.Infrastructure.Persistence`).
+- Search `?q=` (min 2 characters): `NgramSearch.BooleanQuery(q)` + `MATCH(cols) AGAINST (@q IN BOOLEAN MODE)` over an
+  ngram FULLTEXT index (script 014) — substring, accent-insensitive; never `LIKE '%q%'`.
 - `Ash.Infrastructure.Persistence`: `IUnitOfWork` (`OnCommitted(Action)`, `CreateCommand(sql)`), `ModuleDbContextBase` (module DbContexts derive from it).
 - `Ash.AspNetCore.Authorization`: `.RequirePermission("code")` on an endpoint (system permission, 401/403).
 - `Ash.AspNetCore.Http`: `Error.ToProblem()` → `IResult` (ProblemDetails with `code` and any `Extensions`), `ErrorType.ToStatusCode()`.

@@ -16,18 +16,24 @@ import {
 } from '@mui/material'
 import { useId, useState } from 'react'
 import { CodeText } from '../../../components/ui/CodeText'
+import { PaginationFooter } from '../../../components/ui/DataTable'
 import { useCaseHistory, type CaseHistoryItem } from '../../../features/cases/api'
 import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
 import { detailRows, historyLine, textOf } from '../../../lib/historyDetails'
+import { useKeysetPaging } from '../../../lib/paging'
 import { problemMessage } from '../../../lib/problem'
 
 const h = sq.cases.page.history
 
-/** Historiku — every level of the dossier the user can view, newest first, with readable before/after details. */
+/**
+ * Historiku — every level of the dossier the user can view, newest first, with readable before/after details;
+ * keyset pages of 10 (page and size in the URL: histpage, histsize).
+ */
 export function HistoryTab({ casePublicId }: { casePublicId: string }) {
-  const history = useCaseHistory(casePublicId, true)
-  const items = history.data?.pages.flatMap((p) => p.items) ?? []
+  const paging = useKeysetPaging('hist')
+  const history = useCaseHistory(casePublicId, { cursor: paging.cursor, size: paging.size }, true)
+  const items = history.data?.items ?? []
 
   if (history.isPending) return <CircularProgress aria-label={sq.errors.loading} />
   if (history.isError) return <Alert severity="error">{problemMessage(history.error)}</Alert>
@@ -40,13 +46,15 @@ export function HistoryTab({ casePublicId }: { casePublicId: string }) {
           <HistoryEntry key={`${item.occurredAt}-${index}`} item={item} />
         ))}
       </Box>
-      {history.hasNextPage && (
-        <Box>
-          <Button onClick={() => void history.fetchNextPage()} disabled={history.isFetchingNextPage}>
-            {sq.common.loadMore}
-          </Button>
-        </Box>
-      )}
+      <PaginationFooter
+        mode="keyset"
+        paging={paging}
+        count={items.length}
+        total={Number(history.data?.total ?? 0)}
+        nextCursor={history.data?.nextCursor}
+        busy={history.isFetching}
+        stale={history.isPlaceholderData}
+      />
     </Stack>
   )
 }

@@ -1,11 +1,15 @@
-import { Alert, Box, Button, Chip, CircularProgress, Stack, TableCell, TableRow, TextField } from '@mui/material'
-import { DataTable } from '../../components/ui/DataTable'
+import { Alert, Box, Button, Chip, Stack, TableCell, TableRow, TextField } from '@mui/material'
+import { InstitutionPicker } from '../../components/InstitutionPicker'
+import { OptionPicker } from '../../components/OptionPicker'
+import { AppSelect } from '../../components/ui/AppSelect'
+import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useState } from 'react'
-import { useActivateUser, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
+import { useActivateUser, useAdminOffices, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
+import { useKeysetPaging } from '../../lib/paging'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
@@ -17,18 +21,27 @@ import { UsersRolesDialog } from './UsersRolesDialog'
 
 const t = sq.adminUsers
 
+/** Users (task 013): search anywhere in the name or email, a filter for every column, keyset pages of 10. */
 export function UsersPage() {
   const [search, setSearch] = useUrlSearch()
+  const [role, setRole] = useUrlSearch('role')
+  const [officeId, setOfficeId] = useUrlSearch('office')
+  const [institutionId, setInstitutionId] = useUrlSearch('institution')
+  const [institutionName, setInstitutionName] = useUrlSearch('institutionName')
+  const [active, setActive] = useUrlSearch('active')
   const q = useDebounced(serverQuery(search), 300)
-  const users = useAdminUsers(q)
+  const paging = useKeysetPaging()
+  const users = useAdminUsers({ q, role, officeId, institutionId, active }, { cursor: paging.cursor, size: paging.size })
   const roles = useAdminRoles()
+  const offices = useAdminOffices()
   const activate = useActivateUser()
   const [creating, setCreating] = useState(false)
   const [rolesFor, setRolesFor] = useState<AdminUser | null>(null)
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null)
 
-  const rows = users.data?.pages.flatMap((p) => p.items) ?? []
+  const rows = users.data?.items ?? []
   const roleName = (code: string) => roles.data?.find((r) => r.code === code)?.name ?? code
+  const filtered = q !== '' || role !== '' || officeId !== '' || institutionId !== '' || active !== ''
 
   return (
     <Box>
@@ -49,6 +62,52 @@ export function UsersPage() {
         fullWidth
         sx={{ mb: 2 }}
       />
+      {/* a filter for every column: roles, office / institution, status */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.roles}
+          value={role}
+          onChange={setRole}
+          options={(roles.data ?? []).map((r) => ({ value: r.code, label: r.name }))}
+          sx={{ width: { xs: '100%', md: 220 } }}
+        />
+        <Box sx={{ width: { xs: '100%', md: 260 } }}>
+          <OptionPicker
+            filter
+            size="small"
+            label={t.create.office}
+            options={(offices.data ?? []).map((o) => ({ value: o.publicId, label: o.name }))}
+            value={officeId}
+            onChange={setOfficeId}
+          />
+        </Box>
+        <Box sx={{ width: { xs: '100%', md: 300 } }}>
+          <InstitutionPicker
+            filter
+            size="small"
+            label={t.create.institution}
+            value={institutionId ? { publicId: institutionId, name: institutionName } : null}
+            onChange={(picked) => {
+              setInstitutionId(picked?.publicId ?? '')
+              setInstitutionName(picked?.name ?? '')
+            }}
+          />
+        </Box>
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.status}
+          value={active}
+          onChange={setActive}
+          options={[
+            { value: 'true', label: t.active },
+            { value: 'false', label: t.inactive },
+          ]}
+          sx={{ width: { xs: '100%', md: 180 } }}
+        />
+      </Stack>
 
       {users.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -73,7 +132,18 @@ export function UsersPage() {
           { key: 'lastLogin', label: t.columns.lastLogin },
           { key: 'actions', label: sq.common.actions, align: 'right' },
         ]}
-        empty={users.isSuccess && rows.length === 0 && !q && <EmptyState title={t.empty} />}
+        empty={users.isSuccess && rows.length === 0 && !q && <EmptyState title={filtered ? t.emptyFiltered : t.empty} />}
+        footer={
+          <PaginationFooter
+            mode="keyset"
+            paging={paging}
+            count={rows.length}
+            total={Number(users.data?.total ?? 0)}
+            nextCursor={users.data?.nextCursor}
+            busy={users.isFetching}
+            stale={users.isPlaceholderData}
+          />
+        }
       >
             {rows.map((u) => {
               const fullName = `${u.firstName} ${u.lastName}`
@@ -128,14 +198,6 @@ export function UsersPage() {
               <SearchEmptyRow q={search} colSpan={7} onClear={() => setSearch('')} />
             )}
       </DataTable>
-
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        {users.isFetchingNextPage ? (
-          <CircularProgress aria-label={sq.errors.loading} />
-        ) : (
-          users.hasNextPage && <Button onClick={() => void users.fetchNextPage()}>{sq.common.loadMore}</Button>
-        )}
-      </Box>
 
       <UsersCreateDialog open={creating} onClose={() => setCreating(false)} />
       {rolesFor && <UsersRolesDialog user={rolesFor} onClose={() => setRolesFor(null)} />}

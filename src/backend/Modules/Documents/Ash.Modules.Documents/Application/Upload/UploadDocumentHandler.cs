@@ -39,6 +39,9 @@ internal sealed class UploadDocumentHandler(
     ILogger<UploadDocumentHandler> logger)
 {
     public const string UploadPermission = "document.upload";
+
+    /// <summary>The only type that may still be uploaded to a CLOSED case: the decision (task 036).</summary>
+    public const string DecisionDocumentType = "VENDIM";
     public const int MaxTitleLength = 255;
     public const int MaxFileNameLength = 255;
     public const int MaxOtherTypeLength = 200;
@@ -58,7 +61,7 @@ internal sealed class UploadDocumentHandler(
 
         if (!(await access.GetEffectivePermissionsAsync(c.Id, ct)).Contains(UploadPermission))
         {
-            // a CLOSED case keeps only CaseAccessService.ActionsAllowedWhenClosed (tasks 036/037 add the decision document)
+            // a CLOSED case keeps only CaseAccessService.ActionsAllowedWhenClosed (document.upload there: VENDIM only)
             return c.IsClosed
                 ? Error.Conflict("case.closed", "Çështja është mbyllur; nuk ngarkohen më dokumente.")
                 : Error.Forbidden("document.upload_forbidden", "Nuk keni leje të ngarkoni dokumente në këtë çështje.");
@@ -118,6 +121,12 @@ internal sealed class UploadDocumentHandler(
         if (documentType is not { IsActive: true })
         {
             errors.Add("documentTypeCode", "Zgjidhni llojin e dokumentit.");
+        }
+        else if (c.IsClosed && documentType.Code != DecisionDocumentType)
+        {
+            // CaseAccessService keeps document.upload on a CLOSED case for the decision document only (task 036)
+            // TODO(client-q-closed-uploads): who may upload the reasoned decision after closing
+            return Error.Conflict("document.closed_only_decision", "Në një çështje të mbyllur ngarkohet vetëm vendimi.");
         }
 
         var otherText = fields.GetValueOrDefault("otherTypeText")?.Trim();

@@ -39,9 +39,10 @@ public static class DocumentEndpoints
             .WithName("UploadDocument");
 
         endpoints.MapGet("/api/cases/{id:guid}/documents",
-                async (Guid id, string? type, int? level, string? after, int? limit, ListDocumentsHandler handler, CancellationToken ct) =>
+                async (Guid id, string? type, int? level, string? after, int? limit, string? status,
+                    ListDocumentsHandler handler, CancellationToken ct) =>
                 {
-                    var result = await handler.Handle(id, new ListDocumentsQuery(type, level, after, limit), ct);
+                    var result = await handler.Handle(id, new ListDocumentsQuery(type, level, after, limit, status), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequireAuthorization()

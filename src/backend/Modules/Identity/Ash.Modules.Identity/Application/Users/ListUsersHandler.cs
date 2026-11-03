@@ -1,16 +1,21 @@
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Identity.Application.GetMe;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Paging;
 using Microsoft.EntityFrameworkCore;
+using MySql.Data.MySqlClient;
 
 namespace Ash.Modules.Identity.Application.Users;
 
 public sealed record ListUsersQuery(
     string? Q, string? Role, Guid? OfficeId, Guid? InstitutionId, bool? Active, string? After, int? Limit);
 
-/// <summary>Keyset paging by internal id (ascending); the cursor is opaque and ids never leave the server.</summary>
-public sealed class ListUsersHandler(IdentityDbContext db, ICaseAssignmentCounts assignments)
+/// <summary>
+/// Keyset paging by internal id (ascending); the cursor is opaque and ids never leave the server. ?q= matches anywhere
+/// inside the first name, last name or email (ngram FULLTEXT ftn_users_search, script 014).
+/// </summary>
+public sealed class ListUsersHandler(IdentityDbContext db, ParallelReads parallel, ICaseAssignmentCounts assignments)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 200;
@@ -18,37 +23,10 @@ public sealed class ListUsersHandler(IdentityDbContext db, ICaseAssignmentCounts
     public async Task<KeysetPage<UserResponse>> Handle(ListUsersQuery q, CancellationToken ct)
     {
         var limit = Math.Clamp(q.Limit ?? DefaultLimit, 1, MaxLimit);
-        var users = db.Users.AsNoTracking();
 
-        if (!string.IsNullOrWhiteSpace(q.Q))
-        {
-            var term = q.Q.Trim();
-            users = users.Where(u => u.FirstName.Contains(term) || u.LastName.Contains(term)
-                                     || (u.FirstName + " " + u.LastName).Contains(term) || u.Email.Contains(term));
-        }
-
-        if (!string.IsNullOrWhiteSpace(q.Role))
-        {
-            var role = q.Role;
-            users = users.Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id
-                && db.Roles.Any(r => r.Id == ur.RoleId && r.Code == role)));
-        }
-
-        if (q.OfficeId is { } officeGuid)
-        {
-            users = users.Where(u => db.Offices.Any(o => o.Id == u.OfficeId && o.PublicId == officeGuid));
-        }
-
-        if (q.InstitutionId is { } institutionGuid)
-        {
-            users = users.Where(u => db.Institutions.Any(i => i.Id == u.InstitutionId && i.PublicId == institutionGuid));
-        }
-
-        if (q.Active is { } active)
-        {
-            users = users.Where(u => u.IsActive == active);
-        }
-
+        // the total (same filters, no cursor) on its own connection, beside the page query
+        var total = parallel.RunAsync<IdentityDbContext, int>((other, token) => Filtered(other, q).CountAsync(token), ct);
+        var users = Filtered(db, q);
         if (Cursor.TryDecode(q.After, out _, out var afterId))
         {
             var after = (uint)afterId;
@@ -81,6 +59,44 @@ public sealed class ListUsersHandler(IdentityDbContext db, ICaseAssignmentCounts
             u.IsActive, u.LastLoginAt, counts.GetValueOrDefault(u.Id))).ToList();
 
         var next = hasMore ? Cursor.Encode(string.Empty, rows[^1].Id) : null;
-        return new KeysetPage<UserResponse>(items, next);
+        return new KeysetPage<UserResponse>(items, next, await total);
+    }
+
+    private static IQueryable<UserRecord> Filtered(IdentityDbContext db, ListUsersQuery q)
+    {
+        var users = db.Users.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(q.Q))
+        {
+            var words = NgramSearch.BooleanQuery(q.Q.Trim());
+            var matches = db.Database.SqlQueryRaw<uint>(
+                "SELECT id AS Value FROM users WHERE MATCH(first_name, last_name, email) AGAINST (@users_q IN BOOLEAN MODE)",
+                new MySqlParameter("@users_q", words));
+            users = words.Length == 0 ? users.Where(_ => false) : users.Where(u => matches.Contains(u.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(q.Role))
+        {
+            var role = q.Role;
+            users = users.Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id
+                && db.Roles.Any(r => r.Id == ur.RoleId && r.Code == role)));
+        }
+
+        if (q.OfficeId is { } officeGuid)
+        {
+            users = users.Where(u => db.Offices.Any(o => o.Id == u.OfficeId && o.PublicId == officeGuid));
+        }
+
+        if (q.InstitutionId is { } institutionGuid)
+        {
+            users = users.Where(u => db.Institutions.Any(i => i.Id == u.InstitutionId && i.PublicId == institutionGuid));
+        }
+
+        if (q.Active is { } active)
+        {
+            users = users.Where(u => u.IsActive == active);
+        }
+
+        return users;
     }
 }

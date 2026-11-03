@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -34,6 +33,7 @@ import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { matches } from '../lib/search'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { AppAutocomplete } from './ui/AppAutocomplete'
 import { CaseCode } from './ui/CaseCode'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
@@ -212,40 +212,32 @@ export function TransferDialog({
                 name="newPrimary"
                 control={control}
                 render={({ field }) => (
-                  <Autocomplete<PrimaryOption>
+                  // optional (only the secondary may change): "— Asnjë —" keeps the primary
+                  <AppAutocomplete<PrimaryOption>
                     options={primaryOptions}
                     value={field.value}
-                    onChange={(_, picked) => {
+                    onChange={(picked) => {
                       field.onChange(picked)
                       if (!picked) setValue('oldPrimaryToSecondary', false)
                     }}
                     getOptionLabel={(o) => (o.promote ? t.promoteSecondary(o.lawyer.fullName) : lawyerLabel(o.lawyer))}
                     getOptionKey={(o) => `${o.promote ? 'promote' : 'lawyer'}-${o.lawyer.publicId}`}
-                    isOptionEqualToValue={(a, b) => a.lawyer.publicId === b.lawyer.publicId && a.promote === b.promote}
-                    filterOptions={(options, state) => options.filter((o) => matches(state.inputValue, o.lawyer.fullName))}
-                    noOptionsText={sq.search.noOptions}
-                    renderOption={({ key, ...props }, o) => (
-                      <Box component="li" key={key} {...props}>
-                        <Box>
-                          <Typography variant="body1" sx={o.promote ? { fontWeight: 600 } : undefined}>
-                            {o.promote ? t.promoteSecondary(o.lawyer.fullName) : lawyerLabel(o.lawyer)}
-                          </Typography>
-                          <Typography variant="caption" component="p" color="text.secondary">
-                            {workload(o.lawyer)}
-                          </Typography>
-                        </Box>
+                    filterOptions={(options, input) => options.filter((o) => matches(input, o.lawyer.fullName))}
+                    renderOptionLabel={(o) => (
+                      <Box>
+                        <Typography variant="body1" sx={o.promote ? { fontWeight: 600 } : undefined}>
+                          {o.promote ? t.promoteSecondary(o.lawyer.fullName) : lawyerLabel(o.lawyer)}
+                        </Typography>
+                        <Typography variant="caption" component="p" color="text.secondary">
+                          {workload(o.lawyer)}
+                        </Typography>
                       </Box>
                     )}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        inputRef={field.ref}
-                        label={t.newPrimary}
-                        autoFocus
-                        error={!!errors.newPrimary}
-                        helperText={errors.newPrimary?.message ?? (field.value ? workload(field.value.lawyer) : t.newPrimaryHint)}
-                      />
-                    )}
+                    inputRef={field.ref}
+                    label={t.newPrimary}
+                    autoFocus
+                    error={!!errors.newPrimary}
+                    helperText={errors.newPrimary?.message ?? (field.value ? workload(field.value.lawyer) : t.newPrimaryHint)}
                   />
                 )}
               />
@@ -280,41 +272,33 @@ export function TransferDialog({
                   name="newSecondary"
                   control={control}
                   render={({ field }) => (
-                    <Autocomplete<AssignableLawyer>
+                    <AppAutocomplete<AssignableLawyer>
                       options={all}
                       value={field.value}
-                      onChange={(_, picked) => field.onChange(picked)}
+                      onChange={(picked) => field.onChange(picked)}
                       getOptionLabel={lawyerLabel}
-                      isOptionEqualToValue={(a, b) => a.publicId === b.publicId}
+                      getOptionKey={(o) => o.publicId}
                       getOptionDisabled={(o) =>
                         o.publicId === finalPrimary?.id || o.publicId === currentSecondary?.userPublicId
                       }
-                      filterOptions={(options, state) => options.filter((o) => matches(state.inputValue, o.fullName))}
-                      noOptionsText={sq.search.noOptions}
-                      renderOption={({ key, ...props }, o) => (
-                        <Box component="li" key={key} {...props}>
-                          <Box>
-                            <Typography variant="body1">{lawyerLabel(o)}</Typography>
-                            <Typography variant="caption" component="p" color="text.secondary">
-                              {o.publicId === finalPrimary?.id
-                                ? t.isFinalPrimary
-                                : o.publicId === currentSecondary?.userPublicId
-                                  ? t.isCurrentSecondary
-                                  : workload(o)}
-                            </Typography>
-                          </Box>
+                      filterOptions={(options, input) => options.filter((o) => matches(input, o.fullName))}
+                      renderOptionLabel={(o) => (
+                        <Box>
+                          <Typography variant="body1">{lawyerLabel(o)}</Typography>
+                          <Typography variant="caption" component="p" color="text.secondary">
+                            {o.publicId === finalPrimary?.id
+                              ? t.isFinalPrimary
+                              : o.publicId === currentSecondary?.userPublicId
+                                ? t.isCurrentSecondary
+                                : workload(o)}
+                          </Typography>
                         </Box>
                       )}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          inputRef={field.ref}
-                          label={t.newSecondary}
-                          required
-                          error={!!errors.newSecondary}
-                          helperText={errors.newSecondary?.message ?? (field.value ? workload(field.value) : undefined)}
-                        />
-                      )}
+                      inputRef={field.ref}
+                      label={t.newSecondary}
+                      required
+                      error={!!errors.newSecondary}
+                      helperText={errors.newSecondary?.message ?? (field.value ? workload(field.value) : undefined)}
                     />
                   )}
                 />

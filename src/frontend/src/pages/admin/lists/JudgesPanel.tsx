@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -16,9 +15,14 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { OptionPicker } from '../../../components/OptionPicker'
+import { AppSelect } from '../../../components/ui/AppSelect'
+import { PaginationFooter } from '../../../components/ui/DataTable'
 import { useAdminJudges, useSetJudgeActive, type AdminJudge } from '../../../features/admin/api'
+import { useCourts } from '../../../features/reference/api'
 import { sq } from '../../../i18n/sq'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
+import { useKeysetPaging } from '../../../lib/paging'
 import { isForbidden, problemMessage } from '../../../lib/problem'
 import { serverQuery } from '../../../lib/search'
 import { useDebounced } from '../../../lib/useDebounced'
@@ -30,21 +34,22 @@ import { JudgeDialog } from './JudgeDialog'
 
 const t = sq.adminLists
 
-type ActiveFilter = 'all' | 'active' | 'inactive'
-const activeParam: Record<ActiveFilter, boolean | undefined> = { all: undefined, active: true, inactive: false }
-
+/** Judges: search anywhere in the name (server), court and status filters, keyset pages of 10. */
 export function JudgesPanel() {
   const [search, setSearch] = useUrlSearch()
-  const [filter, setFilter] = useState<ActiveFilter>('all')
+  const [active, setActiveFilter] = useUrlSearch('active')
+  const [courtId, setCourtId] = useUrlSearch('court')
   const q = useDebounced(serverQuery(search), 300)
-  const judges = useAdminJudges(q, activeParam[filter])
+  const paging = useKeysetPaging()
+  const judges = useAdminJudges({ q, active, courtId }, { cursor: paging.cursor, size: paging.size })
+  const courts = useCourts()
   const setActive = useSetJudgeActive()
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ judge: AdminJudge | null } | null>(null)
 
   if (isForbidden(judges.error)) return <ForbiddenPage />
 
-  const rows = judges.data?.pages.flatMap((p) => p.items) ?? []
+  const rows = judges.data?.items ?? []
   const toggle = (judge: AdminJudge) =>
     setActive.mutate({ id: Number(judge.id), active: !judge.isActive }, { onError: redirectIfForbidden })
 
@@ -57,7 +62,7 @@ export function JudgesPanel() {
         </Button>
       </Stack>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
         <TextField
           label={t.search}
           type="search"
@@ -65,17 +70,26 @@ export function JudgesPanel() {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1 }}
         />
-        <TextField
-          select
+        <Box sx={{ width: { xs: '100%', sm: 300 } }}>
+          <OptionPicker
+            filter
+            label={t.columns.court}
+            options={(courts.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
+            value={courtId}
+            onChange={setCourtId}
+          />
+        </Box>
+        <AppSelect
+          filter
           label={t.activeFilter.label}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as ActiveFilter)}
+          value={active}
+          onChange={setActiveFilter}
+          options={[
+            { value: 'true', label: t.activeFilter.active },
+            { value: 'false', label: t.activeFilter.inactive },
+          ]}
           sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="all">{t.activeFilter.all}</MenuItem>
-          <MenuItem value="active">{t.activeFilter.active}</MenuItem>
-          <MenuItem value="inactive">{t.activeFilter.inactive}</MenuItem>
-        </TextField>
+        />
       </Stack>
 
       {judges.isError && (
@@ -139,14 +153,16 @@ export function JudgesPanel() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        {judges.isPending || judges.isFetchingNextPage ? (
-          <CircularProgress aria-label={sq.errors.loading} />
-        ) : (
-          judges.hasNextPage && <Button onClick={() => void judges.fetchNextPage()}>{sq.common.loadMore}</Button>
-        )}
-      </Box>
+      {judges.isPending && <CircularProgress aria-label={sq.errors.loading} sx={{ mt: 2 }} />}
+      <PaginationFooter
+        mode="keyset"
+        paging={paging}
+        count={rows.length}
+        total={Number(judges.data?.total ?? 0)}
+        nextCursor={judges.data?.nextCursor}
+        busy={judges.isFetching}
+        stale={judges.isPlaceholderData}
+      />
 
       {editing && <JudgeDialog judge={editing.judge} onClose={() => setEditing(null)} />}
     </>

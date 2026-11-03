@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,7 +16,7 @@ import { useState } from 'react'
 import { Controller, useForm, type Path, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { ApiError } from '../../api/client'
-import { useNotifyNotClosed } from '../../features/cases/api'
+import { useNotifyNotClosed, useNotifyRecipients, type NotifyRecipient } from '../../features/cases/api'
 import { useCourtLevels, useCourts } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
@@ -55,9 +56,14 @@ const SERVER_FIELDS: Record<string, Path<NotifyValues>> = {
   hearingAt: 'hearingDate',
 }
 
+/** "Avokat1 Dev (avokati), Kryetar Dev (Kryetari)" — or "—" when nobody would be told. */
+const recipientNames =(recipients: NotifyRecipient[]) =>
+  recipients.map((r) => t.recipient(r.name, t.roles[r.role] ?? r.role)).join(', ') || '—'
+
 /**
- * A next-level summons arrived but the level is not closed in the system: tell the primary lawyer and the Kryetar
- * (POST notify-not-closed; the server sends it at most once a day for the same summons).
+ * A next-level summons arrived but the level is not closed in the system: tell the primary lawyer (if the case has
+ * one) and the Kryetar (POST notify-not-closed; the server sends it at most once a day for the same summons). The
+ * recipients are listed by name before sending (GET …/recipients) and in the success message.
  */
 export function NotifyNotClosedDialog({
   previousCasePublicId,
@@ -70,6 +76,8 @@ export function NotifyNotClosedDialog({
 }) {
   const courts = useCourts()
   const levels = useCourtLevels()
+  const recipients = useNotifyRecipients(previousCasePublicId)
+  const hasLawyer = recipients.data?.hasPrimaryLawyer ?? false
   const notify = useNotifyNotClosed(previousCasePublicId)
   const [result, setResult] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -92,7 +100,12 @@ export function NotifyNotClosedDialog({
         courtId: Number(x.courtId),
         hearingAt: utcIsoOf(x.hearingDate, x.hearingTime),
       })
-      setResult(response.alreadyNotified ? t.already(formatDateTime(response.notifiedAt)) : t.sent)
+      const names = recipientNames(response.recipients)
+      setResult(
+        response.alreadyNotified
+          ? t.already(formatDateTime(response.notifiedAt), names)
+          : t.sent(response.hasPrimaryLawyer, names),
+      )
     } catch (error) {
       if (error instanceof ApiError && error.status === 400 && error.problem?.errors) {
         const unmatched: string[] = []
@@ -112,7 +125,7 @@ export function NotifyNotClosedDialog({
     <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="notify-title">
       <Box component="form" onSubmit={onSubmit} noValidate>
         <DialogTitle id="notify-title">
-          {t.title} — {caseCode}
+          {t.title(hasLawyer)} — {caseCode}
         </DialogTitle>
         <DialogContent>
           {result ? (
@@ -122,6 +135,16 @@ export function NotifyNotClosedDialog({
           ) : (
             <Stack spacing={2}>
               <DialogContentText>{t.intro}</DialogContentText>
+              {recipients.isPending && <CircularProgress size={24} aria-label={sq.errors.loading} />}
+              {recipients.isError && <Alert severity="error">{problemMessage(recipients.error)}</Alert>}
+              {recipients.data && (
+                <>
+                  <DialogContentText>
+                    <strong>{t.recipients(recipientNames(recipients.data.recipients))}</strong>
+                  </DialogContentText>
+                  {!hasLawyer && <Alert severity="warning">{t.noLawyer}</Alert>}
+                </>
+              )}
               {formError && <Alert severity="error">{formError}</Alert>}
               <Controller
                 name="summonsNumber"
@@ -200,7 +223,7 @@ export function NotifyNotClosedDialog({
           ) : (
             <>
               <Button onClick={onClose}>{sq.common.cancel}</Button>
-              <Button type="submit" variant="contained" disabled={notify.isPending}>
+              <Button type="submit" variant="contained" disabled={notify.isPending || !recipients.data}>
                 {t.send}
               </Button>
             </>

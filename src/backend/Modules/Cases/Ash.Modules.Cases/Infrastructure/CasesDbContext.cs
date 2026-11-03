@@ -70,6 +70,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.RegisteredAt).HasColumnName("registered_at");
             b.Property(x => x.AssignedAt).HasColumnName("assigned_at");
             b.Property(x => x.ClosedAt).HasColumnName("closed_at");
+            b.Property(x => x.ClosedBy).HasColumnName("closed_by");
             // UPDATE … WHERE row_version = <read value>: a change committed in between fails instead of being overwritten
             b.Property(x => x.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
         });
@@ -144,16 +145,31 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
         {
             b.ToTable("case_decisions");
             b.HasKey(x => x.CaseId);
-            b.Property(x => x.CaseId).HasColumnName("case_id");
+            b.Property(x => x.CaseId).HasColumnName("case_id").ValueGeneratedNever();
             b.Property(x => x.ResultId).HasColumnName("result_id");
             b.Property(x => x.ResultOtherText).HasColumnName("result_other_text");
             b.Property(x => x.DecisionNumber).HasColumnName("decision_number");
             b.Property(x => x.DecisionDate).HasColumnName("decision_date").HasColumnType("date");
+            b.Property(x => x.Dispositive).HasColumnName("dispositive");
+            b.Property(x => x.Currency).HasColumnName("currency");
+            b.Property(x => x.WonAmount).HasColumnName("won_amount").HasColumnType("decimal(18,2)");
+            b.Property(x => x.WonAreaM2).HasColumnName("won_area_m2").HasColumnType("decimal(14,2)");
+            b.Property(x => x.LostAmount).HasColumnName("lost_amount").HasColumnType("decimal(18,2)");
+            b.Property(x => x.LostAreaM2).HasColumnName("lost_area_m2").HasColumnType("decimal(14,2)");
+            b.Property(x => x.PreventedDamageAmount).HasColumnName("prevented_damage_amount").HasColumnType("decimal(18,2)");
+            b.Property(x => x.PreventedDamageAreaM2).HasColumnName("prevented_damage_area_m2").HasColumnType("decimal(14,2)");
+            b.Property(x => x.CausedDamageAmount).HasColumnName("caused_damage_amount").HasColumnType("decimal(18,2)");
+            b.Property(x => x.CausedDamageAreaM2).HasColumnName("caused_damage_area_m2").HasColumnType("decimal(14,2)");
+            b.Property(x => x.CourtCostsAmount).HasColumnName("court_costs_amount").HasColumnType("decimal(18,2)");
             b.Property(x => x.DecisionReceived).HasColumnName("decision_received");
+            b.Property(x => x.DecisionReceivedAt).HasColumnName("decision_received_at");
             b.Property(x => x.IsAppealed).HasColumnName("is_appealed");
             b.Property(x => x.IsRecursed).HasColumnName("is_recursed");
             b.Property(x => x.IsFinal).HasColumnName("is_final");
+            b.Property(x => x.RecordedBy).HasColumnName("recorded_by");
             b.Property(x => x.RecordedAt).HasColumnName("recorded_at");
+            b.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            b.Property(x => x.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
             b.Property(x => x.DecisionDocumentId).HasColumnName("decision_document_id");
         });
 
@@ -271,6 +287,8 @@ public sealed class Case
     /// <summary>First primary lawyer assigned: the start of the 30-day reminder.</summary>
     public DateTime? AssignedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
+    /// <summary>Who recorded the decision that closed the level (task 036).</summary>
+    public uint? ClosedBy { get; set; }
     public uint RowVersion { get; set; }
 }
 
@@ -382,13 +400,33 @@ public sealed class CaseDecision
     public string? DecisionNumber { get; set; }
     /// <summary>Calendar date (DATE), never converted to UTC.</summary>
     public DateOnly? DecisionDate { get; set; }
+    /// <summary>Dispozitivi (TEXT).</summary>
+    public string? Dispositive { get; set; }
+    /// <summary>One currency for every amount of the decision (CHAR(3), default ALL).</summary>
+    public string Currency { get; set; } = "ALL";
+    public decimal? WonAmount { get; set; }
+    public decimal? WonAreaM2 { get; set; }
+    public decimal? LostAmount { get; set; }
+    public decimal? LostAreaM2 { get; set; }
+    public decimal? PreventedDamageAmount { get; set; }
+    public decimal? PreventedDamageAreaM2 { get; set; }
+    public decimal? CausedDamageAmount { get; set; }
+    public decimal? CausedDamageAreaM2 { get; set; }
+    public decimal? CourtCostsAmount { get; set; }
     /// <summary>The reasoned decision arrived.</summary>
     public bool DecisionReceived { get; set; }
+    /// <summary>UTC; set when DecisionReceived becomes true (ck_cd_received).</summary>
+    public DateTime? DecisionReceivedAt { get; set; }
     public bool IsAppealed { get; set; }
     public bool IsRecursed { get; set; }
     /// <summary>Formë e prerë.</summary>
     public bool IsFinal { get; set; }
+    public uint RecordedBy { get; set; }
+    /// <summary>UTC; set by the handler on insert.</summary>
     public DateTime RecordedAt { get; set; }
+    public uint? UpdatedBy { get; set; }
+    /// <summary>The decision's own row_version (PUT /decision checks it; the case's is separate).</summary>
+    public uint RowVersion { get; set; }
     /// <summary>The decision PDF (documents.id); such a document cannot be removed (task 034).</summary>
     public ulong? DecisionDocumentId { get; set; }
 }

@@ -1,12 +1,14 @@
-import { Alert, Box, Button, TableCell, TableRow, TextField } from '@mui/material'
+import { Alert, Box, Button, Stack, TableCell, TableRow, TextField } from '@mui/material'
 import { useState } from 'react'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { CodeText } from '../../components/ui/CodeText'
-import { DataTable } from '../../components/ui/DataTable'
+import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminOffices, useSetOfficeActive, type AdminOffice } from '../../features/admin/api'
 import { sq } from '../../i18n/sq'
+import { useClientPaging } from '../../lib/paging'
 import { isForbidden, problemMessage } from '../../lib/problem'
 import { matches } from '../../lib/search'
 import { useUrlSearch } from '../../lib/useUrlSearch'
@@ -26,11 +28,23 @@ export function OfficesPage() {
   const [editing, setEditing] = useState<{ office: AdminOffice | null } | null>(null)
   const [headFor, setHeadFor] = useState<AdminOffice | null>(null)
   const [q, setQ] = useUrlSearch()
+  const [type, setType] = useUrlSearch('type')
+  const [parent, setParent] = useUrlSearch('parent')
+  const [active, setActiveFilter] = useUrlSearch('active')
 
+  // a few dozen offices: "contains" search and the column filters in the browser, numbered pages
+  const all = offices.data ?? []
+  const filtered = all.filter(
+    (o) =>
+      matches(q, o.code, o.name, o.head?.name) &&
+      (type === '' || o.officeType === type) &&
+      (parent === '' || o.parent?.publicId === parent) &&
+      (active === '' || String(o.isActive) === active),
+  )
+  const paging = useClientPaging(filtered)
   if (isForbidden(offices.error)) return <ForbiddenPage />
-
-  // a few dozen offices: filtered in the browser
-  const rows = (offices.data ?? []).filter((o) => matches(q, o.code, o.name, o.head?.name))
+  const rows = paging.items
+  const parents = all.filter((o) => all.some((child) => child.parent?.publicId === o.publicId))
 
   const toggle = (office: AdminOffice) =>
     setActive.mutate({ publicId: office.publicId, active: !office.isActive }, { onError: redirectIfForbidden })
@@ -54,6 +68,38 @@ export function OfficesPage() {
         fullWidth
         sx={{ mb: 2 }}
       />
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.officeType}
+          value={type}
+          onChange={setType}
+          options={Object.entries(t.officeTypes).map(([value, label]) => ({ value, label }))}
+          sx={{ width: { xs: '100%', md: 220 } }}
+        />
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.parent}
+          value={parent}
+          onChange={setParent}
+          options={parents.map((o) => ({ value: o.publicId, label: o.name }))}
+          sx={{ width: { xs: '100%', md: 260 } }}
+        />
+        <AppSelect
+          filter
+          size="small"
+          label={t.columns.status}
+          value={active}
+          onChange={setActiveFilter}
+          options={[
+            { value: 'true', label: tl.active },
+            { value: 'false', label: tl.inactive },
+          ]}
+          sx={{ width: { xs: '100%', md: 180 } }}
+        />
+      </Stack>
 
       {offices.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -80,6 +126,7 @@ export function OfficesPage() {
           { key: 'actions', label: sq.common.actions, align: 'right' },
         ]}
         empty={offices.isSuccess && offices.data.length === 0 && <EmptyState title={t.empty} />}
+        footer={<PaginationFooter mode="numbered" paging={paging} />}
       >
               {rows.map((office) => (
                 <TableRow key={office.publicId} hover sx={rowSx(office.isActive)}>

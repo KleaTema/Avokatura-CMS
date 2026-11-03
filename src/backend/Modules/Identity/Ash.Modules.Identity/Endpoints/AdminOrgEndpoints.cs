@@ -81,8 +81,9 @@ public static class AdminOrgEndpoints
 
         var institutions = endpoints.MapGroup("/api/identity/admin/institutions");
 
-        institutions.MapGet("", async (string? q, string? after, int? limit, ListInstitutionsAdminHandler handler, CancellationToken ct) =>
-                Results.Ok(await handler.Handle(new ListInstitutionsAdminQuery(q, after, limit), ct)))
+        institutions.MapGet("", async (string? q, string? after, int? limit, string? type, bool? active, Guid? parentId,
+                    ListInstitutionsAdminHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(new ListInstitutionsAdminQuery(q, after, limit, type, active, parentId), ct)))
             .RequirePermission(Permission)
             .Produces<KeysetPage<InstitutionAdminResponse>>()
             .WithName("ListAdminInstitutions");

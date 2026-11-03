@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.History;
@@ -20,7 +21,7 @@ public sealed record CaseHistoryItem(
 /// GET /api/cases/{id}/history: the history of the WHOLE dossier, newest first (keyset on occurred_at, id), limited to
 /// the levels the user can view — rows of a level without access are skipped, dossier-wide rows are kept.
 /// </summary>
-internal sealed class GetHistoryHandler(CasesDbContext db, ICaseAccessService access, IUserDirectory users)
+internal sealed class GetHistoryHandler(CasesDbContext db, ParallelReads parallel, ICaseAccessService access, IUserDirectory users)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
@@ -65,8 +66,13 @@ internal sealed class GetHistoryHandler(CasesDbContext db, ICaseAccessService ac
             .Where(d => d.Id == c.DossierId).Select(d => d.UniqueCode).SingleAsync(ct);
 
         // ix_che_dossier (dossier_id, occurred_at)
-        var rows = db.CaseHistoryEvents.AsNoTracking()
-            .Where(e => e.DossierId == c.DossierId && (e.CaseId == null || visible.Contains(e.CaseId.Value)));
+        var dossierId = c.DossierId;
+        IQueryable<CaseHistoryEvent> Visible(CasesDbContext context) => context.CaseHistoryEvents.AsNoTracking()
+            .Where(e => e.DossierId == dossierId && (e.CaseId == null || visible.Contains(e.CaseId.Value)));
+
+        // the total (no cursor) on its own connection, beside the page query
+        var total = parallel.RunAsync<CasesDbContext, int>((other, token) => Visible(other).CountAsync(token), ct);
+        var rows = Visible(db);
         if (position is { } p)
         {
             rows = rows.Where(e => e.OccurredAt < p.At || (e.OccurredAt == p.At && e.Id < p.Id));
@@ -93,6 +99,6 @@ internal sealed class GetHistoryHandler(CasesDbContext db, ICaseAccessService ac
         }).ToList();
 
         var next = hasMore ? Cursor.Encode(page[^1].OccurredAt.Ticks.ToString(), (long)page[^1].Id) : null;
-        return new KeysetPage<CaseHistoryItem>(items, next);
+        return new KeysetPage<CaseHistoryItem>(items, next, await total);
     }
 }

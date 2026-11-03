@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  MenuItem,
   Stack,
   TextField,
 } from '@mui/material'
@@ -17,6 +16,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useSaveCourt, type AdminCourt } from '../../../features/admin/api'
 import { useCourtLevels } from '../../../features/reference/api'
+import { AppSelect } from '../../../components/ui/AppSelect'
 import { sq } from '../../../i18n/sq'
 import { problemMessage } from '../../../lib/problem'
 import { useForbiddenRedirect } from './helpers'
@@ -95,22 +95,19 @@ export function CourtDialog({ court, onClose }: { court: AdminCourt | null; onCl
               name="courtLevel"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  value={levels.data ? field.value : ''}
-                  select
-                  label={t.columns.courtLevel}
+                <AppSelect
                   required
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  label={t.columns.courtLevel}
                   disabled={levels.isPending}
                   error={!!errors.courtLevel}
                   helperText={errors.courtLevel?.message}
-                >
-                  {(levels.data ?? []).map((l) => (
-                    <MenuItem key={l.code} value={l.code}>
-                      {l.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  options={(levels.data ?? []).map((l) => ({ value: l.code, label: l.name }))}
+                />
               )}
             />
             <Controller

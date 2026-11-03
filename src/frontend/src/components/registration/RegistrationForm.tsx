@@ -11,7 +11,6 @@ import {
   DialogContentText,
   DialogTitle,
   FormControlLabel,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -46,6 +45,7 @@ import { formatDateTime } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { isFilled, todayValue, type PickerValue } from '../../lib/pickerValues'
 import { CourtPicker } from '../CourtPicker'
+import { AppSelect } from '../ui/AppSelect'
 import { CaseCode } from '../ui/CaseCode'
 import { PageHeader } from '../ui/PageHeader'
 import { SectionCard } from '../ui/SectionCard'
@@ -316,22 +316,19 @@ export function RegistrationForm({
               name="summonsTypeCode"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
+                // optional: "— Asnjë —" clears it
+                <AppSelect
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
                   inputRef={field.ref}
-                  select
                   label={t.fields.summonsType}
                   error={!!errors.summonsTypeCode}
                   helperText={errors.summonsTypeCode?.message}
+                  options={(summonsTypes.data ?? []).map((s) => ({ value: s.code, label: s.name }))}
                   sx={{ flex: 1 }}
-                >
-                  <MenuItem value="">{t.none}</MenuItem>
-                  {(summonsTypes.data ?? []).map((s) => (
-                    <MenuItem key={s.code} value={s.code}>
-                      {s.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                />
               )}
             />
           </Stack>
@@ -376,23 +373,19 @@ export function RegistrationForm({
               name="courtLevelCode"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  inputRef={field.ref}
-                  onChange={(e) => changeCourtLevel(e.target.value)}
-                  select
-                  label={t.fields.courtLevel}
+                <AppSelect
                   required
+                  name={field.name}
+                  value={field.value}
+                  onChange={changeCourtLevel}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  label={t.fields.courtLevel}
                   error={!!errors.courtLevelCode}
                   helperText={errors.courtLevelCode?.message}
+                  options={(levels.data ?? []).map((l) => ({ value: l.code, label: l.name }))}
                   sx={{ flex: 1 }}
-                >
-                  {(levels.data ?? []).map((l) => (
-                    <MenuItem key={l.code} value={l.code}>
-                      {l.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                />
               )}
             />
             <Box sx={{ flex: 2 }}>
@@ -481,22 +474,19 @@ export function RegistrationForm({
               name="hearingTypeCode"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  inputRef={field.ref}
-                  select
-                  label={t.fields.hearingType}
+                <AppSelect
                   required
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  label={t.fields.hearingType}
                   error={!!errors.hearingTypeCode}
                   helperText={errors.hearingTypeCode?.message}
+                  options={(hearingTypes.data ?? []).map((h) => ({ value: h.code, label: h.name }))}
                   sx={{ flex: 1 }}
-                >
-                  {(hearingTypes.data ?? []).map((h) => (
-                    <MenuItem key={h.code} value={h.code}>
-                      {h.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                />
               )}
             />
           </Stack>

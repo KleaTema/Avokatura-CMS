@@ -15,6 +15,8 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
+import { AppSelect } from '../../../components/ui/AppSelect'
+import { PaginationFooter } from '../../../components/ui/DataTable'
 import {
   useSetSimpleItemActive,
   useSimpleList,
@@ -23,6 +25,7 @@ import {
 } from '../../../features/admin/api'
 import { sq } from '../../../i18n/sq'
 import { isForbidden, problemMessage } from '../../../lib/problem'
+import { useClientPaging } from '../../../lib/paging'
 import { matches } from '../../../lib/search'
 import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
@@ -41,11 +44,20 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
   // null = closed; { item: null } = create; { item } = edit
   const [editing, setEditing] = useState<{ item: SimpleListItem | null } | null>(null)
   const [q, setQ] = useUrlSearch()
-
-  if (isForbidden(rows.error)) return <ForbiddenPage />
+  const [active, setActiveFilter] = useUrlSearch('active')
+  const [group, setGroup] = useUrlSearch('group')
 
   const all = rows.data ?? []
-  const visible = all.filter((row) => matches(q, row.code, row.name))
+  // client side: "contains" on code and name (accent-insensitive), then the column filters
+  const filtered = all.filter(
+    (row) =>
+      matches(q, row.code, row.name) &&
+      (active === '' || String(row.isActive) === active) &&
+      (group === '' || (row.reportGroup ?? row.outcomeGroup ?? '') === group),
+  )
+  const paging = useClientPaging(filtered)
+  if (isForbidden(rows.error)) return <ForbiddenPage />
+  const visible = paging.items
   const title = t.lists[list]
   const groupHeader = config.group === 'report' ? t.columns.reportGroup : t.columns.outcomeGroup
   const columnCount =
@@ -63,14 +75,36 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
         </Button>
       </Stack>
 
-      <TextField
-        label={t.searchSimple}
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        fullWidth
-        sx={{ mb: 2 }}
-      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <TextField
+          label={t.searchSimple}
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          sx={{ flexGrow: 1 }}
+        />
+        {config.group && (
+          <AppSelect
+            filter
+            label={groupHeader}
+            value={group}
+            onChange={setGroup}
+            options={Object.entries(groupLabels(config.group)).map(([value, label]) => ({ value, label }))}
+            sx={{ minWidth: 220 }}
+          />
+        )}
+        <AppSelect
+          filter
+          label={t.activeFilter.label}
+          value={active}
+          onChange={setActiveFilter}
+          options={[
+            { value: 'true', label: t.activeFilter.active },
+            { value: 'false', label: t.activeFilter.inactive },
+          ]}
+          sx={{ minWidth: 160 }}
+        />
+      </Stack>
 
       {rows.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -143,6 +177,7 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
           </Table>
         </TableContainer>
       )}
+      <PaginationFooter mode="numbered" paging={paging} />
 
       {editing && <SimpleItemDialog list={list} item={editing.item} onClose={() => setEditing(null)} />}
     </>

@@ -132,6 +132,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{previousCasePublicId}/notify-not-closed/recipients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["NotifyPreviousLevelNotClosedRecipients"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases": {
         parameters: {
             query?: never;
@@ -2209,30 +2225,44 @@ export interface components {
         KeysetPageOfCaseHistoryItem: {
             items: components["schemas"]["CaseHistoryItem"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         KeysetPageOfCaseListItem: {
             items: components["schemas"]["CaseListItem"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         KeysetPageOfDocumentListItem: {
             items: components["schemas"]["DocumentListItem"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         KeysetPageOfInstitutionAdminResponse: {
             items: components["schemas"]["InstitutionAdminResponse"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         KeysetPageOfJudgeAdminResponse: {
             items: components["schemas"]["JudgeAdminResponse"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         KeysetPageOfRegistrationSearchItem: {
             items: components["schemas"]["RegistrationSearchItem"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         KeysetPageOfUserResponse: {
             items: components["schemas"]["UserResponse"][];
             nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
         };
         LawyerRef: {
             /** Format: uuid */
@@ -2288,6 +2318,16 @@ export interface components {
             alreadyNotified: boolean;
             /** Format: date-time */
             notifiedAt: string;
+            recipients: components["schemas"]["NotifyRecipient"][];
+            hasPrimaryLawyer: boolean;
+        };
+        NotifyRecipient: {
+            name: string;
+            role: string;
+        };
+        NotifyRecipientsResponse: {
+            recipients: components["schemas"]["NotifyRecipient"][];
+            hasPrimaryLawyer: boolean;
         };
         OfficeAdminResponse: {
             /** Format: uuid */
@@ -2779,6 +2819,7 @@ export interface operations {
                 courtId?: number | string;
                 after?: string;
                 limit?: number | string;
+                status?: string;
             };
             header?: never;
             path?: never;
@@ -2952,6 +2993,46 @@ export interface operations {
             };
         };
     };
+    NotifyPreviousLevelNotClosedRecipients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previousCasePublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyRecipientsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     ListCases: {
         parameters: {
             query?: {
@@ -2968,6 +3049,11 @@ export interface operations {
                 after?: string;
                 limit?: number | string;
                 officeId?: string;
+                courtLevel?: string;
+                judgeId?: number | string;
+                registeredFrom?: string;
+                registeredTo?: string;
+                institutionId?: string;
             };
             header?: never;
             path?: never;
@@ -4003,6 +4089,7 @@ export interface operations {
                 level?: number | string;
                 after?: string;
                 limit?: number | string;
+                status?: string;
             };
             header?: never;
             path: {
@@ -4725,6 +4812,9 @@ export interface operations {
                 q?: string;
                 after?: string;
                 limit?: number | string;
+                type?: string;
+                active?: boolean;
+                parentId?: string;
             };
             header?: never;
             path?: never;
@@ -6265,6 +6355,7 @@ export interface operations {
                 active?: boolean;
                 after?: string;
                 limit?: number | string;
+                courtId?: number | string;
             };
             header?: never;
             path?: never;

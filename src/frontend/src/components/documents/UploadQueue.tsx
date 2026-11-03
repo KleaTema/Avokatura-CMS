@@ -1,4 +1,4 @@
-import { Alert, Box, Button, IconButton, LinearProgress, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Button, IconButton, LinearProgress, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import { FileUp, RotateCcw, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { ApiError } from '../../api/client'
@@ -7,6 +7,7 @@ import { useAllowedFileTypes, useDocumentTypes } from '../../features/reference/
 import { sq } from '../../i18n/sq'
 import { problemMessage } from '../../lib/problem'
 import { acceptOf, documentForm, formatSize, preCheck, titleOf } from '../../lib/uploads'
+import { AppSelect } from '../ui/AppSelect'
 
 const t = sq.cases.documents
 const MAX_TITLE = 255
@@ -291,24 +292,18 @@ function QueueRow({
 
         {item.state !== 'invalid' && item.state !== 'done' && (
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-            <TextField
-              select
+            <AppSelect
+              required
               size="small"
               label={t.type}
               value={item.typeCode}
-              onChange={(e) => onChange({ typeCode: e.target.value })}
+              onChange={(typeCode) => onChange({ typeCode })}
               disabled={!editable}
-              required
               error={!!item.fieldErrors.type}
               helperText={item.fieldErrors.type}
+              options={types.map((x) => ({ value: x.code, label: x.name }))}
               sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0 }}
-            >
-              {types.map((x) => (
-                <MenuItem key={x.code} value={x.code}>
-                  {x.name}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
             {otherType && (
               <TextField
                 size="small"

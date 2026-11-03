@@ -68,4 +68,15 @@ describe('history details as readable rows', () => {
     expect(displayValue('items', ['a', 'b'])).toBe('a, b')
     expect(displayValue('receivedDate', '2026-03-29')).toBe('29.03.2026')
   })
+
+  it('lists who was told about a not-closed level by name and role', () => {
+    const recipients = [
+      { name: 'Avokat1 Dev', role: 'PRIMARY_LAWYER' },
+      { name: 'Kryetar Dev', role: 'OFFICE_HEAD' },
+    ]
+    expect(detailRows(null, { recipients })).toEqual([
+      { key: 'recipients', label: 'U njoftuan', before: '—', after: 'Avokat1 Dev (avokati), Kryetar Dev (Kryetari)' },
+    ])
+    expect(displayValue('recipients', [])).toBe('—')
+  })
 })

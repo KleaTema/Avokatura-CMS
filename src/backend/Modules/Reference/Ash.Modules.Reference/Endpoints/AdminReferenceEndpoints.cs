@@ -360,8 +360,9 @@ public static class AdminReferenceEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("ActivateAdminCourt");
 
-        group.MapGet("/judges", async (string? q, bool? active, string? after, int? limit, ListJudgesAdminHandler handler, CancellationToken ct) =>
-                Results.Ok(await handler.Handle(new ListJudgesAdminQuery(q, active, after, limit), ct)))
+        group.MapGet("/judges", async (string? q, bool? active, string? after, int? limit, int? courtId,
+                    ListJudgesAdminHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(new ListJudgesAdminQuery(q, active, after, limit, courtId), ct)))
             .RequirePermission(Permission)
             .Produces<KeysetPage<JudgeAdminResponse>>()
             .WithName("ListAdminJudges");

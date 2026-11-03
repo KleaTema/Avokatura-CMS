@@ -36,6 +36,16 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 export function displayValue(key: string, value: unknown): string {
   if (value === null || value === undefined || value === '') return sq.cases.page.none
   if (typeof value === 'boolean') return value ? sq.cases.page.yes : sq.cases.page.no
+  // NEXT_LEVEL_SUMMONS_PENDING: who was told — "Avokat1 Dev (avokati), Kryetar Dev (Kryetari)"
+  if (Array.isArray(value) && (key.split('.').pop() ?? key) === 'recipients') {
+    const n = sq.cases.continue.notifyDialog
+    return (
+      value
+        .filter(isPlainObject)
+        .map((r) => n.recipient(String(r.name ?? ''), n.roles[String(r.role ?? '')] ?? String(r.role ?? '')))
+        .join(', ') || sq.cases.page.none
+    )
+  }
   if (Array.isArray(value)) return value.map((item) => displayValue(key, item)).join(', ')
   if (isPlainObject(value)) {
     return [...flatten(value)].map(([k, v]) => `${labelOf(k)}: ${displayValue(k, v)}`).join('; ')

@@ -9,7 +9,6 @@ import {
   DialogTitle,
   FormControlLabel,
   FormHelperText,
-  MenuItem,
   Stack,
   TextField,
 } from '@mui/material'
@@ -17,6 +16,7 @@ import { useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useSaveSimpleItem, type SimpleListItem, type SimpleListKey } from '../../../features/admin/api'
+import { AppSelect } from '../../../components/ui/AppSelect'
 import { sq } from '../../../i18n/sq'
 import { problemMessage } from '../../../lib/problem'
 import { useForbiddenRedirect } from './helpers'
@@ -183,20 +183,18 @@ export function SimpleItemDialog({
                 control={control}
                 render={({ field }) =>
                   isNew ? (
-                    <TextField
-                      {...field}
-                      select
-                      label={groupLabel}
+                    <AppSelect
                       required
+                      name={field.name}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      inputRef={field.ref}
+                      label={groupLabel}
                       error={!!errors.group}
                       helperText={errors.group?.message}
-                    >
-                      {Object.entries(labels).map(([code, label]) => (
-                        <MenuItem key={code} value={code}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                      options={Object.entries(labels).map(([code, label]) => ({ value: code, label }))}
+                    />
                   ) : (
                     <TextField
                       label={groupLabel}

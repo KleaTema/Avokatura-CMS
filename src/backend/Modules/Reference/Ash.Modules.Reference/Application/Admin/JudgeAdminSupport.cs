@@ -12,7 +12,7 @@ public sealed record UpdateJudgeRequest(string FirstName, string LastName, int? 
 public sealed record JudgeAdminResponse(
     long Id, string FirstName, string LastName, int? CourtId, string? CourtName, string? ExternalRef, bool IsActive);
 
-public sealed record ListJudgesAdminQuery(string? Q, bool? Active, string? After, int? Limit);
+public sealed record ListJudgesAdminQuery(string? Q, bool? Active, string? After, int? Limit, int? CourtId = null);
 
 public static class JudgeAdminSupport
 {

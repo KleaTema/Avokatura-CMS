@@ -1,6 +1,5 @@
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -9,7 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
@@ -18,6 +16,7 @@ import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
 import { matches } from '../lib/search'
 import { useSaveOutcome } from './caseData/useSaveOutcome'
+import { AppAutocomplete } from './ui/AppAutocomplete'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.institutions
@@ -94,40 +93,32 @@ export function AssignJuristDialog({
                   <strong>{t.juristCurrent}:</strong> {current.fullName}
                 </Typography>
               )}
-              <Autocomplete<AssignableJurist>
+              <AppAutocomplete<AssignableJurist>
                 options={list}
                 value={picked}
-                onChange={(_, value) => {
+                onChange={(value) => {
                   setPicked(value)
                   setMissing(false)
                 }}
                 getOptionLabel={(o) => o.fullName}
+                getOptionKey={(o) => o.publicId}
                 getOptionDisabled={(o) => o.isCurrent}
-                isOptionEqualToValue={(a, b) => a.publicId === b.publicId}
-                filterOptions={(all, state) => all.filter((o) => matches(state.inputValue, o.fullName))}
-                noOptionsText={sq.search.noOptions}
-                renderOption={({ key, ...props }, o) => (
-                  <Box component="li" key={key} {...props}>
-                    <Box>
-                      <Typography variant="body1">{o.fullName}</Typography>
-                      {o.isCurrent && (
-                        <Typography variant="caption" component="p" color="text.secondary">
-                          {t.juristCurrent}
-                        </Typography>
-                      )}
-                    </Box>
+                filterOptions={(all, input) => all.filter((o) => matches(input, o.fullName))}
+                renderOptionLabel={(o) => (
+                  <Box>
+                    <Typography variant="body1">{o.fullName}</Typography>
+                    {o.isCurrent && (
+                      <Typography variant="caption" component="p" color="text.secondary">
+                        {t.juristCurrent}
+                      </Typography>
+                    )}
                   </Box>
                 )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={t.juristPicker}
-                    required
-                    autoFocus
-                    error={missing}
-                    helperText={missing ? t.juristRequired : undefined}
-                  />
-                )}
+                label={t.juristPicker}
+                required
+                autoFocus
+                error={missing}
+                helperText={missing ? t.juristRequired : undefined}
               />
               {current && picked && <Alert severity="warning">{t.juristReplaced}</Alert>}
             </Stack>

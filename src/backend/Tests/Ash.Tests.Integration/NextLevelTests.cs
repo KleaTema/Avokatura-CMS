@@ -213,7 +213,11 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         notified.StatusCode.ShouldBe(HttpStatusCode.OK);
         var result = await Json(notified);
         result.GetProperty("alreadyNotified").GetBoolean().ShouldBeFalse();
+        result.GetProperty("hasPrimaryLawyer").GetBoolean().ShouldBeTrue();
+        Recipients(result).ShouldBe(["Avokat1 Dev|PRIMARY_LAWYER", await HeadRecipient()]);
         var row = $"FROM case_history_events WHERE case_id = {first.Id} AND event_type = 'NEXT_LEVEL_SUMMONS_PENDING'";
+        (await Scalar($"SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.new.recipients[0].name')) {row}")).ShouldBe("Avokat1 Dev");
+        (await Scalar($"SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.new.recipients[1].role')) {row}")).ShouldBe("OFFICE_HEAD");
         (await Scalar($"SELECT COUNT(*) {row}")).ShouldBe(1L);
         var summary = (string)(await Scalar($"SELECT summary {row}"))!;
         summary.ShouldContain("FL-APEL-77");
@@ -243,6 +247,56 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         other.GetProperty("alreadyNotified").GetBoolean().ShouldBeFalse();
         (await Scalar($"SELECT COUNT(*) {row}")).ShouldBe(2L);
         recorder.Events.Count.ShouldBe(2);
+    }
+
+    private static List<string> Recipients(JsonElement response) => response.GetProperty("recipients").EnumerateArray()
+        .Select(r => $"{r.GetProperty("name").GetString()}|{r.GetProperty("role").GetString()}").ToList();
+
+    /// <summary>The TR office head (kryetar@ash.local) as a recipient "Name|OFFICE_HEAD".</summary>
+    private async Task<string> HeadRecipient() =>
+        $"{await Scalar("SELECT CONCAT(first_name, ' ', last_name) FROM users WHERE email = 'kryetar@ash.local'")}|OFFICE_HEAD";
+
+    [Fact]
+    public async Task Notify_not_closed_without_a_primary_lawyer_tells_the_office_head_and_lists_the_recipients_first()
+    {
+        var recorder = new NotClosedRecorder();
+        await using var factory = FactoryRecording(recorder);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var first = await RegisterFirstLevel(client, close: false); // REGISTERED: no lawyer yet
+
+        // the dialog asks first: only the Kryetar
+        var preview = await client.GetAsync($"{NotifyPath(first.PublicId)}/recipients", Ct);
+        preview.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var recipients = await Json(preview);
+        recipients.GetProperty("hasPrimaryLawyer").GetBoolean().ShouldBeFalse();
+        Recipients(recipients).ShouldBe([await HeadRecipient()]);
+
+        var notified = await client.PostAsJsonAsync(NotifyPath(first.PublicId), await NotifyBody("FL-PA-AVOKAT"), Ct);
+        notified.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var result = await Json(notified);
+        result.GetProperty("hasPrimaryLawyer").GetBoolean().ShouldBeFalse();
+        Recipients(result).ShouldBe([await HeadRecipient()]);
+        var announced = recorder.Events.ShouldHaveSingleItem();
+        announced.PrimaryLawyerPublicId.ShouldBeNull();
+        announced.HeadUserPublicId.ShouldBe(await UserPublicId("kryetar@ash.local"));
+        var row = $"FROM case_history_events WHERE case_id = {first.Id} AND event_type = 'NEXT_LEVEL_SUMMONS_PENDING'";
+        (await Scalar($"SELECT JSON_LENGTH(details, '$.new.recipients') {row}")).ShouldBe(1L);
+        ((string)(await Scalar($"SELECT summary {row}"))!).ShouldContain(((string)(await HeadRecipient()))[..^"|OFFICE_HEAD".Length]);
+
+        // with a lawyer assigned later, the recipients follow
+        await Scalar($"""
+            INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by)
+            SELECT {first.Id}, (SELECT id FROM users WHERE email = 'avokat1@ash.local'), 'PRIMARY_LAWYER', id
+            FROM users WHERE email = 'kryetar@ash.local'
+            """);
+        Recipients(await Json(await client.GetAsync($"{NotifyPath(first.PublicId)}/recipients", Ct)))
+            .ShouldBe(["Avokat1 Dev|PRIMARY_LAWYER", await HeadRecipient()]);
+
+        // a closed case: nothing to notify; a lawyer may not ask
+        await Scalar($"UPDATE cases SET lifecycle_status = 'CLOSED', closed_at = UTC_TIMESTAMP(3), closed_by = (SELECT id FROM users WHERE email = 'kryetar@ash.local') WHERE id = {first.Id}");
+        (await client.GetAsync($"{NotifyPath(first.PublicId)}/recipients", Ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
+        (await lawyer.GetAsync($"{NotifyPath(first.PublicId)}/recipients", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     private async Task<Guid> UserPublicId(string email) =>
@@ -421,6 +475,38 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         // '%' is literal text, not a wildcard; one character is too short
         (await Search(client, "%%")).GetProperty("items").GetArrayLength().ShouldBe(0);
         (await client.GetAsync("/api/cases/registration-search?q=a", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Registration_search_matches_inside_codes_names_and_nipt_and_filters_by_status()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var closed = await RegisterFirstLevel(client);
+        var open = await RegisterFirstLevel(client, close: false);
+
+        // substring (ngram, script 014): the end of the dossier number, inside a name, inside the NIPT, accents folded
+        foreach (var q in new[] { closed.UniqueCode[^4..], "gim ho", "oxha", "2345678", "inan", "SHOQERIA" })
+        {
+            var page = await Search(client, q);
+            Find(page, closed.CaseCode).ShouldNotBeNull(q);
+            page.GetProperty("total").GetInt32().ShouldBe(page.GetProperty("items").GetArrayLength(), q);
+        }
+
+        async Task<JsonElement> WithStatus(string status)
+        {
+            var response = await client.GetAsync($"/api/cases/registration-search?q=oxha&status={status}", Ct);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK, status);
+            return await Json(response);
+        }
+
+        var closedOnly = await WithStatus("CLOSED");
+        Find(closedOnly, closed.CaseCode).ShouldNotBeNull();
+        Find(closedOnly, open.CaseCode).ShouldBeNull();
+        var openOnly = await WithStatus("OPEN");
+        Find(openOnly, open.CaseCode).ShouldNotBeNull();
+        Find(openOnly, closed.CaseCode).ShouldBeNull();
+        (await client.GetAsync("/api/cases/registration-search?q=oxha&status=NOPE", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]

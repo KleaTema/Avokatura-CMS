@@ -1,9 +1,12 @@
-import { Alert, Box, Button, CircularProgress, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Divider, Stack, Typography } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Eye, FileImage, FileText, File as FileIcon, Trash2 } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { DeleteDocumentDialog, DocumentPreviewDialog } from '../../../components/documents/DocumentDialogs'
 import { UploadQueue } from '../../../components/documents/UploadQueue'
+import { AppSelect } from '../../../components/ui/AppSelect'
+import { PaginationFooter } from '../../../components/ui/DataTable'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusChip } from '../../../components/ui/StatusChip'
@@ -21,9 +24,13 @@ import { useDocumentTypes } from '../../../features/reference/api'
 import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
 import { problemMessage } from '../../../lib/problem'
+import { useKeysetPaging, withoutPage } from '../../../lib/paging'
 import { formatSize } from '../../../lib/uploads'
 
 const t = sq.cases.documents
+
+/** URL prefix of this tab's page and size (docspage, docssize). */
+const DOCS = 'docs'
 
 /** A just-uploaded document is polled while it is checked, at most this long. TODO(task-040): SignalR instead. */
 const POLL_MS = 3000
@@ -42,9 +49,26 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   const caseId = detail.header.publicId
   const qc = useQueryClient()
   const types = useDocumentTypes()
-  const [filters, setFilters] = useState<DocumentFilters>({ type: '', level: '' })
-  const documents = useDocuments(caseId, filters)
-  const items = useMemo(() => documents.data?.pages.flatMap((p) => p.items) ?? [], [documents.data])
+  // filters and page in the URL (prefix "docs"), so Back and refresh keep them
+  const [params, setParams] = useSearchParams()
+  const filters: DocumentFilters = {
+    type: params.get('docsType') ?? '',
+    level: params.get('docsLevel') ?? '',
+    status: params.get('docsStatus') ?? '',
+  }
+  const setFilter = (name: 'docsType' | 'docsLevel' | 'docsStatus', value: string) =>
+    setParams(
+      (prev) => {
+        const next = withoutPage(prev, DOCS)
+        if (value) next.set(name, value)
+        else next.delete(name)
+        return next
+      },
+      { replace: true },
+    )
+  const paging = useKeysetPaging(DOCS)
+  const documents = useDocuments(caseId, filters, { cursor: paging.cursor, size: paging.size })
+  const items = useMemo(() => documents.data?.items ?? [], [documents.data])
   const can = (code: string) => detail.permissions.includes(code)
 
   // just uploaded → polled every 3 s while "Në kontroll", for at most 2 minutes
@@ -106,7 +130,7 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   const groups = levels
     .map((l) => ({ code: l.caseCode, items: items.filter((d) => d.level === l.caseCode) }))
     .filter((g) => g.items.length > 0)
-  const filtered = filters.type !== '' || filters.level !== ''
+  const filtered = filters.type !== '' || filters.level !== '' || filters.status !== ''
 
   return (
     <Stack spacing={2}>
@@ -124,41 +148,40 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
 
       <SectionCard title={t.title}>
         <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              select
+          {/* every filter of the timeline's columns (type, level, status), whatever the number of levels */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            <AppSelect
+              filter
               size="small"
               label={t.filterType}
               value={filters.type}
-              onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
-              slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+              onChange={(value) => setFilter('docsType', value)}
+              options={(types.data ?? []).map((x) => ({ value: x.code, label: x.name }))}
               sx={{ width: { xs: '100%', sm: 240 } }}
-            >
-              <MenuItem value="">{t.all}</MenuItem>
-              {(types.data ?? []).map((x) => (
-                <MenuItem key={x.code} value={x.code}>
-                  {x.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            {detail.levels.length > 1 && (
-              <TextField
-                select
-                size="small"
-                label={t.filterLevel}
-                value={filters.level}
-                onChange={(e) => setFilters((f) => ({ ...f, level: e.target.value }))}
-                slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
-                sx={{ width: { xs: '100%', sm: 200 } }}
-              >
-                <MenuItem value="">{t.all}</MenuItem>
-                {levels.map((l) => (
-                  <MenuItem key={l.caseCode} value={String(l.levelSeq)}>
-                    {l.caseCode}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
+            />
+            <AppSelect
+              filter
+              size="small"
+              label={t.filterLevel}
+              value={filters.level}
+              onChange={(value) => setFilter('docsLevel', value)}
+              options={levels.map((l) => ({ value: String(l.levelSeq), label: l.caseCode }))}
+              sx={{ width: { xs: '100%', sm: 200 } }}
+            />
+            <AppSelect
+              filter
+              size="small"
+              label={t.filterStatus}
+              value={filters.status}
+              onChange={(value) => setFilter('docsStatus', value)}
+              options={[
+                { value: 'PENDING', label: t.status.PENDING },
+                { value: 'CLEAN', label: t.status.CLEAN },
+                // INFECTED and FAILED: both shown as "Refuzuar"
+                { value: 'REJECTED', label: t.status.INFECTED },
+              ]}
+              sx={{ width: { xs: '100%', sm: 200 } }}
+            />
           </Stack>
 
           {actionError && (
@@ -196,13 +219,15 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
               </Box>
             ))
           )}
-          {documents.hasNextPage && (
-            <Box>
-              <Button onClick={() => void documents.fetchNextPage()} disabled={documents.isFetchingNextPage}>
-                {t.loadMore}
-              </Button>
-            </Box>
-          )}
+          <PaginationFooter
+            mode="keyset"
+            paging={paging}
+            count={items.length}
+            total={Number(documents.data?.total ?? 0)}
+            nextCursor={documents.data?.nextCursor}
+            busy={documents.isFetching}
+            stale={documents.isPlaceholderData}
+          />
         </Stack>
       </SectionCard>
 

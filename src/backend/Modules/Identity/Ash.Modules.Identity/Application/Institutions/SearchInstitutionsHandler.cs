@@ -1,6 +1,8 @@
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
+using MySql.Data.MySqlClient;
 
 namespace Ash.Modules.Identity.Application.Institutions;
 
@@ -9,8 +11,9 @@ public sealed record InstitutionSearchResult(
     Guid PublicId, string Name, string? ShortName, string InstitutionType, string? ParentName);
 
 /// <summary>
-/// Search used when picking a party. LIKE (not FULLTEXT, which misses word prefixes such as 'financ') on
-/// name and short name; their utf8mb4_0900_ai_ci collation makes it case- and accent-insensitive.
+/// Search used when picking a party: anywhere inside the name, short name or NIPT ('financ', 'inan' find
+/// 'Financave'), ngram FULLTEXT ftn_institutions_search (script 014); the utf8mb4_0900_ai_ci collation makes it case-
+/// and accent-insensitive.
 /// </summary>
 public sealed class SearchInstitutionsHandler(IdentityDbContext db)
 {
@@ -28,11 +31,17 @@ public sealed class SearchInstitutionsHandler(IdentityDbContext db)
         }
 
         var take = Math.Clamp(limit ?? MaxLimit, 1, MaxLimit);
-        var pattern = InstitutionAdminSupport.LikeContains(text);
+        var words = NgramSearch.BooleanQuery(text);
+        if (words.Length == 0)
+        {
+            return Array.Empty<InstitutionSearchResult>();
+        }
 
+        var matches = db.Database.SqlQueryRaw<uint>(
+            "SELECT id AS Value FROM institutions WHERE MATCH(name, short_name, nipt) AGAINST (@institution_q IN BOOLEAN MODE)",
+            new MySqlParameter("@institution_q", words));
         var rows = await (from i in db.Institutions.AsNoTracking()
-                          where i.IsActive
-                                && (EF.Functions.Like(i.Name, pattern, InstitutionAdminSupport.LikeEscape) || EF.Functions.Like(i.ShortName!, pattern, InstitutionAdminSupport.LikeEscape))
+                          where i.IsActive && matches.Contains(i.Id)
                           join p in db.Institutions.AsNoTracking() on i.ParentInstitutionId equals (uint?)p.Id into parents
                           from p in parents.DefaultIfEmpty()
                           orderby i.Name

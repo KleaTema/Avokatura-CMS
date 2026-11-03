@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Box, FormControlLabel, MenuItem, Stack, Switch, TextField } from '@mui/material'
+import { Box, FormControlLabel, Stack, Switch, TextField } from '@mui/material'
 import dayjs from 'dayjs'
 import { Controller, useForm, useWatch, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
@@ -16,6 +16,7 @@ import { sq } from '../../i18n/sq'
 import { AREA_INTEGER_DIGITS, parseAlbanianMoneyInput, toAlbanianInput } from '../../lib/money'
 import { isFilled, isoDateOf, isPickerValue, type PickerValue } from '../../lib/pickerValues'
 import { AppDatePicker } from '../AppDatePicker'
+import { AppSelect } from '../ui/AppSelect'
 import { EditorActions } from './EditorActions'
 import { MoneyField } from './MoneyField'
 import { useSaveOutcome } from './useSaveOutcome'
@@ -112,22 +113,17 @@ export function ClaimEditor({ detail, onSaved, onCancel }: EditorProps) {
           name="currency"
           control={control}
           render={({ field }) => (
-            <TextField
-              select
+            <AppSelect
+              required
               label={e.claim.currency}
               value={field.value}
               onChange={field.onChange}
               inputRef={field.ref}
               error={!!errors.currency}
               helperText={errors.currency?.message}
+              options={currencies.map((c) => ({ value: c, label: c }))}
               sx={{ minWidth: 120 }}
-            >
-              {currencies.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
           )}
         />
       </Stack>
@@ -210,26 +206,20 @@ export function CategoryEditor({ detail, onSaved, onCancel }: EditorProps) {
           name="category"
           control={control}
           render={({ field }) => (
-            <TextField
-              select
+            <AppSelect
+              required
               label={e.category.category}
-              value={categories.some((c) => c.code === field.value) ? field.value : ''}
-              onChange={(ev) => {
-                field.onChange(ev.target.value)
+              value={field.value}
+              onChange={(value) => {
+                field.onChange(value)
                 setValue('subcategory', '')
               }}
               inputRef={field.ref}
-              required
               error={!!errors.category}
               helperText={errors.category?.message}
+              options={categories.map((c) => ({ value: c.code, label: c.name }))}
               sx={{ minWidth: 200 }}
-            >
-              {categories.map((c) => (
-                <MenuItem key={c.code} value={c.code}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
           )}
         />
         {subcategories.length > 0 && (
@@ -237,23 +227,17 @@ export function CategoryEditor({ detail, onSaved, onCancel }: EditorProps) {
             name="subcategory"
             control={control}
             render={({ field }) => (
-              <TextField
-                select
+              <AppSelect
+                required
                 label={e.category.subcategory}
-                value={subcategories.some((s) => s.code === field.value) ? field.value : ''}
+                value={field.value}
                 onChange={field.onChange}
                 inputRef={field.ref}
-                required
                 error={!!errors.subcategory}
                 helperText={errors.subcategory?.message}
+                options={subcategories.map((s) => ({ value: s.code, label: s.name }))}
                 sx={{ minWidth: 200 }}
-              >
-                {subcategories.map((s) => (
-                  <MenuItem key={s.code} value={s.code}>
-                    {s.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+              />
             )}
           />
         )}
@@ -516,22 +500,17 @@ export function PriorityEditor({ detail, onSaved, onCancel }: EditorProps) {
         name="priority"
         control={control}
         render={({ field }) => (
-          <TextField
-            select
+          <AppSelect
+            required
             label={e.priority.label}
             value={field.value}
             onChange={field.onChange}
             inputRef={field.ref}
             error={!!errors.priority}
             helperText={errors.priority?.message}
+            options={Object.entries(sq.cases.priority).map(([code, name]) => ({ value: code, label: name }))}
             sx={{ maxWidth: 240 }}
-          >
-            {Object.entries(sq.cases.priority).map(([code, name]) => (
-              <MenuItem key={code} value={code}>
-                {name}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
         )}
       />
       <EditorActions onCancel={onCancel} busy={save.isPending || outcome.refreshing || priority === detail.header.priority} />

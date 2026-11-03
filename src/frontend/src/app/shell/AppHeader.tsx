@@ -13,6 +13,7 @@ import {
 import { Bell, ChevronDown, LogOut, Menu as MenuIcon, Search, UserRound } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { searchTabOf, useCaseTabs } from '../../features/cases/api'
 import { sq } from '../../i18n/sq'
 import { tokens } from '../../theme/tokens'
 import { BrandImage } from './BrandImage'
@@ -49,10 +50,17 @@ export function AppHeader({
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const menuId = useId()
 
+  // the widest tab of the user: a header search covers every case (and status) the user may see
+  const tabs = useCaseTabs(user !== undefined)
   const search = (e: FormEvent) => {
     e.preventDefault()
     const q = query.trim()
-    navigate(q ? `/cases?q=${encodeURIComponent(q)}` : '/cases')
+    if (!q) {
+      navigate('/cases')
+      return
+    }
+    const tab = searchTabOf(tabs.data?.tabs ?? [])
+    navigate(`/cases?${tab ? `tab=${tab}&` : ''}q=${encodeURIComponent(q)}`)
   }
 
   const initials = user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase() : ''

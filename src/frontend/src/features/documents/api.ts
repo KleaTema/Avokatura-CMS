@@ -1,9 +1,9 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { api, ApiError, authHeaders, notifyUnauthorized, unwrap, type ProblemDetails } from '../../api/client'
 import type { components } from '../../api/schema'
 import { fileNameFromDisposition } from '../../lib/uploads'
-import { afterCaseChange, caseKeys } from '../cases/api'
+import { afterCaseChange, caseKeys, type PageRequest } from '../cases/api'
 
 export type DocumentItem = components['schemas']['DocumentListItem']
 export type UploadDocumentResponse = components['schemas']['UploadDocumentResponse']
@@ -13,25 +13,30 @@ export interface DocumentFilters {
   type: string
   /** n of X/n, '' = all levels */
   level: string
+  /** scan status (PENDING / CLEAN / INFECTED / FAILED), '' = all */
+  status: string
 }
 
-const PAGE_SIZE = 50
-
-/** The dossier timeline (every level the dossier has), newest first, keyset-paged. */
-export const useDocuments = (caseId: string, f: DocumentFilters) =>
-  useInfiniteQuery({
-    queryKey: [...caseKeys.documents(caseId), f] as const,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+/** One page of the dossier timeline (every level the dossier has), newest first, with the total. */
+export const useDocuments = (caseId: string, f: DocumentFilters, p: PageRequest) =>
+  useQuery({
+    queryKey: [...caseKeys.documents(caseId), f, p.cursor ?? null, p.size] as const,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/cases/{id}/documents', {
           params: {
             path: { id: caseId },
-            query: { type: f.type || undefined, level: f.level ? Number(f.level) : undefined, after: pageParam, limit: PAGE_SIZE },
+            query: {
+              type: f.type || undefined,
+              level: f.level ? Number(f.level) : undefined,
+              status: f.status || undefined,
+              after: p.cursor,
+              limit: p.size,
+            },
           },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
   })
 
 const problemSchema = z.object({ title: z.string().nullish(), code: z.string().optional() }).passthrough()

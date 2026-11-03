@@ -17,7 +17,15 @@ namespace Ash.Modules.Cases.Application.RegisterNextLevel;
 /// <summary>The next-level summons: its number, the court that issued it and the hearing (ISO 8601 with offset).</summary>
 public sealed record NotifyNotClosedRequest(string? SummonsNumber, int? CourtId, string? HearingAt);
 
-public sealed record NotifyNotClosedResponse(bool AlreadyNotified, DateTime NotifiedAt);
+/// <summary>Who is told: Role = PRIMARY_LAWYER (the current primary lawyer) or OFFICE_HEAD (the Kryetar of the case's office).</summary>
+public sealed record NotifyRecipient(string Name, string Role);
+
+/// <summary>Recipients: the current primary lawyer (when the case has one) and the office head.</summary>
+public sealed record NotifyNotClosedResponse(
+    bool AlreadyNotified, DateTime NotifiedAt, IReadOnlyList<NotifyRecipient> Recipients, bool HasPrimaryLawyer);
+
+/// <summary>GET …/notify-not-closed/recipients: who would be told, shown in the dialog before sending.</summary>
+public sealed record NotifyRecipientsResponse(IReadOnlyList<NotifyRecipient> Recipients, bool HasPrimaryLawyer);
 
 /// <summary>
 /// Protokoll has a next-level summons for a case whose level is not closed in the system (client answer Q1b:
@@ -40,29 +48,31 @@ internal sealed class NotifyNotClosedHandler(
 {
     public static readonly TimeSpan Window = TimeSpan.FromHours(24);
 
+    public const string PrimaryLawyerRole = "PRIMARY_LAWYER";
+    public const string OfficeHeadRole = "OFFICE_HEAD";
+
+    /// <summary>Who would be told about this case, for the dialog (same checks as the notification itself).</summary>
+    public async Task<Result<NotifyRecipientsResponse>> Recipients(Guid casePublicId, CancellationToken ct)
+    {
+        var found = await FindNotifiableAsync(casePublicId, ct);
+        if (found.IsFailure)
+        {
+            return found.Error!;
+        }
+
+        var recipients = await RecipientsAsync(found.Value, ct);
+        return new NotifyRecipientsResponse(recipients.Listed, recipients.Lawyer is not null);
+    }
+
     public async Task<Result<NotifyNotClosedResponse>> Handle(Guid casePublicId, NotifyNotClosedRequest req, CancellationToken ct)
     {
-        var target = await db.Cases.AsNoTracking().SingleOrDefaultAsync(c => c.PublicId == casePublicId, ct);
-        if (target is null || access.GetRegistrationLookupScope() == RegistrationLookupScope.None)
+        var found = await FindNotifiableAsync(casePublicId, ct);
+        if (found.IsFailure)
         {
-            return Error.NotFound("case.not_found", "Çështja nuk u gjet.");
+            return found.Error!;
         }
 
-        var latest = await db.Cases.AsNoTracking()
-            .Where(c => c.DossierId == target.DossierId)
-            .OrderByDescending(c => c.LevelSeq)
-            .Select(c => new { c.Id, c.CaseCode })
-            .FirstAsync(ct);
-        if (latest.Id != target.Id)
-        {
-            return RegisterNextLevelHandler.AlreadyContinued(latest.CaseCode);
-        }
-
-        if (target.LifecycleStatus == Case.Closed)
-        {
-            return Error.Conflict("case.previous_closed",
-                "Kjo shkallë është mbyllur; regjistroni shkallën e radhës në vend të njoftimit.");
-        }
+        var target = found.Value;
 
         // The summons, validated like a registration
         var errors = new FieldErrors();
@@ -97,23 +107,60 @@ internal sealed class NotifyNotClosedHandler(
         // same summons give one history row and one event.
         await LockCaseAsync(target.Id, ct);
         var now = clock.UtcNow;
+        var recipients = await RecipientsAsync(target, ct);
         if (await LastNoticeAsync(target.Id, summonsNumber, now - Window, ct) is { } notifiedAt)
         {
-            return new NotifyNotClosedResponse(true, notifiedAt);
+            return new NotifyNotClosedResponse(true, notifiedAt, recipients.Listed, recipients.Lawyer is not null);
         }
 
         var me = await users.GetUser(user.PublicId, ct);
         var name = me is null ? "Protokolli" : $"{me.FirstName} {me.LastName}";
         var hearingLocal = TimeZoneInfo.ConvertTimeFromUtc(hearingUtc!.Value, TiraneTime.Zone).ToString("dd.MM.yyyy HH:mm");
+        var told = recipients.Listed.Count == 0 ? "askush" : string.Join(", ", recipients.Listed.Select(r => r.Name));
         history.Add((long)target.DossierId, (long)target.Id, HistoryEventType.NextLevelSummonsPending,
             $"Erdhi fletëthirrja nr. {summonsNumber} ({court!.Name}, seanca më {hearingLocal}) për shkallën e radhës, " +
-            $"por kjo shkallë nuk është mbyllur ende (njoftoi {name}).",
-            @new: new { SummonsNumber = summonsNumber, Court = court.Name, HearingAt = hearingUtc.Value, NotifiedBy = name });
+            $"por kjo shkallë nuk është mbyllur ende (njoftoi {name}; u njoftuan: {told}).",
+            @new: new
+            {
+                SummonsNumber = summonsNumber,
+                Court = court.Name,
+                HearingAt = hearingUtc.Value,
+                NotifiedBy = name,
+                Recipients = recipients.Listed,
+            });
         await db.SaveChangesAsync(ct);
 
-        var (primaryLawyer, head) = await RecipientsAsync(target, ct);
-        await events.PublishAsync(new PreviousLevelNotClosed(target.PublicId, summonsNumber, hearingUtc.Value, primaryLawyer, head), ct);
-        return new NotifyNotClosedResponse(false, now);
+        await events.PublishAsync(new PreviousLevelNotClosed(target.PublicId, summonsNumber, hearingUtc.Value,
+            recipients.Lawyer?.PublicId, recipients.Head?.PublicId), ct);
+        return new NotifyNotClosedResponse(false, now, recipients.Listed, recipients.Lawyer is not null);
+    }
+
+    /// <summary>The case, if it may be notified: the latest level of its dossier, not closed, visible for registration.</summary>
+    private async Task<Result<Case>> FindNotifiableAsync(Guid casePublicId, CancellationToken ct)
+    {
+        var target = await db.Cases.AsNoTracking().SingleOrDefaultAsync(c => c.PublicId == casePublicId, ct);
+        if (target is null || access.GetRegistrationLookupScope() == RegistrationLookupScope.None)
+        {
+            return Error.NotFound("case.not_found", "Çështja nuk u gjet.");
+        }
+
+        var latest = await db.Cases.AsNoTracking()
+            .Where(c => c.DossierId == target.DossierId)
+            .OrderByDescending(c => c.LevelSeq)
+            .Select(c => new { c.Id, c.CaseCode })
+            .FirstAsync(ct);
+        if (latest.Id != target.Id)
+        {
+            return RegisterNextLevelHandler.AlreadyContinued(latest.CaseCode);
+        }
+
+        if (target.LifecycleStatus == Case.Closed)
+        {
+            return Error.Conflict("case.previous_closed",
+                "Kjo shkallë është mbyllur; regjistroni shkallën e radhës në vend të njoftimit.");
+        }
+
+        return target;
     }
 
     private async Task LockCaseAsync(ulong caseId, CancellationToken ct)
@@ -145,17 +192,34 @@ internal sealed class NotifyNotClosedHandler(
         return await command.ExecuteScalarAsync(ct) is DateTime at ? DateTime.SpecifyKind(at, DateTimeKind.Utc) : null;
     }
 
-    /// <summary>The current primary lawyer (if one is assigned) and the head of the case's office.</summary>
-    private async Task<(Guid? PrimaryLawyer, Guid? Head)> RecipientsAsync(Case target, CancellationToken ct)
+    private sealed record RecipientSet(UserRef? Lawyer, OfficeHead? Head, IReadOnlyList<NotifyRecipient> Listed);
+
+    /// <summary>
+    /// The current primary lawyer (when one is assigned) and the head of the case's office (when active) — with or
+    /// without a lawyer, the Kryetar is always told.
+    /// </summary>
+    private async Task<RecipientSet> RecipientsAsync(Case target, CancellationToken ct)
     {
         var lawyerId = await db.CaseAssignments.AsNoTracking()
             .Where(a => a.CaseId == target.Id && a.CaseRole == CaseAssignmentRow.PrimaryLawyer && a.EndedAt == null)
             .Select(a => (uint?)a.UserId)
             .FirstOrDefaultAsync(ct);
-        Guid? lawyer = lawyerId is { } id && (await users.GetPublicIdsAsync([id], ct)).TryGetValue(id, out var publicId)
-            ? publicId
-            : null;
+        var lawyer = lawyerId is { } id && (await users.GetRefsAsync([id], ct)).TryGetValue(id, out var found) ? found : null;
         var routing = await offices.GetRoutingAsync(target.OfficeId, ct);
-        return (lawyer, routing?.Head is { IsActive: true } head ? head.PublicId : null);
+        var head = routing?.Head is { IsActive: true } active ? active : null;
+
+        var listed = new List<NotifyRecipient>(2);
+        if (lawyer is not null)
+        {
+            listed.Add(new NotifyRecipient(lawyer.Name, PrimaryLawyerRole));
+        }
+
+        // the same person as head and primary lawyer is told once
+        if (head is not null && head.PublicId != lawyer?.PublicId)
+        {
+            listed.Add(new NotifyRecipient(head.FullName, OfficeHeadRole));
+        }
+
+        return new RecipientSet(lawyer, head, listed);
     }
 }

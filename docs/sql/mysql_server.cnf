@@ -11,6 +11,10 @@ collation-server             = utf8mb4_0900_ai_ci
 sql_mode                     = ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
 transaction_isolation        = READ-COMMITTED   # fewer gap locks/deadlocks under concurrent case edits
 event_scheduler              = ON               # partition rotation (ash_ops.ev_rotate_partitions)
+innodb_ft_enable_stopword    = OFF              # ngram search (script 014): an English stopword list drops Albanian
+                                                # substrings ("in", "an" in M-in-istria, Fin-an-cave); also read when an
+                                                # index is rebuilt (OPTIMIZE, ALTER … FORCE)
+ngram_token_size             = 2                # the default; the search relies on it (2-character queries)
 
 # --- durability: these are legal records -------------------------------
 innodb_flush_log_at_trx_commit = 1

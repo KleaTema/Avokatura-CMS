@@ -8,16 +8,18 @@ const t = sq.cases.page
 /**
  * The levels of the dossier (X/1, X/2 …). The current one is highlighted; a level the user cannot view is shown
  * disabled with a tooltip (its code, court level and status are public within the dossier, its id is not sent).
- * `tab` keeps the same tab when switching.
+ * `tab` keeps the same tab when switching; `linkState` goes with the link (the case page's way back to the list).
  */
 export function LevelSwitcher({
   levels,
   currentPublicId,
   tab,
+  linkState,
 }: {
   levels: CaseDetail['levels']
   currentPublicId: string
   tab: string
+  linkState?: unknown
 }) {
   if (levels.length < 2) return null
   return (
@@ -48,6 +50,7 @@ export function LevelSwitcher({
               variant={current ? 'contained' : 'outlined'}
               component={Link}
               to={`/cases/${level.publicId}/${tab}`}
+              state={linkState}
               aria-current={current ? 'page' : undefined}
               aria-label={label}
             >

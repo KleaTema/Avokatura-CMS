@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  MenuItem,
   Stack,
   TextField,
 } from '@mui/material'
@@ -16,6 +15,7 @@ import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useSaveFileType, type AdminFileType } from '../../features/admin/api'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { sq } from '../../i18n/sq'
 import { tokens } from '../../theme/tokens'
 import { problemMessage } from '../../lib/problem'
@@ -116,21 +116,20 @@ export function FileTypeDialog({ fileType, onClose }: { fileType: AdminFileType 
               name="appliesTo"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
+                // always one value (fixed once created): no empty option
+                <AppSelect
+                  required
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
                   label={t.columns.appliesTo}
-                  required={isNew}
                   disabled={!isNew}
                   error={!!errors.appliesTo}
                   helperText={errors.appliesTo?.message ?? (isNew ? undefined : t.immutableHint)}
-                >
-                  {Object.entries(t.appliesToValues).map(([code, label]) => (
-                    <MenuItem key={code} value={code}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  options={Object.entries(t.appliesToValues).map(([code, label]) => ({ value: code, label }))}
+                />
               )}
             />
             <Controller

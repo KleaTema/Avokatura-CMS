@@ -1,40 +1,77 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../../api/client'
 import type { components } from '../../api/schema'
 import { MIN_SERVER_QUERY } from '../../lib/search'
+import type { PageRequest } from '../cases/api'
 import { referenceKeys } from '../reference/api'
 
 export type AdminUser = components['schemas']['UserResponse']
 export type AdminRole = components['schemas']['RoleResponse']
 export type CreateUserRequest = components['schemas']['CreateUserRequest']
 
-const PAGE_SIZE = 50
+/** '' | 'true' | 'false' as the URL holds it → the API's active filter. */
+const activeParam = (value: string) => (value === '' ? undefined : value === 'true')
+
+/** Filters of the users page: role code, office / institution public id, '' | 'true' | 'false'. */
+export interface UserFilters {
+  q: string
+  role: string
+  officeId: string
+  institutionId: string
+  active: string
+}
+
+/** Filters of the institutions page: type code, '' | 'true' | 'false', the parent's public id. */
+export interface InstitutionFilters {
+  q: string
+  type: string
+  active: string
+  parentId: string
+}
+
+/** Filters of the judges list: '' | 'true' | 'false', a court id. */
+export interface JudgeFilters {
+  q: string
+  active: string
+  courtId: string
+}
 
 export const adminKeys = {
   users: ['admin-users'] as const,
-  userList: (q: string) => ['admin-users', 'list', q] as const,
+  userList: (f: UserFilters, p: PageRequest) => ['admin-users', 'list', f, p.cursor ?? null, p.size] as const,
   roles: ['admin-roles'] as const,
   offices: ['admin-offices'] as const,
   institutions: ['admin-institutions'] as const,
-  institutionList: (q: string) => ['admin-institutions', 'list', q] as const,
+  institutionList: (f: InstitutionFilters, p: PageRequest) =>
+    ['admin-institutions', 'list', f, p.cursor ?? null, p.size] as const,
   institutionSearch: (q: string) => ['institution-search', q] as const,
   // under 'admin-users': any user change (role, status, office) can change who may be head
   headCandidates: (officeId: string) => ['admin-users', 'head-candidates', officeId] as const,
   lookup: (list: string) => ['admin-lookups', list] as const,
-  judgeList: (q: string, active: boolean | undefined) => ['admin-lookups', 'judges', q, active ?? 'all'] as const,
+  judgeList: (f: JudgeFilters, p: PageRequest) => ['admin-lookups', 'judges', f, p.cursor ?? null, p.size] as const,
 }
 
-export const useAdminUsers = (q: string) =>
-  useInfiniteQuery({
-    queryKey: adminKeys.userList(q),
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+/** One page of the users list, with the total. */
+export const useAdminUsers = (f: UserFilters, p: PageRequest) =>
+  useQuery({
+    queryKey: adminKeys.userList(f, p),
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/identity/admin/users', {
-          params: { query: { q: q || undefined, after: pageParam, limit: PAGE_SIZE } },
+          params: {
+            query: {
+              q: f.q || undefined,
+              role: f.role || undefined,
+              officeId: f.officeId || undefined,
+              institutionId: f.institutionId || undefined,
+              active: activeParam(f.active),
+              after: p.cursor,
+              limit: p.size,
+            },
+          },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
   })
 
 export const useAdminRoles = () =>
@@ -335,17 +372,25 @@ export const useSetCourtActive = () => {
   })
 }
 
-export const useAdminJudges = (q: string, active: boolean | undefined) =>
-  useInfiniteQuery({
-    queryKey: adminKeys.judgeList(q, active),
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+/** One page of the judges list, with the total. */
+export const useAdminJudges = (f: JudgeFilters, p: PageRequest) =>
+  useQuery({
+    queryKey: adminKeys.judgeList(f, p),
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/reference/admin/judges', {
-          params: { query: { q: q || undefined, active, after: pageParam, limit: PAGE_SIZE } },
+          params: {
+            query: {
+              q: f.q || undefined,
+              active: activeParam(f.active),
+              courtId: f.courtId ? Number(f.courtId) : undefined,
+              after: p.cursor,
+              limit: p.size,
+            },
+          },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
   })
 
 export const useSaveJudge = () => {
@@ -495,17 +540,26 @@ export const useOfficeHeadCandidates = (officePublicId: string) =>
         .then((page) => page.items),
   })
 
-export const useAdminInstitutionList = (q: string) =>
-  useInfiniteQuery({
-    queryKey: adminKeys.institutionList(q),
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+/** One page of the institutions list, with the total. */
+export const useAdminInstitutionList = (f: InstitutionFilters, p: PageRequest) =>
+  useQuery({
+    queryKey: adminKeys.institutionList(f, p),
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/identity/admin/institutions', {
-          params: { query: { q: q || undefined, after: pageParam, limit: PAGE_SIZE } },
+          params: {
+            query: {
+              q: f.q || undefined,
+              type: f.type || undefined,
+              active: activeParam(f.active),
+              parentId: f.parentId || undefined,
+              after: p.cursor,
+              limit: p.size,
+            },
+          },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
   })
 
 export const useSaveInstitution = () => {

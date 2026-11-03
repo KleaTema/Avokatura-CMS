@@ -13,6 +13,9 @@ public interface IDocumentService
     /// <summary>The document by public id (deleted ones too: IsDeleted), or null when it does not exist.</summary>
     Task<DocumentInfo?> GetAsync(Guid publicId, CancellationToken ct = default);
 
+    /// <summary>By internal id (as stored in case_decisions.decision_document_id), deleted ones too; null when none.</summary>
+    Task<DocumentInfo?> GetByIdAsync(long id, CancellationToken ct = default);
+
     /// <summary>Documents uploaded to each level (not deleted), by case id; a level without documents is missing.</summary>
     Task<IReadOnlyDictionary<long, int>> CountsByCaseAsync(IReadOnlyCollection<long> caseIds, CancellationToken ct = default);
 

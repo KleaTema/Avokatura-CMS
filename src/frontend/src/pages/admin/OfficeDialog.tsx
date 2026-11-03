@@ -6,7 +6,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
   TextField,
 } from '@mui/material'
@@ -15,6 +14,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { OptionPicker } from '../../components/OptionPicker'
 import { useSaveOffice, type AdminOffice } from '../../features/admin/api'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { sq } from '../../i18n/sq'
 import { problemMessage } from '../../lib/problem'
 import { useForbiddenRedirect } from './lists/helpers'
@@ -137,20 +137,18 @@ export function OfficeDialog({
               name="officeType"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label={t.columns.officeType}
+                <AppSelect
                   required
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  label={t.columns.officeType}
                   error={!!errors.officeType}
                   helperText={errors.officeType?.message}
-                >
-                  {Object.entries(t.officeTypes).map(([code, label]) => (
-                    <MenuItem key={code} value={code}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  options={Object.entries(t.officeTypes).map(([code, label]) => ({ value: code, label }))}
+                />
               )}
             />
             <Controller

@@ -69,16 +69,24 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     private static readonly string[] RegistrationDeskActions =
         [EditRegistrationPermission, "party.add", "party.edit", "party.delete", "case.change_judge", "case.change_object"];
 
+    public const string DecisionRecordPermission = "decision.record";
+    public const string DocumentUploadPermission = "document.upload";
+
     /// <summary>
     /// What still applies to a CLOSED case, if the user holds it (the next level continues the work):
-    /// view, and the case chat (lawyers discuss the appeal after closing).
-    /// Tasks 036/037 add the decision actions here (record the reasoned decision and its document after closing) —
-    /// nowhere else. Every other write action is off for a CLOSED case.
+    /// - view, and the case chat (lawyers discuss the appeal after closing);
+    /// - decision.record: complete the decision later (task 037 — the reasoned decision arrives, the appeal is filed,
+    ///   it becomes final);
+    /// - document.upload: ONLY the decision document (type VENDIM) — the upload handler refuses any other type on a
+    ///   CLOSED case with 409 "Në një çështje të mbyllur ngarkohet vetëm vendimi.".
+    /// Every other write action is off for a CLOSED case.
     /// </summary>
     public static readonly IReadOnlySet<string> ActionsAllowedWhenClosed = new HashSet<string>
     {
         ViewPermission,
         "chat.case",
+        DecisionRecordPermission,
+        DocumentUploadPermission,
     };
 
     /// <summary>The Kryetar of the case's office (system permissions held for their own office only).</summary>

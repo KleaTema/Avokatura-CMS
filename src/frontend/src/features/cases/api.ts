@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { api, ApiError, unwrap } from '../../api/client'
 import type { components } from '../../api/schema'
@@ -30,9 +30,15 @@ export type CaseListItem = components['schemas']['CaseListItem']
 export interface CaseListFilters {
   tab: string
   q: string
-  /** '' = open cases (REGISTERED + ACTIVE), 'CLOSED' = closed ones */
+  /**
+   * '' = not chosen: open cases (REGISTERED + ACTIVE) — or every status when q is given (the API decides);
+   * 'OPEN' | 'CLOSED' | 'ALL' chosen explicitly
+   */
   status: string
+  courtLevel: string
   courtId: string
+  /** a judge id */
+  judgeId: string
   categoryCode: string
   priority: string
   /** '' | 'true' | 'false' */
@@ -40,39 +46,56 @@ export interface CaseListFilters {
   /** Tirane calendar dates, yyyy-MM-dd */
   hearingFrom: string
   hearingTo: string
+  registeredFrom: string
+  registeredTo: string
   /** public id of a lawyer (current primary or secondary) */
   lawyerId: string
-  /** public id of an office (the Monitor's "all" tab, task 031) */
+  /** public id of an office (the Monitor, task 031) */
   officeId: string
+  /** public id of an institution that is a party */
+  institutionId: string
 }
 
-const LIST_PAGE_SIZE = 50
+/** One page of a keyset list: the cursor of the page (none = page 1) and its size. */
+export interface PageRequest {
+  cursor: string | undefined
+  size: number
+}
 
 export const caseListKeys = {
   all: ['cases', 'list'] as const,
-  list: (f: CaseListFilters) => ['cases', 'list', f] as const,
+  list: (f: CaseListFilters, p: PageRequest) => ['cases', 'list', f, p.cursor ?? null, p.size] as const,
   tabs: ['cases', 'tabs'] as const,
 }
 
 /** The user's tabs with open-case counts and the tab to open first. */
-export const useCaseTabs = () =>
+export const useCaseTabs = (enabled = true) =>
   useQuery({
     queryKey: caseListKeys.tabs,
+    enabled,
     staleTime: 60_000,
     queryFn: () => api.GET('/api/cases/tabs').then(unwrap),
   })
 
+/** Widest first: a search should cover every case the user may see, not only the default tab's ("Pa avokat"). */
+const SEARCH_TAB_ORDER = ['all', 'office', 'institution', 'mine', 'registered', 'unassigned']
+
+/** The tab the header search opens: the user's widest tab (undefined → the list's default). */
+export const searchTabOf = (tabs: { tab: string }[]) =>
+  SEARCH_TAB_ORDER.find((code) => tabs.some((x) => x.tab === code))
+
 /**
- * One tab of the case list, keyset-paged. The loaded pages stay in the cache for a minute, so Back from a case
- * shows the same list at the same length without reloading it from the first page.
+ * One page of a tab of the case list (keyset, with the total of the filtered list). Pages stay in the cache for a
+ * minute, so Back from a case shows the same page without loading; the previous page stays visible while the next
+ * one loads.
  */
-export const useCaseList = (f: CaseListFilters, enabled: boolean) =>
-  useInfiniteQuery({
-    queryKey: caseListKeys.list(f),
+export const useCaseList = (f: CaseListFilters, p: PageRequest, enabled: boolean) =>
+  useQuery({
+    queryKey: caseListKeys.list(f, p),
     enabled,
     staleTime: 60_000,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/cases', {
           params: {
@@ -80,21 +103,25 @@ export const useCaseList = (f: CaseListFilters, enabled: boolean) =>
               tab: f.tab || undefined,
               q: f.q || undefined,
               status: f.status || undefined,
+              courtLevel: f.courtLevel || undefined,
               courtId: f.courtId ? Number(f.courtId) : undefined,
+              judgeId: f.judgeId ? Number(f.judgeId) : undefined,
               categoryCode: f.categoryCode || undefined,
               priority: f.priority || undefined,
               suspended: f.suspended === '' ? undefined : f.suspended === 'true',
               hearingFrom: f.hearingFrom || undefined,
               hearingTo: f.hearingTo || undefined,
+              registeredFrom: f.registeredFrom || undefined,
+              registeredTo: f.registeredTo || undefined,
               lawyerId: f.lawyerId || undefined,
               officeId: f.officeId || undefined,
-              after: pageParam,
-              limit: LIST_PAGE_SIZE,
+              institutionId: f.institutionId || undefined,
+              after: p.cursor,
+              limit: p.size,
             },
           },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
   })
 
 // ---------------------------------------------------------------- case page (task 022)
@@ -158,21 +185,18 @@ export const useCase = (id: string) =>
     queryFn: () => api.GET('/api/cases/{id}', { params: { path: { id } } }).then(unwrap),
   })
 
-const HISTORY_PAGE_SIZE = 30
-
-/** The dossier's history (all levels the user can view), newest first. */
-export const useCaseHistory = (id: string, enabled: boolean) =>
-  useInfiniteQuery({
-    queryKey: caseKeys.history(id),
+/** One page of the dossier's history (all levels the user can view), newest first, with the total. */
+export const useCaseHistory = (id: string, p: PageRequest, enabled: boolean) =>
+  useQuery({
+    queryKey: [...caseKeys.history(id), p.cursor ?? null, p.size] as const,
     enabled,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/cases/{id}/history', {
-          params: { path: { id }, query: { after: pageParam, limit: HISTORY_PAGE_SIZE } },
+          params: { path: { id }, query: { after: p.cursor, limit: p.size } },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
   })
 
 // A party change shows in the case (parties, institutions), the party list and the history.
@@ -523,6 +547,7 @@ export const useCompleteHearing = (caseId: string) =>
 export type RegistrationSearchItem = components['schemas']['RegistrationSearchItem']
 export type NextLevelPreview = components['schemas']['NextLevelPreviewResponse']
 export type NotifyNotClosedRequest = components['schemas']['NotifyNotClosedRequest']
+export type NotifyRecipient = components['schemas']['NotifyRecipient']
 
 export type RegisterNextLevelRequest = components['schemas']['RegisterNextLevelRequest']
 
@@ -540,23 +565,42 @@ export const toNextLevelRequest = (r: RegisterCaseRequest): RegisterNextLevelReq
   confirmPossibleDuplicate: r.confirmPossibleDuplicate,
 })
 
-const SEARCH_PAGE_SIZE = 20
-
-/** Closed (or not yet closed) dossiers by code, act number, party name or NIPT — Protokoll's registration lookup. */
-export const useRegistrationSearch = (q: string, courtId: string) =>
-  useInfiniteQuery({
-    queryKey: ['registration-search', q, courtId] as const,
+/**
+ * Dossiers by any part of the code, act number, party name or NIPT — Protokoll's registration lookup, one page with
+ * the total. status '' = every status, 'OPEN' | 'CLOSED'.
+ */
+export const useRegistrationSearch = (q: string, courtId: string, status: string, p: PageRequest) =>
+  useQuery({
+    queryKey: ['registration-search', q, courtId, status, p.cursor ?? null, p.size] as const,
     enabled: q.length >= MIN_SERVER_QUERY,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api
         .GET('/api/cases/registration-search', {
           params: {
-            query: { q, courtId: courtId ? Number(courtId) : undefined, after: pageParam, limit: SEARCH_PAGE_SIZE },
+            query: {
+              q,
+              courtId: courtId ? Number(courtId) : undefined,
+              status: status || undefined,
+              after: p.cursor,
+              limit: p.size,
+            },
           },
         })
         .then(unwrap),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  })
+
+/** Who "Njofto…" reaches (GET …/notify-not-closed/recipients): the primary lawyer if any, and the Kryetar. */
+export const useNotifyRecipients = (caseId: string) =>
+  useQuery({
+    queryKey: ['notify-recipients', caseId] as const,
+    retry: false,
+    queryFn: () =>
+      api
+        .GET('/api/cases/{previousCasePublicId}/notify-not-closed/recipients', {
+          params: { path: { previousCasePublicId: caseId } },
+        })
+        .then(unwrap),
   })
 
 /** What continuing will copy; a 409 (already continued, not closed, archived) comes back as an ApiError. */

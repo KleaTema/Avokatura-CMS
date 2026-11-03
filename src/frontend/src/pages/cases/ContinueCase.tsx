@@ -12,13 +12,16 @@ import {
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { OptionPicker } from '../../components/OptionPicker'
+import { AppSelect } from '../../components/ui/AppSelect'
 import { CaseCode } from '../../components/ui/CaseCode'
+import { PaginationFooter } from '../../components/ui/DataTable'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { NotifyNotClosedDialog } from '../../components/registration/NotifyNotClosedDialog'
 import { FormSection, RegistrationForm } from '../../components/registration/RegistrationForm'
 import {
   useNextLevelPreview,
+  useNotifyRecipients,
   useRegisterNextLevel,
   useRegistrationSearch,
   type NextLevelPreview,
@@ -28,6 +31,7 @@ import { useMe } from '../../features/identity/api'
 import { useCourts } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
 import { formatTiraneDate } from '../../lib/dates'
+import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
 import { MIN_SERVER_QUERY, serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
@@ -64,12 +68,15 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const canCreate = me.data?.permissions.includes('case.create') ?? false
   const [search, setSearch] = useUrlSearch()
   const [courtId, setCourtId] = useUrlSearch('court')
+  const [status, setStatus] = useUrlSearch('status')
   const q = useDebounced(serverQuery(search), 300)
   const courts = useCourts()
-  const results = useRegistrationSearch(q, courtId)
+  const paging = useKeysetPaging()
+  // every status unless one is chosen: the closed level is the one to continue
+  const results = useRegistrationSearch(q, courtId, status, { cursor: paging.cursor, size: paging.size })
   const [notifyFor, setNotifyFor] = useState<RegistrationSearchItem | null>(null)
 
-  const items = results.data?.pages.flatMap((p) => p.items) ?? []
+  const items = results.data?.items ?? []
   const searched = q.length >= MIN_SERVER_QUERY
 
   return (
@@ -86,13 +93,21 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
         />
         <Box sx={{ flex: 1 }}>
           <OptionPicker
+            filter
             options={(courts.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
             value={courtId}
             onChange={setCourtId}
             label={t.court}
-            helperText={courtId ? undefined : t.allCourts}
           />
         </Box>
+        <AppSelect
+          filter
+          label={t.status}
+          value={status}
+          onChange={setStatus}
+          options={Object.entries(t.statuses).map(([value, label]) => ({ value, label }))}
+          sx={{ width: { xs: '100%', md: 200 } }}
+        />
       </Stack>
 
       {!searched && <Typography color="text.secondary">{t.typeToSearch}</Typography>}
@@ -115,22 +130,27 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
         </Paper>
       )}
 
-      <Stack spacing={2} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-        {items.map((item) => (
-          <ResultCard
-            key={item.casePublicId}
-            item={item}
-            onContinue={() => onContinue(item.casePublicId)}
-            onNotify={() => setNotifyFor(item)}
-          />
-        ))}
-      </Stack>
-
-      {results.hasNextPage && (
+      {searched && items.length > 0 && (
         <Box>
-          <Button onClick={() => void results.fetchNextPage()} disabled={results.isFetchingNextPage}>
-            {sq.common.loadMore}
-          </Button>
+          <Stack spacing={2} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
+            {items.map((item) => (
+              <ResultCard
+                key={item.casePublicId}
+                item={item}
+                onContinue={() => onContinue(item.casePublicId)}
+                onNotify={() => setNotifyFor(item)}
+              />
+            ))}
+          </Stack>
+          <PaginationFooter
+            mode="keyset"
+            paging={paging}
+            count={items.length}
+            total={Number(results.data?.total ?? 0)}
+            nextCursor={results.data?.nextCursor}
+            busy={results.isFetching}
+            stale={results.isPlaceholderData}
+          />
         </Box>
       )}
 
@@ -183,21 +203,22 @@ function ResultCard({
             </Button>
           </Box>
         ) : (
-          <Alert
-            severity="warning"
-            action={
-              notClosed && (
-                <Button color="inherit" size="small" onClick={onNotify}>
-                  {t.notify}
-                </Button>
-              )
-            }
-          >
+          <Alert severity="warning" action={notClosed && <NotifyButton caseId={item.casePublicId} onClick={onNotify} />}>
             {item.reason}
           </Alert>
         )}
       </Stack>
     </Paper>
+  )
+}
+
+/** "Njofto avokatin dhe Kryetarin" when the case has a primary lawyer, "Njofto Kryetarin" when not (the API tells). */
+function NotifyButton({ caseId, onClick }: { caseId: string; onClick: () => void }) {
+  const recipients = useNotifyRecipients(caseId)
+  return (
+    <Button color="inherit" size="small" onClick={onClick} disabled={!recipients.data}>
+      {t.notify(recipients.data?.hasPrimaryLawyer ?? false)}
+    </Button>
   )
 }
 

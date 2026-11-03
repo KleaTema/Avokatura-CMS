@@ -1,8 +1,9 @@
 import { useSearchParams } from 'react-router'
 
 /**
- * The search text kept in the URL (?q=…), so refresh and back keep the search.
- * Other query parameters (e.g. ?list=) are left as they are; typing replaces the history entry.
+ * A search text or filter kept in the URL (?q=…, ?court=…), so refresh and back keep it. Other query parameters
+ * (e.g. ?list=) are left as they are, except the page: another search or filter starts again at page 1. Typing
+ * replaces the history entry.
  */
 export function useUrlSearch(param = 'q') {
   const [params, setParams] = useSearchParams()
@@ -13,6 +14,7 @@ export function useUrlSearch(param = 'q') {
         const updated = new URLSearchParams(prev)
         if (next) updated.set(param, next)
         else updated.delete(param)
+        updated.delete('page')
         return updated
       },
       { replace: true },

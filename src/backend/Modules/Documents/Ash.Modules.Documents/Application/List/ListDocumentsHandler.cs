@@ -1,4 +1,5 @@
 using System.Globalization;
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Documents.Infrastructure;
 using Ash.Modules.Identity.Contracts;
@@ -9,8 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ash.Modules.Documents.Application.List;
 
-/// <summary>Query string of GET /api/cases/{id}/documents: type = document type code, level = n of X/n.</summary>
-public sealed record ListDocumentsQuery(string? Type, int? Level, string? After, int? Limit);
+/// <summary>
+/// Query string of GET /api/cases/{id}/documents: type = document type code, level = n of X/n, status = PENDING
+/// ("Në kontroll"), CLEAN ("Gati") or REJECTED ("Refuzuar": INFECTED or FAILED).
+/// </summary>
+public sealed record ListDocumentsQuery(string? Type, int? Level, string? After, int? Limit, string? Status = null);
 
 public sealed record DocumentTypeName(string Code, string Name);
 
@@ -35,10 +39,14 @@ public sealed record DocumentListItem(
 /// a user who may view this level (ICaseAccessService.CanViewDossierDocumentsAsync explains why). Keyset paging on
 /// (uploaded_at DESC, id DESC) over ix_documents_timeline (dossier_id, deleted_at, uploaded_at); deleted ones never.
 /// </summary>
-internal sealed class ListDocumentsHandler(DocumentsDbContext db, ICaseActivity cases, IReferenceData reference, IUserDirectory users)
+internal sealed class ListDocumentsHandler(
+    DocumentsDbContext db, ParallelReads parallel, ICaseActivity cases, IReferenceData reference, IUserDirectory users)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
+
+    /// <summary>The status filter "Refuzuar": INFECTED or FAILED (the UI shows both the same way).</summary>
+    public const string RejectedStatus = "REJECTED";
 
     /// <summary>The types a browser may show inline (with the preview's sandbox CSP).</summary>
     public static readonly IReadOnlySet<string> PreviewContentTypes =
@@ -84,6 +92,22 @@ internal sealed class ListDocumentsHandler(DocumentsDbContext db, ICaseActivity 
             }
         }
 
+        string[]? statuses = null;
+        if (!string.IsNullOrWhiteSpace(query.Status))
+        {
+            statuses = query.Status.Trim().ToUpperInvariant() switch
+            {
+                DocumentRow.Pending => [DocumentRow.Pending],
+                DocumentRow.Clean => [DocumentRow.Clean],
+                RejectedStatus => [DocumentRow.Infected, DocumentRow.Failed],
+                _ => null
+            };
+            if (statuses is null)
+            {
+                errors.Add("status", "Statusi duhet të jetë PENDING, CLEAN ose REJECTED.");
+            }
+        }
+
         DateTime? afterAt = null;
         ulong afterId = 0;
         if (query.After is { } cursor)
@@ -106,17 +130,30 @@ internal sealed class ListDocumentsHandler(DocumentsDbContext db, ICaseActivity 
         }
 
         var dossierId = (ulong)c.DossierId;
-        var documents = db.Documents.AsNoTracking().Where(d => d.DossierId == dossierId && d.DeletedAt == null);
-        if (typeId is { } t)
+        IQueryable<DocumentRow> Filtered(DocumentsDbContext context)
         {
-            documents = documents.Where(d => d.DocumentTypeId == t);
+            var filtered = context.Documents.AsNoTracking().Where(d => d.DossierId == dossierId && d.DeletedAt == null);
+            if (typeId is { } t)
+            {
+                filtered = filtered.Where(d => d.DocumentTypeId == t);
+            }
+
+            if (levelCaseId is { } levelId)
+            {
+                filtered = filtered.Where(d => d.CaseId == levelId);
+            }
+
+            if (statuses is not null)
+            {
+                filtered = filtered.Where(d => statuses.Contains(d.ScanStatus));
+            }
+
+            return filtered;
         }
 
-        if (levelCaseId is { } levelId)
-        {
-            documents = documents.Where(d => d.CaseId == levelId);
-        }
-
+        // the total (same filters, no cursor) on its own connection, beside the page query
+        var total = parallel.RunAsync<DocumentsDbContext, int>((other, token) => Filtered(other).CountAsync(token), ct);
+        var documents = Filtered(db);
         if (afterAt is { } at)
         {
             documents = documents.Where(d => d.UploadedAt < at || (d.UploadedAt == at && d.Id < afterId));
@@ -147,6 +184,6 @@ internal sealed class ListDocumentsHandler(DocumentsDbContext db, ICaseActivity 
         var next = hasMore
             ? Cursor.Encode(rows[^1].UploadedAt.Ticks.ToString(CultureInfo.InvariantCulture), (long)rows[^1].Id)
             : null;
-        return new KeysetPage<DocumentListItem>(items, next);
+        return new KeysetPage<DocumentListItem>(items, next, await total);
     }
 }

@@ -26,6 +26,8 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
       - --transaction-isolation=READ-COMMITTED
+      # ngram search (script 014): keep tokens like "in", "an" (M-in-istria, Fin-an-cave)
+      - --innodb-ft-enable-stopword=OFF
     ports:
       - "3306:3306"
     volumes:

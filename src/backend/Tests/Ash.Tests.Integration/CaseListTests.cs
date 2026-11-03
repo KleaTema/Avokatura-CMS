@@ -338,7 +338,11 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
 
     [Theory]
     [InlineData("tab=nope", "tab")]
-    [InlineData("tab=all&status=OPEN", "status")]
+    [InlineData("tab=all&status=NOPE", "status")]
+    [InlineData("tab=all&courtLevel=NOPE", "courtLevel")]
+    [InlineData("tab=all&judgeId=999999", "judgeId")]
+    [InlineData("tab=all&institutionId=00000000-0000-0000-0000-000000000001", "institutionId")]
+    [InlineData("tab=all&registeredFrom=2026-03-05&registeredTo=2026-03-01", "registeredTo")]
     [InlineData("tab=all&priority=URGENT", "priority")]
     [InlineData("tab=all&categoryCode=NOPE", "categoryCode")]
     [InlineData("tab=all&lawyerId=00000000-0000-0000-0000-000000000001", "lawyerId")]
@@ -358,26 +362,29 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
 
     // ---------------------------------------------------------------- search
 
+    /// <summary>Substring of the case code, act number or summons number (ngram ftn_cases_numbers).</summary>
+    private static string InNumbers(string part) =>
+        $"(c.case_code LIKE '%{part}%' OR c.act_number LIKE '%{part}%' OR c.summons_number LIKE '%{part}%')";
+
+    // A search covers every status (no status chosen), so closed cases are found too; the order is the open-list
+    // order (next hearing, then id).
     [Theory]
-    [InlineData("2026-000124", "c.id = (SELECT id FROM cases WHERE act_number = 'AKT-124')")] // unique code
-    [InlineData("2026-000124/1", "c.id = (SELECT id FROM cases WHERE act_number = 'AKT-124')")] // case code
-    [InlineData("AKT-124", "c.act_number LIKE 'AKT-124%'")] // act number prefix
-    [InlineData("bujqës", "c.act_number = 'AKT-130'")] // a word of the object, as a prefix
+    [InlineData("2026-000124", "c.act_number = 'AKT-124'")] // unique code: words 2026 + 000124
+    [InlineData("2026-000124/1", "c.act_number = 'AKT-124'")] // case code
+    [InlineData("AKT-124", "124")] // "124" anywhere in a number (AKT-1240, 2026-001124/1, FL-3124 …)
+    [InlineData("bujqës", "c.act_number = 'AKT-130'")] // inside the object
     [InlineData("BUJQES", "c.act_number = 'AKT-130'")] // case and accent insensitive
-    [InlineData("Zyber", "c.act_number = 'AKT-133'")] // party name prefix; the deleted party of AKT-136 is ignored
+    [InlineData("Zyber", "c.act_number = 'AKT-133'")] // party name; the deleted party of AKT-136 is ignored
+    [InlineData("ber", "c.act_number = 'AKT-133'")] // 3 letters inside a party name
     [InlineData("kristaq zyberaj", "c.act_number = 'AKT-133'")]
-    [InlineData("AKT_12", "1 = 0")] // LIKE wildcards are literal: "_" does not match the "-" of AKT-12…
     public async Task Search_finds_by_code_act_number_object_and_party(string q, string where)
     {
         var s = await SeedAsync();
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser("monitor@ash.local");
 
-        var expected = await Oracle(s.Sql($"{Open} AND {where}"), OpenOrder);
-        if (where != "1 = 0")
-        {
-            expected.ShouldNotBeEmpty();
-        }
+        var expected = await Oracle(s.Sql(where.All(char.IsDigit) ? InNumbers(where) : where), OpenOrder);
+        expected.ShouldNotBeEmpty();
 
         (await PageAll(client, $"tab=all&q={Uri.EscapeDataString(q)}")).Select(PublicIdOf).ToList().ShouldBe(expected);
     }
@@ -392,7 +399,207 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         // AKT-124 is a TR case: the DR Kryetar must not find it
         (await PageAll(client, "tab=office&q=2026-000124")).ShouldBeEmpty();
         (await PageAll(client, "tab=office&q=AKT-125")).Select(PublicIdOf)
-            .ShouldBe(await Oracle(s.Sql($"{Open} AND c.office_id = {{dr}} AND c.act_number LIKE 'AKT-125%'"), OpenOrder));
+            .ShouldBe(await Oracle(s.Sql($"c.office_id = {{dr}} AND {InNumbers("125")}"), OpenOrder));
+    }
+
+    [Fact]
+    public async Task Without_a_status_a_search_covers_every_status_and_a_chosen_status_still_applies()
+    {
+        var s = await SeedAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+
+        // the plain list: open only; status=ALL / OPEN explicitly
+        (await PageAll(client, "tab=all&status=OPEN")).Select(PublicIdOf).ShouldBe(await Oracle(Open, OpenOrder));
+        (await PageAll(client, "tab=all&status=ALL")).Select(PublicIdOf).ShouldBe(await Oracle("1 = 1", OpenOrder));
+
+        var search = $"q={Uri.EscapeDataString("AKT-12")}";
+        var all = await PageAll(client, $"tab=all&{search}");
+        all.Select(PublicIdOf).ShouldBe(await Oracle(s.Sql(InNumbers("12")), OpenOrder));
+        all.ShouldContain(i => i.GetProperty("status").GetString() == "CLOSED");
+
+        (await PageAll(client, $"tab=all&{search}&status=CLOSED")).Select(PublicIdOf)
+            .ShouldBe(await Oracle(s.Sql($"c.lifecycle_status = 'CLOSED' AND {InNumbers("12")}"), "c.closed_at DESC, c.id DESC"));
+        (await PageAll(client, $"tab=all&{search}&status=OPEN")).Select(PublicIdOf)
+            .ShouldBe(await Oracle(s.Sql($"{Open} AND {InNumbers("12")}"), OpenOrder));
+    }
+
+    [Fact]
+    public async Task Court_level_judge_registration_dates_and_institution_filters_match_the_oracle()
+    {
+        var s = await SeedAsync();
+        var judge = Convert.ToInt64(await Scalar("SELECT id FROM judges WHERE last_name = 'Hoxha'"));
+        await Execute(s.Sql($$"""
+            UPDATE cases SET judge_id = {{judge}} WHERE CAST(SUBSTRING(act_number, 5) AS UNSIGNED) % 9 = 0;
+            UPDATE cases SET registered_at = '2026-03-10 12:00:00' WHERE CAST(SUBSTRING(act_number, 5) AS UNSIGNED) % 11 = 0;
+            UPDATE cases SET registered_at = '2026-03-09 22:30:00' WHERE CAST(SUBSTRING(act_number, 5) AS UNSIGNED) % 11 = 1;
+            INSERT INTO case_parties (case_id, party_role_id, party_kind, institution_id, display_name, created_by)
+            SELECT c.id, (SELECT id FROM party_roles WHERE code = 'I_PADITUR'), 'INSTITUTION', {ministry},
+                   'Ministria e Financave dhe Ekonomisë', {prot}
+              FROM cases c WHERE CAST(SUBSTRING(c.act_number, 5) AS UNSIGNED) % 13 = 0;
+            """));
+        var ministry = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM institutions WHERE id = {s.Ministry}"))!);
+
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+        var cases = new (string Query, string Where)[]
+        {
+            ("courtLevel=APPEAL", $"{Open} AND c.court_id IN (SELECT id FROM courts WHERE court_level_id = (SELECT id FROM court_levels WHERE code = 'APPEAL'))"),
+            ($"judgeId={judge}", $"{Open} AND c.judge_id = {judge}"),
+            // 10 Mar 2026 in Tirane (CET, UTC+1) = [9 Mar 23:00 UTC, 10 Mar 23:00 UTC): 22:30 UTC on the 9th is outside
+            ("registeredFrom=2026-03-10&registeredTo=2026-03-10", $"{Open} AND c.registered_at >= '2026-03-09 23:00:00' AND c.registered_at < '2026-03-10 23:00:00'"),
+            ($"institutionId={ministry}", $"{Open} AND EXISTS (SELECT 1 FROM case_parties p WHERE p.case_id = c.id AND p.institution_id = {{ministry}} AND p.deleted_at IS NULL)"),
+        };
+        foreach (var (query, where) in cases)
+        {
+            var expected = await Oracle(s.Sql(where), OpenOrder);
+            expected.ShouldNotBeEmpty(query);
+            (await PageAll(client, $"tab=all&{query}")).Select(PublicIdOf).ToList().ShouldBe(expected, query);
+        }
+    }
+
+    [Fact]
+    public async Task Each_page_carries_the_total_of_the_filtered_list()
+    {
+        var s = await SeedAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+
+        var first = await GetPage(client, $"/api/cases?tab=all&limit=10&courtId={s.Court2}");
+        var total = (await Oracle(s.Sql($"{Open} AND c.court_id = {{court2}}"), "c.id")).Count;
+        first.GetProperty("total").GetInt32().ShouldBe(total);
+        first.GetProperty("items").GetArrayLength().ShouldBe(10);
+
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        (await GetPage(client, $"/api/cases?tab=all&limit=10&courtId={s.Court2}&after={cursor}"))
+            .GetProperty("total").GetInt32().ShouldBe(total, "the total does not depend on the page");
+    }
+
+    // ---------------------------------------------------------------- substring search (ngram, script 014)
+
+    /// <summary>
+    /// Three cases: A 2026-686640/1 (act "Nr. 4521/2026", object about "Ministria e Financave dhe Ekonomisë", parties
+    /// Arben Hoxha and the ministry), B 2026-100200/1 CLOSED (object "… Ministria e Shëndetësisë", party Bashkia Tiranë
+    /// with NIPT K81234567A), C 2026-300400/1 (party Klodian Leka). Returns their public ids by letter.
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> SeedSearchAsync()
+    {
+        var s = await SeedScenarioOnlyAsync();
+        await Execute(s.Sql("""
+            INSERT INTO dossiers (unique_code, code_format_id, office_id, opened_by)
+            SELECT v.code, (SELECT id FROM dossier_code_formats WHERE is_active = 1), {tr}, {prot}
+              FROM (SELECT '2026-686640' AS code UNION ALL SELECT '2026-100200' UNION ALL SELECT '2026-300400') v;
+            INSERT INTO cases (dossier_id, level_seq, case_code, office_id, summons_number, act_number, received_date,
+                               court_level_id, court_id, object_text, lifecycle_status, registered_by, closed_at, closed_by)
+            SELECT d.id, 1, CONCAT(d.unique_code, '/1'), {tr}, v.summons, v.act, '2026-01-01',
+                   (SELECT id FROM court_levels WHERE code = 'FIRST_INSTANCE'), {court2}, v.object, v.status, {prot},
+                   IF(v.status = 'CLOSED', UTC_TIMESTAMP(3), NULL), IF(v.status = 'CLOSED', {prot}, NULL)
+              FROM (SELECT '2026-686640' AS code, 'FL-9917' AS summons, 'Nr. 4521/2026' AS act,
+                           'Padi kundër Ministria e Financave dhe Ekonomisë për pagesë' AS object, 'ACTIVE' AS status
+                    UNION ALL SELECT '2026-100200', 'FL-1', 'AKT-77', 'Kërkesë ndaj Ministria e Shëndetësisë', 'CLOSED'
+                    UNION ALL SELECT '2026-300400', 'FL-2', 'AKT-88', 'Shpërblim dëmi', 'REGISTERED') v
+              JOIN dossiers d ON d.unique_code = v.code;
+            INSERT INTO case_parties (case_id, party_role_id, party_kind, institution_id, display_name, identifier, created_by)
+            SELECT c.id, (SELECT id FROM party_roles WHERE code = 'PADITES'), v.kind, v.institution, v.name, v.nipt, {prot}
+              FROM (SELECT '2026-686640/1' AS code, 'NATURAL' AS kind, NULL AS institution, 'Arben Hoxha' AS name, NULL AS nipt
+                    UNION ALL SELECT '2026-686640/1', 'INSTITUTION', {ministry}, 'Ministria e Financave dhe Ekonomisë', NULL
+                    UNION ALL SELECT '2026-100200/1', 'LEGAL', NULL, 'Bashkia Tiranë', 'K81234567A'
+                    UNION ALL SELECT '2026-300400/1', 'NATURAL', NULL, 'Klodian Leka', NULL) v
+              JOIN cases c ON c.case_code = v.code;
+            """));
+
+        var ids = new Dictionary<string, Guid>();
+        foreach (var (letter, code) in new[] { ("A", "2026-686640/1"), ("B", "2026-100200/1"), ("C", "2026-300400/1") })
+        {
+            ids[letter] = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM cases WHERE case_code = '{code}'"))!);
+        }
+
+        return ids;
+    }
+
+    /// <summary>The ids SeedAsync's SQL needs, without the 5,000 cases.</summary>
+    private async Task<Scenario> SeedScenarioOnlyAsync()
+    {
+        async Task<long> Id(string sql) => Convert.ToInt64(await Scalar(sql));
+        return new Scenario(
+            Tr: await Id("SELECT id FROM offices WHERE code = 'TR'"),
+            Dr: 0,
+            Ministry: await Id("SELECT id FROM institutions WHERE name = 'Ministria e Financave dhe Ekonomisë'"),
+            Protokoll: await Id("SELECT id FROM users WHERE email = 'protokoll@ash.local'"),
+            Kryetar: await Id("SELECT id FROM users WHERE email = 'kryetar@ash.local'"),
+            Avokat1: await Id("SELECT id FROM users WHERE email = 'avokat1@ash.local'"),
+            Court2: await Id("SELECT id FROM courts WHERE name = 'Gjykata e Apelit Tiranë'"),
+            Category: await Id("SELECT id FROM case_categories WHERE code = 'NDJEKJE'"),
+            DrKryetarEmail: string.Empty,
+            DrLawyerEmail: string.Empty);
+    }
+
+    [Theory]
+    [InlineData("640", "A")] // inside the case code 2026-686640/1
+    [InlineData("86640", "A")]
+    [InlineData("4521", "A")] // part of the act number "Nr. 4521/2026"
+    [InlineData("rbe", "A")] // 3 letters inside the party name "Arben"
+    [InlineData("hoxha", "A")] // party name, any case
+    [InlineData("minist", "A,B")] // "Ministria" in both objects (and A's party)
+    [InlineData("stri", "A,B")] // M-in-ist-ria: needs the stopwords off (script 014)
+    [InlineData("inan", "A")] // Fin-an-cave
+    [InlineData("tiran", "B")] // "Bashkia Tiranë"
+    [InlineData("shendetesise", "B")] // accent-insensitive: "Shëndetësisë"
+    [InlineData("81234", "B")] // inside the party's NIPT
+    [InlineData("an", "A,B,C")] // 2 characters: Arben / Financave, Tiranë, Klodian
+    [InlineData("zzz", "")]
+    public async Task Search_matches_anywhere_inside_codes_names_and_objects(string q, string expected)
+    {
+        var ids = await SeedSearchAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+
+        var page = await GetPage(client, $"/api/cases?tab=all&q={Uri.EscapeDataString(q)}");
+        var found = page.GetProperty("items").EnumerateArray().Select(PublicIdOf).ToHashSet();
+        var wanted = expected.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => ids[x]).ToHashSet();
+        found.ShouldBe(wanted, ignoreOrder: true, q);
+        page.GetProperty("total").GetInt32().ShouldBe(wanted.Count);
+    }
+
+    [Fact]
+    public async Task A_closed_case_is_found_by_a_search_but_not_with_the_open_status()
+    {
+        var ids = await SeedSearchAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+
+        (await PageAll(client, "tab=all")).Select(PublicIdOf).ShouldNotContain(ids["B"]); // the plain list: open only
+        (await PageAll(client, "tab=all&q=tiran")).Select(PublicIdOf).ShouldBe([ids["B"]]);
+        (await PageAll(client, "tab=all&q=tiran&status=OPEN")).ShouldBeEmpty();
+        (await PageAll(client, "tab=all&status=CLOSED")).Select(PublicIdOf).ShouldContain(ids["B"]);
+    }
+
+    [Fact]
+    public async Task Explain_the_search_uses_the_ngram_indexes()
+    {
+        await SeedSearchAsync();
+        await Execute("ANALYZE TABLE cases, case_parties");
+
+        var services = new ServiceCollection();
+        services.AddAshInfrastructure(Db.AppConnectionString);
+        services.AddReferenceModule(new ConfigurationBuilder().Build());
+        services.AddCasesModule(new ConfigurationBuilder().Build());
+        var currentUser = await LoadUser("monitor@ash.local");
+        services.AddScoped<ICurrentUser>(_ => currentUser);
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var builder = scope.ServiceProvider.GetRequiredService<CaseListQueryBuilder>();
+
+        var filter = new CaseListFilter(CaseListTab.All, CaseListFilter.AllStatuses, null, null, null, null, null, null, null, "640");
+        var sql = builder.Page(filter, null, 11).ToQueryString();
+        var plan = await Explain(sql);
+        var text = $"{sql}\n" + string.Join('\n', plan.Select(r => $"{r.Table,-20} type={r.Type,-8} key={r.Key ?? "NULL",-28} rows={r.Rows} {r.Extra}"));
+        TestContext.Current.TestOutputHelper?.WriteLine(text);
+
+        foreach (var index in new[] { "ftn_cases_numbers", "ftn_cases_object", "ftn_cp_name_identifier" })
+        {
+            plan.ShouldContain(r => r.Key == index && r.Type == "fulltext", $"{index}\n{text}");
+        }
     }
 
     // ---------------------------------------------------------------- office filter (task 031)

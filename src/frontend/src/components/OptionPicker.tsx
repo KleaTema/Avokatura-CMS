@@ -1,6 +1,6 @@
-import { Autocomplete, TextField } from '@mui/material'
 import { sq } from '../i18n/sq'
 import { matches } from '../lib/search'
+import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 export interface PickerOption {
   value: string
@@ -9,7 +9,7 @@ export interface PickerOption {
 
 /**
  * Autocomplete for a known list of options (more than ~10), filtered accent-insensitively as the user types.
- * value '' = nothing chosen; clearing the field sets ''.
+ * value '' = nothing chosen ("Të gjitha" with `filter`, "— Asnjë —" for an optional field; see AppAutocomplete).
  */
 export function OptionPicker({
   options,
@@ -17,18 +17,18 @@ export function OptionPicker({
   onChange,
   label,
   required,
+  filter,
   disabled,
   error,
   helperText,
   autoFocus,
   noOptionsText = sq.search.noOptions,
   size,
-}: {
+}: EmptyChoice & {
   options: PickerOption[]
   value: string
   onChange: (value: string) => void
   label: string
-  required?: boolean
   disabled?: boolean
   error?: boolean
   helperText?: string
@@ -36,28 +36,23 @@ export function OptionPicker({
   noOptionsText?: string
   size?: 'small' | 'medium'
 }) {
-  const selected = options.find((o) => o.value === value) ?? null
   return (
-    <Autocomplete<PickerOption>
+    <AppAutocomplete<PickerOption>
       options={options}
-      value={selected}
-      onChange={(_, picked) => onChange(picked?.value ?? '')}
+      value={options.find((o) => o.value === value) ?? null}
+      onChange={(picked) => onChange(picked?.value ?? '')}
       getOptionLabel={(o) => o.label}
-      isOptionEqualToValue={(a, b) => a.value === b.value}
-      filterOptions={(all, state) => all.filter((o) => matches(state.inputValue, o.label))}
+      getOptionKey={(o) => o.value}
+      filterOptions={(all, input) => all.filter((o) => matches(input, o.label))}
+      label={label}
+      required={required}
+      filter={filter}
       disabled={disabled}
-      size={size}
+      error={error}
+      helperText={helperText}
+      autoFocus={autoFocus}
       noOptionsText={noOptionsText}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          required={required}
-          error={error}
-          helperText={helperText}
-          autoFocus={autoFocus}
-        />
-      )}
+      size={size}
     />
   )
 }

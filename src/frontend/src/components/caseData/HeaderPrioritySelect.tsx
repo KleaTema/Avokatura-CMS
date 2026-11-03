@@ -1,7 +1,8 @@
-import { MenuItem, Stack, TextField } from '@mui/material'
+import { Stack } from '@mui/material'
 import { useState } from 'react'
 import { useSetPriority, type CaseDetail } from '../../features/cases/api'
 import { sq } from '../../i18n/sq'
+import { AppSelect } from '../ui/AppSelect'
 import { SuccessToast } from '../ui/SuccessToast'
 import { useSaveOutcome } from './useSaveOutcome'
 
@@ -28,21 +29,17 @@ export function HeaderPrioritySelect({ detail }: { detail: CaseDetail }) {
 
   return (
     <Stack spacing={1}>
-      <TextField
-        select
+      {/* always one of the priorities ("Pa prioritet" included): no empty option */}
+      <AppSelect
+        required
         size="small"
         label={sq.cases.edit.priority.label}
         value={detail.header.priority}
-        onChange={(ev) => void change(ev.target.value)}
+        onChange={(value) => void change(value)}
         disabled={save.isPending || outcome.refreshing}
+        options={Object.entries(sq.cases.priority).map(([code, name]) => ({ value: code, label: name }))}
         sx={{ width: 180 }}
-      >
-        {Object.entries(sq.cases.priority).map(([code, name]) => (
-          <MenuItem key={code} value={code}>
-            {name}
-          </MenuItem>
-        ))}
-      </TextField>
+      />
       {outcome.feedback}
       <SuccessToast message={toast} onClose={() => setToast(null)} />
     </Stack>
