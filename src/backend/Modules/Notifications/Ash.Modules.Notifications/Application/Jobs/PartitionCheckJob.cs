@@ -5,7 +5,6 @@ using Ash.Modules.Notifications.Contracts;
 using Ash.SharedKernel.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using MySql.Data.MySqlClient;
 
 namespace Ash.Modules.Notifications.Application.Jobs;
 
@@ -62,25 +61,17 @@ internal sealed class PartitionCheckJob(
     /// <summary>What is wrong, in Albanian, per table ("ash_audit.audit_log: …"); empty when all is well.</summary>
     private async Task<List<string>> ProblemsAsync(DateTime nowUtc, CancellationToken ct)
     {
-        // next month's partition ends on the first day of the month after it (partitions are by UTC month)
-        var nextMonthEnd = new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(2);
-        await using var connection = new MySqlConnection(persistence.ConnectionString);
-        await connection.OpenAsync(ct);
-        await using var command = new MySqlCommand("CALL ash_ops.partition_status(@end)", connection);
-        command.Parameters.AddWithValue("@end", nextMonthEnd.Date);
-        await using var reader = await command.ExecuteReaderAsync(ct);
         var problems = new List<string>();
-        while (await reader.ReadAsync(ct))
+        foreach (var table in await PartitionStatus.ReadAsync(persistence.ConnectionString, nowUtc, ct))
         {
-            var table = $"{reader.GetString(0)}.{reader.GetString(1)}";
-            if (Convert.ToInt32(reader.GetValue(2)) != 0)
+            if (table.PMaxHasRows)
             {
-                problems.Add($"{table}: particioni p_max ka rreshta");
+                problems.Add($"{table.Table}: particioni p_max ka rreshta");
             }
 
-            if (Convert.ToInt32(reader.GetValue(3)) == 0)
+            if (!table.NextMonthReady)
             {
-                problems.Add($"{table}: mungon particioni i muajit të ardhshëm");
+                problems.Add($"{table.Table}: mungon particioni i muajit të ardhshëm");
             }
         }
 

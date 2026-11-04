@@ -485,7 +485,8 @@ public class BackgroundJobTests(MySqlFixture db) : IntegrationTest(db)
         (await Check(now.AddHours(49)).Run()).Description!.ShouldContain("audit-digest");
 
         // disabled jobs: nothing is expected to run
-        var disabled = new JobsHealthCheck(scopes, new JobOptions { Enabled = false }, new JobSchedulerState(), persistence, new FixedClock(now.AddDays(9)));
+        var disabled = new JobsHealthCheck(new JobStatusReader(scopes, new JobSchedulerState(), persistence),
+            new JobOptions { Enabled = false }, new FixedClock(now.AddDays(9)));
         (await disabled.CheckHealthAsync(new HealthCheckContext(), Ct)).Status.ShouldBe(HealthStatus.Healthy);
     }
 
@@ -493,7 +494,8 @@ public class BackgroundJobTests(MySqlFixture db) : IntegrationTest(db)
     private sealed class StaleCheck(IServiceScopeFactory scopes, PersistenceOptions persistence, DateTime now)
     {
         public Task<HealthCheckResult> Run() =>
-            new JobsHealthCheck(scopes, new JobOptions { Enabled = true }, new JobSchedulerState { StartedAtUtc = now }, persistence, new FixedClock(now))
+            new JobsHealthCheck(new JobStatusReader(scopes, new JobSchedulerState { StartedAtUtc = now }, persistence),
+                    new JobOptions { Enabled = true }, new FixedClock(now))
                 .CheckHealthAsync(new HealthCheckContext(), Ct);
     }
 

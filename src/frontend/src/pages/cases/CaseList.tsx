@@ -81,8 +81,10 @@ type Param =
   | 'office'
   | 'institution'
   | 'institutionName'
+  | 'filter'
 const FILTER_PARAMS: Param[] = [
   'q',
+  'filter',
   'status',
   'level',
   'court',
@@ -224,6 +226,7 @@ export function CaseListPage() {
     lawyerId: canFilterLawyer ? get('lawyer') : '',
     officeId: canFilterOffice ? get('office') : '',
     institutionId: get('institution'),
+    filter: get('filter'),
   }
   const paging = useKeysetPaging()
   const list = useCaseList(filters, { cursor: paging.cursor, size: paging.size }, tab !== '')
@@ -256,6 +259,11 @@ export function CaseListPage() {
   const range = (from: string, to: string) => `${formatDate(from) || '…'} – ${formatDate(to) || '…'}`
   const chips: { key: string; label: string; clear: Partial<Record<Param, string>>; inPanel: boolean }[] = []
   if (search.trim()) chips.push({ key: 'q', label: `${t.searchChip}: „${search.trim()}“`, clear: { q: '' }, inPanel: false })
+  // a dashboard card's filter (task 046): always visible, removable like any other
+  if (filters.filter) {
+    const name = t.specialFilters[filters.filter] ?? filters.filter
+    chips.push({ key: 'filter', label: `${t.special}: ${name}`, clear: { filter: '' }, inPanel: false })
+  }
   if (filters.status) {
     const name = STATUS_OPTIONS.find((o) => o.value === filters.status)?.label ?? filters.status
     chips.push({ key: 'status', label: `${t.status}: ${name}`, clear: { status: '' }, inPanel: narrow })

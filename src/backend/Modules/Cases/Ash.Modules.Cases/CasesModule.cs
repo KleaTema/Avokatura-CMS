@@ -9,6 +9,7 @@ using Ash.Modules.Cases.Application.ChangeJudge;
 using Ash.Modules.Cases.Application.ChangeObject;
 using Ash.Modules.Cases.Application.DelegateCase;
 using Ash.Modules.Cases.Application.Assistants;
+using Ash.Modules.Cases.Application.Dashboard;
 using Ash.Modules.Cases.Application.FilterOptions;
 using Ash.Modules.Cases.Application.SetCategory;
 using Ash.Modules.Cases.Application.SetPriority;
@@ -57,6 +58,7 @@ public static class CasesModule
 		services.AddScoped<NextLevelPreviewHandler>();
 		services.AddScoped<NotifyNotClosedHandler>();
 		services.AddScoped<CaseListQueryBuilder>();
+		services.AddScoped<CaseListSpecialFactory>();
 		services.AddScoped<ListCasesHandler>();
 		services.AddScoped<CaseTabsHandler>();
 		services.AddScoped<GetCaseHandler>();
@@ -102,6 +104,8 @@ public static class CasesModule
 		services.AddScoped<ArchiveDossierHandler>();
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();
+		services.AddScoped<DashboardWidgets>();
+		services.AddScoped<DashboardHandler>();
 		services.AddScheduledJob<DataReminderJob>();
 		services.AddScheduledJob<HearingReminderJob>();
 		return services;
@@ -110,6 +114,6 @@ public static class CasesModule
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
-			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision().MapDossiers();
+			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision().MapDossiers().MapDashboard();
 	}
 }

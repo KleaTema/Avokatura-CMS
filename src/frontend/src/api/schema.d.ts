@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/admin/jobs/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RunJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/me": {
         parameters: {
             query?: never;
@@ -532,6 +548,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/documents": {
         parameters: {
             query?: never;
@@ -654,6 +686,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["MarkAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VerifyAuditChain"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1811,6 +1859,18 @@ export interface components {
             publicId: string;
             name: string;
         };
+        AuditChainVerification: {
+            ok: boolean;
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: int32 */
+            checkedDays: number | string;
+            /** Format: date */
+            firstBrokenDay: null | string;
+            reason: null | string;
+        };
         CaseCategoryResponse: {
             code: string;
             name: string;
@@ -2110,6 +2170,38 @@ export interface components {
             institutionId: null | string;
             roles: null | string[];
         };
+        DashboardItem: {
+            label: string;
+            detail?: null | string;
+            /** Format: date-time */
+            at?: null | string;
+            /** Format: int64 */
+            value?: null | number | string;
+            /** Format: int64 */
+            value2?: null | number | string;
+            linkPath?: null | string;
+            link2Path?: null | string;
+            caseCode?: null | string;
+            courtName?: null | string;
+            status?: null | string;
+        };
+        DashboardResponse: {
+            widgets: components["schemas"]["DashboardWidget"][];
+            /** Format: date-time */
+            generatedAt: string;
+        };
+        DashboardWidget: {
+            code: string;
+            kind: string;
+            title: string;
+            /** Format: int64 */
+            value?: null | number | string;
+            /** Format: int64 */
+            secondary?: null | number | string;
+            items?: null | components["schemas"]["DashboardItem"][];
+            linkPath?: null | string;
+            error?: null | string;
+        };
         DecisionDocumentView: {
             /** Format: uuid */
             publicId: string;
@@ -2352,6 +2444,11 @@ export interface components {
             shortName: null | string;
             institutionType: string;
             parentName: null | string;
+        };
+        JobRunResponse: {
+            job: string;
+            outcome: string;
+            error: null | string;
         };
         JsonNode: unknown;
         JudgeAdminResponse: {
@@ -2892,6 +2989,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    RunJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRunResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     GetMe: {
         parameters: {
             query?: never;
@@ -3257,6 +3385,7 @@ export interface operations {
                 registeredFrom?: string;
                 registeredTo?: string;
                 institutionId?: string;
+                filter?: string;
             };
             header?: never;
             path?: never;
@@ -4347,6 +4476,26 @@ export interface operations {
             };
         };
     };
+    GetDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardResponse"];
+                };
+            };
+        };
+    };
     ListDocuments: {
         parameters: {
             query?: {
@@ -4725,6 +4874,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadAllResponse"];
+                };
+            };
+        };
+    };
+    VerifyAuditChain: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditChainVerification"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
         };

@@ -14,7 +14,9 @@ namespace Ash.Modules.Cases.Application.ListCases;
 /// Query string of GET /api/cases. Status: OPEN (REGISTERED + ACTIVE), ALL, REGISTERED, ACTIVE or CLOSED; without
 /// one, OPEN — or ALL as soon as q is given (a search finds closed cases too). hearingFrom/hearingTo and
 /// registeredFrom/registeredTo are Tirane calendar dates; lawyerId a user, officeId an office, institutionId an
-/// institution that is a party (public ids); courtLevel a court level code; judgeId a judge id.
+/// institution that is a party (public ids); courtLevel a court level code; judgeId a judge id. filter: one of the
+/// dashboard's named predicates (task 046, <see cref="CaseListSpecial"/>): missingData30, missingData6m,
+/// hearingOverdue, hearingThisWeek, decisionPending (status CLOSED unless given), noJurist, delegated (institution users).
 /// </summary>
 public sealed record ListCasesQuery(
     string? Tab,
@@ -34,7 +36,8 @@ public sealed record ListCasesQuery(
     long? JudgeId = null,
     DateOnly? RegisteredFrom = null,
     DateOnly? RegisteredTo = null,
-    Guid? InstitutionId = null);
+    Guid? InstitutionId = null,
+    string? Filter = null);
 
 /// <summary>A row of the case list. Public ids only; names from Reference (court) and Identity (lawyer).</summary>
 public sealed record CaseListItem(
@@ -64,6 +67,7 @@ internal sealed class ListCasesHandler(
     IUserDirectory users,
     IOfficeDirectory offices,
     IInstitutionDirectory institutions,
+    CaseListSpecialFactory specials,
     ICurrentUser user,
     IClock clock)
 {
@@ -270,9 +274,28 @@ internal sealed class ListCasesHandler(
             }
         }
 
+        CaseListSpecialFilter? special = null;
+        if (!string.IsNullOrWhiteSpace(q.Filter))
+        {
+            if (!CaseListSpecialFilter.TryParse(q.Filter, out var kind))
+            {
+                errors.Add("filter", "Filtri nuk ekziston.");
+            }
+            else if ((special = await specials.CreateAsync(kind, clock.UtcNow, ct)) is null)
+            {
+                errors.Add("filter", "Ky filtër është vetëm për përdoruesit e një institucioni.");
+            }
+        }
+
         if (errors.Any)
         {
             return null;
+        }
+
+        // the reasoned decision is awaited on CLOSED cases: that filter alone lists the closed ones
+        if (special?.Kind == CaseListSpecial.DecisionPending)
+        {
+            status ??= Case.Closed;
         }
 
         // no status chosen: a search covers every status (closed cases must be findable), the plain list the open ones
@@ -289,6 +312,7 @@ internal sealed class ListCasesHandler(
             InstitutionId = institutionId,
             RegisteredFromUtc = q.RegisteredFrom is { } rf ? TiraneTime.StartOfDayUtc(rf) : null,
             RegisteredToUtc = q.RegisteredTo is { } rt ? TiraneTime.StartOfDayUtc(rt.AddDays(1)) : null,
+            Special = special,
         };
     }
 

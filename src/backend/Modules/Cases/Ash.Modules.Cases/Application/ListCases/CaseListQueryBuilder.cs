@@ -54,6 +54,9 @@ public sealed record CaseListFilter(
 
     public DateTime? RegisteredToUtc { get; init; }
 
+    /// <summary>A named dashboard predicate (task 046, "filter="), or none.</summary>
+    public CaseListSpecialFilter? Special { get; init; }
+
     /// <summary>The tab's open cases without filters (tab counts, default tab).</summary>
     public static CaseListFilter Open(CaseListTab tab) => new(tab, OpenStatus, null, null, null, null, null, null, null, null);
 
@@ -67,7 +70,9 @@ public sealed record CaseListFilter(
         var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? OpenStatus, CourtId, CategoryId, Priority, Suspended,
             LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort, OfficeId,
             LevelCourtIds is null ? null : string.Join(',', LevelCourtIds), JudgeId, InstitutionId,
-            RegisteredFromUtc?.Ticks, RegisteredToUtc?.Ticks);
+            RegisteredFromUtc?.Ticks, RegisteredToUtc?.Ticks,
+            // the kind only: a cursor stays valid while "now" moves on between pages
+            Special is null ? null : CaseListSpecialFilter.Code(Special.Kind));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
     }
 }
@@ -201,7 +206,59 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             cases = cases.Where(c => matches.Contains(c.Id));
         }
 
+        if (f.Special is { } special)
+        {
+            cases = ApplySpecial(cases, special);
+        }
+
         return access.ApplyScope(cases);
+    }
+
+    /// <summary>The dashboard's named predicates (task 046); every one rides an existing index.</summary>
+    private IQueryable<Case> ApplySpecial(IQueryable<Case> cases, CaseListSpecialFilter s)
+    {
+        switch (s.Kind)
+        {
+            case CaseListSpecial.MissingData30:
+            case CaseListSpecial.MissingData6M:
+                // ix_cases_reminder (lifecycle_status, first_data_entry_at, assigned_at); assigned_at restarts on a transfer
+                var cutoff = s.CutoffUtc!.Value;
+                return cases.Where(c => c.LifecycleStatus == Case.Active && c.FirstDataEntryAt == null && c.AssignedAt <= cutoff);
+
+            case CaseListSpecial.HearingOverdue:
+                // next_hearing_at = the earliest SCHEDULED hearing, past ones included (ix_cases_next_hearing)
+                var now = s.CutoffUtc!.Value;
+                return cases.Where(c => c.NextHearingAt < now);
+
+            case CaseListSpecial.HearingThisWeek:
+                // IN (the week's hearings): driven by ix_ch_agenda (scheduled_at, status) — one week is a few hundred
+                // rows — then the cases by primary key; an EXISTS per case would probe every open case of the tab
+                var from = s.FromUtc!.Value;
+                var to = s.ToUtc!.Value;
+                var week = db.CaseHearings
+                    .Where(h => h.ScheduledAt >= from && h.ScheduledAt < to && h.Status == CaseHearing.Scheduled)
+                    .Select(h => h.CaseId);
+                return cases.Where(c => week.Contains(c.Id));
+
+            case CaseListSpecial.DecisionPending:
+                // the decision row by its key; CLOSED comes from the status (default CLOSED with this filter)
+                return cases.Where(c => db.CaseDecisions.Any(d => d.CaseId == c.Id && !d.DecisionReceived));
+
+            case CaseListSpecial.NoJurist:
+                // ix_ca_case_current (case_id, ended_at): no current jurist assignment held by one of the institution's jurists
+                var jurists = s.JuristUserIds ?? [];
+                return cases.Where(c => !db.CaseAssignments.Any(a => a.CaseId == c.Id && a.EndedAt == null
+                    && a.CaseRole == CaseAssignmentRow.InstitutionJurist && jurists.Contains(a.UserId)));
+
+            case CaseListSpecial.Delegated:
+                // ix_ci_institution (institution_id, ended_at, case_id)
+                var institution = s.InstitutionId!.Value;
+                return cases.Where(c => db.CaseInstitutions.Any(i => i.InstitutionId == institution && i.EndedAt == null
+                    && i.CaseId == c.Id && i.LinkMode == CaseInstitution.Delegated));
+
+            default:
+                return cases;
+        }
     }
 
     /// <summary>One page in keyset order: <paramref name="take"/> rows after <paramref name="after"/>.</summary>

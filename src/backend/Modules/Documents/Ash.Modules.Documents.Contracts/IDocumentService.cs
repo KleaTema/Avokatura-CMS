@@ -21,4 +21,7 @@ public interface IDocumentService
 
     /// <summary>True only for an existing, not deleted, CLEAN document (only those may be linked or downloaded).</summary>
     Task<bool> IsCleanAsync(Guid publicId, CancellationToken ct = default);
+
+    /// <summary>Not deleted documents whose scan FAILED (the scanner was unreachable for every attempt) — the admin dashboard.</summary>
+    Task<int> CountFailedScansAsync(CancellationToken ct = default);
 }

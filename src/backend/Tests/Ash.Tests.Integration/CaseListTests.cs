@@ -675,6 +675,53 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         driving.ShouldContain(r => r.Key != null && (expectedKey == null || r.Key == expectedKey), text);
     }
 
+    /// <summary>
+    /// Task 046: the dashboard's named filters. The table each one adds (hearings, decisions, assignments,
+    /// institution links) is reached by an index, never scanned; the plan of the cases table is logged (see above).
+    /// </summary>
+    [Theory]
+    [InlineData("kryetar@ash.local", CaseListTab.Office, CaseListSpecial.MissingData30, null)]
+    [InlineData("kryetar@ash.local", CaseListTab.Office, CaseListSpecial.HearingOverdue, null)]
+    [InlineData("avokat1@ash.local", CaseListTab.Mine, CaseListSpecial.HearingThisWeek, "case_hearings")]
+    [InlineData("kryetar@ash.local", CaseListTab.Office, CaseListSpecial.DecisionPending, "case_decisions")]
+    [InlineData("institucion@ash.local", CaseListTab.Institution, CaseListSpecial.NoJurist, "case_assignments")]
+    [InlineData("institucion@ash.local", CaseListTab.Institution, CaseListSpecial.Delegated, "case_institutions")]
+    public async Task Explain_each_dashboard_filter_reaches_its_table_by_an_index(
+        string user, CaseListTab tab, CaseListSpecial kind, string? addedTable)
+    {
+        await SeedAsync();
+        await Execute("ANALYZE TABLE cases, case_assignments, case_institutions, case_hearings, case_decisions");
+
+        var services = new ServiceCollection();
+        services.AddAshInfrastructure(Db.AppConnectionString);
+        services.AddReferenceModule(new ConfigurationBuilder().Build());
+        services.AddCasesModule(new ConfigurationBuilder().Build());
+        var currentUser = await LoadUser(user);
+        services.AddScoped<ICurrentUser>(_ => currentUser);
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var builder = scope.ServiceProvider.GetRequiredService<CaseListQueryBuilder>();
+
+        var now = new DateTime(2026, 11, 4, 10, 0, 0, DateTimeKind.Utc);
+        var special = CaseListSpecialFilter.Create(kind, now, (uint?)currentUser.InstitutionId, [1u, 2u]);
+        var status = kind == CaseListSpecial.DecisionPending ? "CLOSED" : CaseListFilter.OpenStatus;
+        var filter = new CaseListFilter(tab, status, null, null, null, null, null, null, null, null) { Special = special };
+        var sql = builder.Filtered(filter).Select(c => c.Id).ToQueryString();
+        var plan = await Explain(sql);
+        var aliases = Regex.Matches(sql, @"`(\w+)` AS `(\w+)`").ToDictionary(m => m.Groups[2].Value, m => m.Groups[1].Value, StringComparer.Ordinal);
+        string TableOf(PlanRow row) => aliases.GetValueOrDefault(row.Table, row.Table);
+
+        var text = $"filter {kind}\n{sql}\n" + string.Join('\n', plan.Select(r => $"{TableOf(r),-20} type={r.Type,-8} key={r.Key ?? "NULL",-28} rows={r.Rows} {r.Extra}"));
+        TestContext.Current.TestOutputHelper?.WriteLine(text);
+
+        if (addedTable is not null)
+        {
+            var added = plan.Where(r => TableOf(r) == addedTable).ToList();
+            added.ShouldNotBeEmpty(text);
+            added.ShouldAllBe(r => r.Type != "ALL" && r.Key != null, text);
+        }
+    }
+
     private sealed record PlanRow(string Table, string Type, string? Key, long Rows, string Extra);
 
     /// <summary>Turns EF's ToQueryString output (parameter lines + statement) into SET @p … ; EXPLAIN statement.</summary>

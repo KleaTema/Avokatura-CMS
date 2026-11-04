@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { z } from 'zod'
+import { dashboardKeys } from '../features/dashboard/api'
 import { notificationKeys, useMarkRead, useUnreadCount } from '../features/notifications/api'
 import { sq } from '../i18n/sq'
 import { authMode, getDevUser, userManager } from './authConfig'
@@ -77,6 +78,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       setLatestLive(live)
       setToast(live)
       void qc.invalidateQueries({ queryKey: notificationKeys.all, predicate: (q) => q.queryKey[1] !== 'unread-count' })
+      // what the notification is about usually changes a dashboard number (task 046)
+      void qc.invalidateQueries({ queryKey: dashboardKeys.all })
     })
     connection.on('notification.count', (payload: unknown) => {
       const parsed = countSchema.safeParse(payload)

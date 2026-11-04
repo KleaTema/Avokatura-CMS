@@ -11,6 +11,7 @@ public static class JobServiceCollectionExtensions
         services.AddSingleton(configuration.GetSection(JobOptions.Section).Get<JobOptions>() ?? new JobOptions());
         services.AddSingleton<JobSchedulerState>();
         services.AddSingleton<JobRunner>();
+        services.AddSingleton<JobStatusReader>();
         services.AddSingleton<JobsHealthCheck>();
         services.AddScoped<SentReminders>();
         services.AddHostedService<JobScheduler>();

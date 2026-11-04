@@ -42,4 +42,8 @@ internal sealed class DocumentService(DocumentsDbContext db, IReferenceData refe
 
     public Task<bool> IsCleanAsync(Guid publicId, CancellationToken ct = default) =>
         db.Documents.AsNoTracking().AnyAsync(d => d.PublicId == publicId && d.DeletedAt == null && d.ScanStatus == DocumentRow.Clean, ct);
+
+    // ix_documents_scan (scan_status, uploaded_at)
+    public Task<int> CountFailedScansAsync(CancellationToken ct = default) =>
+        db.Documents.AsNoTracking().CountAsync(d => d.ScanStatus == DocumentRow.Failed && d.DeletedAt == null, ct);
 }

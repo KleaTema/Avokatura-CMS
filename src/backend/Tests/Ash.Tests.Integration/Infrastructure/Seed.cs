@@ -37,9 +37,10 @@ public sealed class Seed : IAsyncDisposable
         return new Seed(connection);
     }
 
-    public Task<long> OfficeAsync(string name, string type = "CENTRAL") =>
+    /// <param name="code">Unique per office; the default fits one office per seed.</param>
+    public Task<long> OfficeAsync(string name, string type = "CENTRAL", string? code = null) =>
         InsertAsync("INSERT INTO offices (code, name, office_type) VALUES (@c, @n, @t)",
-            ("@c", $"T{Suffix}"), ("@n", name), ("@t", type));
+            ("@c", code ?? $"T{Suffix}"), ("@n", name), ("@t", type));
 
     public Task<long> InstitutionAsync(string name, string shortName, string type = "MINISTRY") =>
         InsertAsync("INSERT INTO institutions (name, short_name, institution_type) VALUES (@n, @s, @t)",

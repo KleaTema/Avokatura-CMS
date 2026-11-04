@@ -12,12 +12,15 @@ export function KpiCard({
   title,
   value,
   trend,
+  note,
 }: {
   tone: Tone
   icon: LucideIcon
   title: string
   value: string | number
   trend?: { direction: 'up' | 'down'; text: string }
+  /** one line of context under the number (e.g. "Më e vjetra pret 5 ditë") — not a trend, no arrow */
+  note?: string
 }) {
   const color = tones[tone]
   const Trend = trend?.direction === 'down' ? TrendingDown : TrendingUp
@@ -46,6 +49,11 @@ export function KpiCard({
           <Typography variant="h1" component="p">
             {value}
           </Typography>
+          {note && (
+            <Typography variant="caption" color="text.secondary" component="p">
+              {note}
+            </Typography>
+          )}
         </Box>
       </Stack>
       {trend && (

@@ -514,3 +514,35 @@ old with SQL first.
    job whose run was missed (the digest fills every missed day).
 7. Two API instances (e.g. `dotnet run` twice on different ports): each job runs on one of them only
    (`SELECT IS_USED_LOCK('job:data-reminders');` while it runs), nobody gets a reminder twice.
+
+## 046 — Dashboard per role
+**Setup:** restart the API; `npm run dev`. Log in as each user and open *Dashboard*. Rule for every step: **the number
+on a card = the total ("1–10 nga N") of the list it opens**, and every card, row and bar opens that list or the case.
+"Sot" and "këtë javë" are Tirane days; the week starts on Monday.
+1. **protokoll**: *Regjistruar sot* (still waiting, registered today — opens the list with today's registration date),
+   *Në pritje të Kryetarit*, *Regjistrimet e mia të fundit* (8 rows, *Shiko të gjitha →*). No "Regjistro" button.
+2. **kryetar**: *Pa avokat* with "Më e vjetra pret N ditë" (orange; green at 0), *Pa të dhëna mbi 30 ditë*, *Seanca të
+   pa përditësuara* (red), *Në pritje të vendimit të arsyetuar*; the chart *Ngarkesa e avokatëve* (avokat kryesor /
+   dytësor, numbers on the bars, legend on top; a lawyer's name or bar opens the office list for that lawyer);
+   *Seancat e zyrës këtë javë* (date and time, case, court). The list opened from a card shows the chip "Filtri: …";
+   removing it shows the whole tab.
+3. **avokat1** (also **ndihmes**, **jurist**): *Çështjet e mia të hapura*, *Seanca për t’u përditësuar*, *Pa të dhëna
+   mbi 30 ditë*, *Në pritje të vendimit të arsyetuar*, *Seancat e mia këtë javë*, *Aktiviteti i fundit* (8 history
+   rows of the cases they are on now, "2 orë më parë" with the exact time on hover; a row opens the case's *Historiku*).
+4. **institucion**: *Çështjet e institucionit*, *Të deleguara*, *Pa juristin tonë* (assign a jurist → one less after a
+   reload), *Seancat e ardhshme*.
+5. **monitor**: *Seanca këtë javë*, *Pa të dhëna mbi 6 muaj*, *Në pritje të vendimit të arsyetuar*, the chart
+   *Çështjet sipas zyrës* (të hapura / të mbyllura; each part opens that office's list, open or closed).
+6. **admin**: the Monitor's widgets plus *Dokumente të pakontrolluara*, *Punët në sfond* (each job, last success,
+   "Në rregull" / "Me vonesë" with its error) and *Particionet e bazës së të dhënave*. These three link nowhere: there is
+   no admin page for jobs, documents or partitions yet.
+7. Refresh: another user assigns a case to avokat1 while avokat1's dashboard is open → the toast appears and the
+   numbers update without a reload. Switching to another window and back after more than a minute reloads it; within a
+   minute it does not. No request repeats on its own (network tab).
+8. A widget that fails shows "Ky element nuk u ngarkua." with *Provo përsëri* in its own place; every other card
+   renders. Hard to provoke by hand — the integration test `DashboardTests.A_widget_that_fails_…` covers it. A query
+   that waits more than 5 s fails its widget the same way (MySQL stops it: max_execution_time / lock_wait_timeout are
+   set on the request's connection while the dashboard is built).
+9. Widths: 4 cards per row from 1200 px, 2 on a tablet, 1 at 390 px; charts and tables fit, no side scrolling.
+10. Speed: `GET /api/dashboard` (network tab) well under 500 ms; a second load within a minute is faster still (office
+    widgets cached 60 s, Monitor/admin 5 minutes).
