@@ -600,7 +600,7 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
             cursor = page.GetProperty("nextCursor").ValueKind == JsonValueKind.Null ? null : page.GetProperty("nextCursor").GetString();
             pages++;
         }
-        while (cursor is not null);
+        while (cursor is not null && pages < 10); // bounded: a cursor that never ends fails below instead of looping
 
         pages.ShouldBe(3);
         titles.ShouldBe(Enumerable.Range(0, 25).Reverse().Select(i => $"N{i:00}"));

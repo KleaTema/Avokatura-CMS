@@ -16,6 +16,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CaseAssignmentRow> CaseAssignments => Set<CaseAssignmentRow>();
     public DbSet<CaseDecision> CaseDecisions => Set<CaseDecision>();
     public DbSet<CaseSecurityMeasure> CaseSecurityMeasures => Set<CaseSecurityMeasure>();
+    public DbSet<CaseReminderRow> CaseReminders => Set<CaseReminderRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -172,6 +173,18 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.UpdatedBy).HasColumnName("updated_by");
             b.Property(x => x.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
             b.Property(x => x.DecisionDocumentId).HasColumnName("decision_document_id");
+        });
+
+        // task 041: read by DataReminderJob; rows are inserted with INSERT IGNORE (uq_cr_once), not through EF
+        modelBuilder.Entity<CaseReminderRow>(b =>
+        {
+            b.ToTable("case_reminders");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.CaseId).HasColumnName("case_id");
+            b.Property(x => x.AssignmentId).HasColumnName("assignment_id");
+            b.Property(x => x.ReminderType).HasColumnName("reminder_type");
+            b.Property(x => x.SentAt).HasColumnName("sent_at");
         });
 
         modelBuilder.Entity<CaseSecurityMeasure>(b =>
@@ -464,4 +477,15 @@ public sealed class CasePermissionRow
     public ulong CaseId { get; set; }
     public string AccessProfile { get; set; } = string.Empty;
     public string PermissionCode { get; set; } = string.Empty;
+}
+
+/// <summary>A data-entry reminder sent (task 041): once per primary assignment and type (uq_cr_once).</summary>
+public sealed class CaseReminderRow
+{
+    public ulong Id { get; set; }
+    public ulong CaseId { get; set; }
+    public ulong AssignmentId { get; set; }
+    /// <summary>DATA_MISSING_30D | DATA_MISSING_6M</summary>
+    public string ReminderType { get; set; } = string.Empty;
+    public DateTime SentAt { get; set; }
 }

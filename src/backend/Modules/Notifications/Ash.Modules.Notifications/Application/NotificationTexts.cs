@@ -16,6 +16,7 @@ public static class NotificationTexts
     public static class Tabs
     {
         public const string Data = "te-dhenat";
+        public const string Hearings = "seancat";
         public const string Documents = "dokumentet";
         public const string Decision = "vendimi";
     }
@@ -100,6 +101,30 @@ public static class NotificationTexts
     public static NotificationMessage DocumentScanFailed(CaseSummary c) =>
         Message(NotificationTypes.DocumentScanFailed, c, "Dokumenti nuk u kontrollua",
             $"Një dokument i ngarkuar në çështjen {Case(c)} nuk mund të kontrollohej për viruse.", Tabs.Documents);
+
+    // task 041 — reminders
+
+    public static NotificationMessage DataMissing(CaseSummary c, bool sixMonths) =>
+        Message(sixMonths ? NotificationTypes.DataMissing6M : NotificationTypes.DataMissing30D, c,
+            "Të dhënat e çështjes mungojnë",
+            sixMonths
+                ? $"Kanë kaluar 6 muaj nga caktimi i avokatit në çështjen {Case(c)} dhe nuk janë hedhur ende të dhëna."
+                : $"Kanë kaluar 30 ditë nga caktimi i avokatit në çështjen {Case(c)} dhe nuk janë hedhur ende të dhëna.",
+            Tabs.Data);
+
+    public static NotificationMessage HearingTomorrow(CaseSummary c, DateTime scheduledAtUtc) =>
+        Message(NotificationTypes.HearingTomorrow, c, "Seancë nesër",
+            $"Çështja {Case(c)} ka seancë nesër, më {TiraneDateTime(scheduledAtUtc)}.", Tabs.Hearings);
+
+    public static NotificationMessage NextLevelPending(CaseSummary c, string summonsNumber, DateTime hearingAtUtc) =>
+        Message(NotificationTypes.NextLevelPending3D, c, "Seanca e shkallës tjetër afron",
+            $"Seanca e fletëthirrjes {summonsNumber} është më {TiraneDateTime(hearingAtUtc)}, por çështja {Case(c)} " +
+            "nuk është mbyllur ende në sistem. Regjistroni vendimin.", Tabs.Decision);
+
+    /// <summary>To the administrators; no case. Problems: e.g. "ash_audit.audit_log: p_max ka rreshta".</summary>
+    public static NotificationMessage PartitionAlert(IReadOnlyList<string> problems) =>
+        new(NotificationTypes.PartitionAlert, null, "Problem me particionet e bazës së të dhënave",
+            $"Kontrolloni rrotullimin mujor të particioneve (ash_ops.ev_rotate_partitions): {string.Join("; ", problems)}.", null);
 
     private static string TiraneDateTime(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), TiraneTime.Zone)

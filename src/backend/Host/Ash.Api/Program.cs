@@ -3,7 +3,9 @@ using Ash.Api.Errors;
 using Ash.Api.Health;
 using Ash.Api.Middleware;
 using Ash.Api.Persistence;
+using Ash.Api.Jobs;
 using Ash.Infrastructure;
+using Ash.Infrastructure.Jobs;
 using Ash.Infrastructure.Scanning;
 using Ash.Infrastructure.Storage;
 using Ash.Modules.Audit;
@@ -49,9 +51,12 @@ builder.Services.AddAshStorage(builder.Configuration.GetSection(StorageOptions.S
 builder.Services.AddAshScanning(
     builder.Configuration.GetSection(ScannerOptions.Section).Get<ScannerOptions>() ?? new ScannerOptions(),
     builder.Environment.IsDevelopment());
+// background jobs (task 041): the in-house scheduler; Jobs:Enabled = false runs nothing on its own
+builder.Services.AddAshJobs(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddCheck<MySqlHealthCheck>("mysql")
-    .AddCheck<StorageHealthCheck>("storage");
+    .AddCheck<StorageHealthCheck>("storage")
+    .AddCheck<JobsHealthCheck>("jobs");
 builder.Services.TryAddSingleton<IClock, SystemClock>();
 builder.Services.AddAshAuthentication(builder.Configuration, builder.Environment);
 
@@ -82,6 +87,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
     app.MapScalarApiReference().AllowAnonymous();
+    // task 041: run a background job by hand (manual tests); never mapped outside Development
+    app.MapJobRunEndpoint();
 }
 
 app.MapHealthChecks("/health").AllowAnonymous();

@@ -8,7 +8,8 @@ namespace Ash.Modules.Cases.Contracts.Events;
 /// Recipients: the current primary lawyer (if any) and the office head. Published only from
 /// POST /api/cases/{id}/notify-not-closed, inside that request's committed transaction.
 /// Notifications (task 040) tell the lawyer and the Kryetar, with the new summons' hearing date.
-/// TODO(task-041): reminder to lawyer + Kryetar if the level is still not closed 3 days before HearingAt.
+/// The reminder to the lawyer and the Kryetar 3 days before HearingAt, while the level is still not closed:
+/// HearingReminderJob → NextLevelSummonsDueSoon (task 041).
 /// </summary>
 public sealed record PreviousLevelNotClosed(
     Guid PreviousCasePublicId,

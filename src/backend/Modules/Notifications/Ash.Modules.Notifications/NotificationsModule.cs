@@ -1,4 +1,6 @@
+using Ash.Infrastructure.Jobs;
 using Ash.Modules.Cases.Contracts.Events;
+using Ash.Modules.Notifications.Application.Jobs;
 using Ash.Modules.Documents.Contracts.Events;
 using Ash.Modules.Notifications.Application;
 using Ash.Modules.Notifications.Contracts;
@@ -43,6 +45,14 @@ public static class NotificationsModule
 		services.AddScoped<IEventHandler<DocumentInfected>>(sp => sp.GetRequiredService<DocumentEventNotifications>());
 		services.AddScoped<IEventHandler<DocumentScanFailed>>(sp => sp.GetRequiredService<DocumentEventNotifications>());
 		services.AddScoped<IEventHandler<DocumentScanned>>(sp => sp.GetRequiredService<DocumentEventNotifications>());
+
+		// task 041: the reminders of the Cases jobs, and this module's own jobs
+		services.AddScoped<ReminderNotifications>();
+		services.AddScoped<IEventHandler<DataEntryReminderDue>>(sp => sp.GetRequiredService<ReminderNotifications>());
+		services.AddScoped<IEventHandler<HearingTomorrow>>(sp => sp.GetRequiredService<ReminderNotifications>());
+		services.AddScoped<IEventHandler<NextLevelSummonsDueSoon>>(sp => sp.GetRequiredService<ReminderNotifications>());
+		services.AddScheduledJob<NotificationCleanupJob>();
+		services.AddScheduledJob<PartitionCheckJob>();
 		return services;
 	}
 

@@ -35,6 +35,22 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         // the scan job (task 033) never runs on its own in tests: they call ScanQueueJob.RunOnceAsync
         Environment.SetEnvironmentVariable("Scanner__Job__Enabled", "false");
         Environment.SetEnvironmentVariable("Scanner__Mode", scannerMode);
+        // background jobs (task 041) never run on their own in tests: a test runs a job explicitly (JobRunner/RunAsync)
+        Environment.SetEnvironmentVariable("Jobs__Enabled", "false");
+        Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", db.AuditDigestConnectionString);
+    }
+
+    /// <summary>
+    /// Every test request gives up after this long (HttpClient's default is 100 s): a request that never completes fails
+    /// its test instead of stalling the run (the blame hang timeout is the last resort). Uploads of the largest test
+    /// files take a few seconds, so 30 s, not less.
+    /// </summary>
+    public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.Timeout = RequestTimeout;
     }
 
     protected override IHost CreateHost(IHostBuilder builder) =>

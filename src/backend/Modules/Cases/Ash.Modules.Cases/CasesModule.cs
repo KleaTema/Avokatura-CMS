@@ -1,4 +1,6 @@
+using Ash.Infrastructure.Jobs;
 using Ash.Modules.Cases.Application;
+using Ash.Modules.Cases.Application.Jobs;
 using Ash.Modules.Cases.Application.Agenda;
 using Ash.Modules.Cases.Application.ArchiveDossier;
 using Ash.Modules.Cases.Application.AssignJurist;
@@ -100,6 +102,8 @@ public static class CasesModule
 		services.AddScoped<ArchiveDossierHandler>();
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();
+		services.AddScheduledJob<DataReminderJob>();
+		services.AddScheduledJob<HearingReminderJob>();
 		return services;
 	}
 

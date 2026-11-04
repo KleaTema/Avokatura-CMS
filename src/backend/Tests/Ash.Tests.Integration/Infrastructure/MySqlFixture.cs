@@ -16,6 +16,7 @@ public sealed class MySqlFixture : IAsyncLifetime
     private static readonly string[] BusinessTables =
     [
         "ash_core.case_reminders",
+        "ash_core.sent_reminders",
         "ash_core.notifications",
         "ash_core.case_history_events",
         "ash_core.documents",
@@ -33,10 +34,20 @@ public sealed class MySqlFixture : IAsyncLifetime
         "ash_chat.conversations",
         "ash_audit.audit_daily_digests",
         "ash_audit.audit_log",
+        "ash_ops.job_runs",
     ];
 
     // Append-only tables whose triggers block DELETE.
     private static readonly HashSet<string> TruncateOnly = ["ash_core.case_history_events"];
+
+    // Business tables with FULLTEXT (ngram) indexes (script 014). InnoDB keeps every deleted or updated row in the
+    // FULLTEXT index until OPTIMIZE / TRUNCATE; after a few hundred tests the cases index held 181,123 dead documents
+    // for 2 live rows and one registration search took 37.6 s — past MySql.Data's 30 s command timeout, after which
+    // the request never completed (the hang of NextLevelTests.Registration_search_finds_…, found with --blame-hang).
+    // TRUNCATE empties the index too but costs ~1.3 s per table here, so it runs only when the dead documents pass
+    // this many (a search over that many stays well under a second).
+    private static readonly string[] FullTextTables = ["cases", "case_parties"];
+    private const int MaxDeletedFullTextDocs = 5000;
 
     private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
         .WithUsername("root")
@@ -55,6 +66,9 @@ public sealed class MySqlFixture : IAsyncLifetime
     /// <summary>Insert/select-only audit account (ash_audit_local).</summary>
     public string AuditConnectionString { get; private set; } = string.Empty;
 
+    /// <summary>The audit digest account (ash_audit_digest_local: SELECT audit_log, SELECT + INSERT digests; task 041).</summary>
+    public string AuditDigestConnectionString { get; private set; } = string.Empty;
+
     private string RootConnectionString { get; set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
@@ -70,6 +84,7 @@ public sealed class MySqlFixture : IAsyncLifetime
         RootConnectionString = $"Server={host};Port={port};User=root;Password={RootPassword};AllowUserVariables=true;";
         AppConnectionString = $"Server={host};Port={port};User=ash_dev;Password=ash_dev_local;Database=ash_core;AllowUserVariables=true;";
         AuditConnectionString = $"Server={host};Port={port};User=ash_audit_local;Password=ash_audit_local_pw;";
+        AuditDigestConnectionString = $"Server={host};Port={port};User=ash_audit_digest_local;Password=ash_audit_digest_local_pw;";
 
         var result = Timing.Measure("migration", () => DatabaseUpgrader.Upgrade(RootConnectionString, local: true, quiet: true));
         if (!result.Successful)
@@ -103,10 +118,23 @@ public sealed class MySqlFixture : IAsyncLifetime
                 }
             }
 
+            var truncate = new HashSet<string>(TruncateOnly);
+            foreach (var table in FullTextTables)
+            {
+                if (await DeletedFullTextDocsAsync(connection, table) > MaxDeletedFullTextDocs)
+                {
+                    truncate.Add($"ash_core.{table}");
+                    if (!dirty.Contains($"ash_core.{table}"))
+                    {
+                        dirty.Add($"ash_core.{table}");
+                    }
+                }
+            }
+
             if (dirty.Count > 0)
             {
                 var sql = "SET FOREIGN_KEY_CHECKS=0; "
-                    + string.Join(" ", dirty.Select(t => TruncateOnly.Contains(t) ? $"TRUNCATE TABLE {t};" : $"DELETE FROM {t};"))
+                    + string.Join(" ", dirty.Select(t => truncate.Contains(t) ? $"TRUNCATE TABLE {t};" : $"DELETE FROM {t};"))
                     + " SET FOREIGN_KEY_CHECKS=1;";
                 await ExecuteAsync(connection, sql);
             }
@@ -118,6 +146,15 @@ public sealed class MySqlFixture : IAsyncLifetime
     private static readonly string ProbeSql = string.Join(
         " UNION ALL ",
         BusinessTables.Select(t => $"SELECT '{t}' AS table_name WHERE EXISTS (SELECT 1 FROM {t})"));
+
+    /// <summary>Dead documents in a table's FULLTEXT index (root only: innodb_ft_aux_table is a global setting).</summary>
+    private static async Task<long> DeletedFullTextDocsAsync(MySqlConnection connection, string table)
+    {
+        await using var command = new MySqlCommand(
+            $"SET GLOBAL innodb_ft_aux_table = 'ash_core/{table}'; SELECT COUNT(*) FROM information_schema.INNODB_FT_DELETED;",
+            connection);
+        return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
 
     private static async Task ExecuteAsync(MySqlConnection connection, string sql)
     {

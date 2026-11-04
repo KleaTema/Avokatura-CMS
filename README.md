@@ -18,6 +18,21 @@ Local endpoints:
 - MySQL: `localhost:3306`, user `ash_dev` / `ash_dev_local`
 - MinIO S3 API: `http://localhost:9000`, console `http://localhost:9001`, `ash_minio` / `ash_minio_local_pw`
 
+## Backend tests
+
+```
+cd src/backend
+dotnet test Tests/Ash.Tests.Unit
+dotnet test Tests/Ash.Tests.Architecture
+dotnet test Tests/Ash.Tests.Integration --blame-hang-timeout 5m --blame-hang-dump-type none
+```
+
+- The integration tests start their own MySQL (and MinIO) containers with Testcontainers: Docker must run.
+- `--blame-hang-timeout 5m` (built into the .NET SDK): if no test finishes for 5 minutes the run stops and names the
+  test that was running (`Sequence_*.xml` under `TestResults/`), instead of hanging silently.
+- While the API runs from `Host/Ash.Api` its `bin` is locked; add `--artifacts-path <some temp folder>` to build the
+  tests elsewhere.
+
 ## Database reference
 
 Scripts live in `src/backend/Database/Ash.Database/Scripts/` (never edit one that already ran). Reference SQL, server config and constraint tests are in `docs/sql/`.

@@ -479,3 +479,38 @@ private window): avokat1 in one, kryetar in the other.
    is visible (not in a hidden tab).
 10. At 390 px: the popover fills the width, the page shows one column (text with its time under it), no side
     scrolling.
+
+## 041 — Background jobs
+**Setup:** run the migrator (`dotnet run --project src/backend/Database/Ash.Database -- --local`: script 016 and
+LocalScripts 905), restart the API. Optional: `dotnet user-secrets set "ConnectionStrings:AuditDigest"
+"Server=localhost;Port=3306;User=ash_audit_digest_local;Password=ash_audit_digest_local_pw;"` in `Host/Ash.Api` (without
+it, Development uses the App connection). The scheduler runs by itself (`Jobs:Enabled` true); to run a job NOW, as
+admin (header `X-Dev-User: admin@ash.local`), Development only:
+`POST /api/admin/jobs/{name}/run` → `{ "job", "outcome": "Succeeded" | "Skipped" | "Failed", "error" }`.
+Names: `data-reminders`, `hearing-reminders`, `notification-cleanup`, `audit-digest`, `partition-check`. As avokat1 → 403;
+an unknown name → 404. The job's state: `SELECT * FROM ash_ops.job_runs;`. A job runs with the real time, so make the data
+old with SQL first.
+1. **data-reminders** — on an ACTIVE case of avokat1 with no data entered:
+   `UPDATE case_assignments SET assigned_at = UTC_TIMESTAMP() - INTERVAL 31 DAY WHERE case_id = … AND case_role = 'PRIMARY_LAWYER' AND ended_at IS NULL;`
+   Run → avokat1 and kryetar get "Të dhënat e çështjes mungojnë" ("Kanë kaluar 30 ditë …"); run again → nothing new.
+   With `INTERVAL 7 MONTH` (on another case) → the 30-day and the 6-month one, the 6-month one also to monitor.
+   After entering data on the case (first_data_entry_at set), a CLOSED case, an archived dossier → none.
+2. **hearing-reminders** — add a hearing for tomorrow; after 08:00 run → the team (primary, secondary, assistant,
+   jurist) gets "Seancë nesër" with the date and time, once; move it to the day after tomorrow → tomorrow after 08:00 a
+   new reminder. Notify-not-closed (018) with a hearing within 3 days → avokat1 and kryetar get "Seanca e shkallës
+   tjetër afron", once.
+3. **notification-cleanup** — `UPDATE notifications SET created_at = UTC_TIMESTAMP() - INTERVAL 13 MONTH, read_at = UTC_TIMESTAMP() WHERE id = …;`
+   run → deleted; an unread one just as old stays.
+4. **audit-digest** — run → `SELECT audit_day, row_count, HEX(digest) FROM ash_audit.audit_daily_digests;` has every day
+   from the first audit row up to yesterday (Tirane); run again → nothing new. `GET /api/admin/audit/verify?from=…&to=…`
+   (admin) → `ok: true`. Change one row (`UPDATE ash_audit.audit_log SET action = 'X' WHERE id = …;`) → `ok: false`,
+   `firstBrokenDay` = that row's Tirane day. As avokat1 → 403.
+5. **partition-check** — normally nothing. Insert a row far in the future
+   (`INSERT INTO ash_audit.audit_log (occurred_at, action) VALUES ('2040-01-01', 'TEST');`), run → every active admin
+   gets "Problem me particionet e bazës së të dhënave" and the API log has an error; run again the same day → no second
+   notification. Delete the row afterwards.
+6. `GET /health` → `jobs: Healthy`; stop the API for more than 2 h 15 min (or set `last_succeeded_at` of
+   `data-reminders` 3 hours back and wait for nothing to run) → `Unhealthy` naming the job. Restarting the API runs every
+   job whose run was missed (the digest fills every missed day).
+7. Two API instances (e.g. `dotnet run` twice on different ports): each job runs on one of them only
+   (`SELECT IS_USED_LOCK('job:data-reminders');` while it runs), nobody gets a reminder twice.

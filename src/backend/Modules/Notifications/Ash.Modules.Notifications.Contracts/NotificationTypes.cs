@@ -40,10 +40,27 @@ public static class NotificationTypes
     public const string DocumentInfected = "DOCUMENT_INFECTED";
     public const string DocumentScanFailed = "DOCUMENT_SCAN_FAILED";
 
+    // task 041 — the reminders of the background jobs
+
+    /// <summary>No data entered 30 days after the primary assignment (same code as case_reminders.reminder_type).</summary>
+    public const string DataMissing30D = "DATA_MISSING_30D";
+
+    /// <summary>No data entered 6 months after the primary assignment; the Monitors are told too.</summary>
+    public const string DataMissing6M = "DATA_MISSING_6M";
+
+    public const string HearingTomorrow = "HEARING_TOMORROW";
+
+    /// <summary>A pending next-level summons has its hearing within 3 days and the level is still not closed.</summary>
+    public const string NextLevelPending3D = "NEXT_LEVEL_PENDING_3D";
+
+    /// <summary>To the administrators: a partitioned table's p_max holds rows, or next month's partition is missing.</summary>
+    public const string PartitionAlert = "PARTITION_ALERT";
+
     public static readonly IReadOnlyList<string> All =
     [
         CaseRegistered, LawyerAssigned, LawyerRemoved, InstitutionCaseAssigned, AssistantAssigned, AssistantRemoved,
         JuristAssigned, JuristReplaced, InstitutionLinked, CaseDelegated, CaseUndelegated, PreviousLevelNotClosed,
-        CaseClosed, DocumentInfected, DocumentScanFailed,
+        CaseClosed, DocumentInfected, DocumentScanFailed, DataMissing30D, DataMissing6M, HearingTomorrow,
+        NextLevelPending3D, PartitionAlert,
     ];
 }
