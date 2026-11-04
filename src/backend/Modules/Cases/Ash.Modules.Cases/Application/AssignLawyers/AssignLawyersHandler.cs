@@ -54,6 +54,11 @@ internal sealed class AssignLawyersHandler(
             return NotFound();
         }
 
+        if (await access.IsDossierArchivedAsync((long)c.Id, ct))
+        {
+            return DossierErrors.Archived;
+        }
+
         // The state rule before the permission: case.assign_lawyer exists only while REGISTERED
         // (CaseAccessService.ApplyStateRules), and any other state gets the specific 409, CLOSED included.
         if (c.LifecycleStatus != Case.Registered)

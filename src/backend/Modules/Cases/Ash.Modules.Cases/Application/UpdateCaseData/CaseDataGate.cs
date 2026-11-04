@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Ash.Modules.Cases.Application.UpdateCaseData;
 
 /// <summary>
-/// The shared checks of the case-data endpoints (task 025), in this order: no view → 404; CLOSED → 409 (nothing of
+/// The shared checks of the case-data endpoints (task 025), in this order: no view → 404; archived dossier → 409
+/// "Dosja është e arkivuar." (task 038); CLOSED → 409 (nothing of
 /// ActionsAllowedWhenClosed is edited here); the action's state rule (optional) → its 409; none of the action's
 /// permissions in the effective permissions → 403; stale rowVersion → 409. Returns the TRACKED case; <see cref="SaveAsync"/> increments row_version and saves
 /// (the UPDATE checks the row_version it read, so a change committed in between is a 409 too).
@@ -26,6 +27,11 @@ internal sealed class CaseDataGate(CasesDbContext db, ICaseAccessService access)
         if (c is null || !await access.CanViewAsync((long)c.Id, ct))
         {
             return AssignLawyersHandler.NotFound();
+        }
+
+        if (await access.IsDossierArchivedAsync((long)c.Id, ct))
+        {
+            return DossierErrors.Archived;
         }
 
         if (c.LifecycleStatus == Case.Closed)
@@ -63,6 +69,11 @@ internal sealed class CaseDataGate(CasesDbContext db, ICaseAccessService access)
         if (c is null || !await access.CanViewAsync((long)c.Id, ct))
         {
             return AssignLawyersHandler.NotFound();
+        }
+
+        if (await access.IsDossierArchivedAsync((long)c.Id, ct))
+        {
+            return DossierErrors.Archived;
         }
 
         if (c.LifecycleStatus == Case.Closed)

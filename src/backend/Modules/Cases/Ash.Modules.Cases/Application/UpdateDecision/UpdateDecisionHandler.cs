@@ -18,7 +18,7 @@ namespace Ash.Modules.Cases.Application.UpdateDecision;
 /// are written; DECISION_UPDATED keeps old/new of those only.
 /// Rules: received cannot be undone (true → false → 400). When a NEWER level of the dossier exists the decision was
 /// appealed: becoming final, or clearing "Ankimuar"/"Rekursuar", is refused (409 "Kjo çështje ka vazhduar në …").
-/// TODO(task-038): an archived dossier refuses the change.
+/// An archived dossier refuses the change (task 038: 409 "Dosja është e arkivuar.").
 /// </summary>
 internal sealed class UpdateDecisionHandler(
     CasesDbContext db,
@@ -35,6 +35,11 @@ internal sealed class UpdateDecisionHandler(
         if (c is null || !await access.CanViewAsync((long)c.Id, ct))
         {
             return AssignLawyersHandler.NotFound();
+        }
+
+        if (await access.IsDossierArchivedAsync((long)c.Id, ct))
+        {
+            return DossierErrors.Archived;
         }
 
         var decision = await db.CaseDecisions.SingleOrDefaultAsync(d => d.CaseId == c.Id, ct);

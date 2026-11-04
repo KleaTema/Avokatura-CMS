@@ -368,3 +368,18 @@ second run says "Scripts applied: 0"). The local MySQL runs with `--innodb-ft-en
    newer level, `"isFinal": true` → 200 with `suggestions` ["ARCHIVE_SUGGESTED"].
 10. A case whose ministry link is DELEGATED: the jurist (`jurist@ash.local`) sees `decision.record` in `permissions`
     and may close it.
+
+## 038 — Archive the dossier (API; the screen comes with 039)
+**User:** avokat1, an ACTIVE case of theirs. `GET /api/cases/{id}` → `header.dossierPublicId`, `header.rowVersion`,
+`header.isArchived` (false).
+1. Before a final decision `permissions` has no `decision.close_final`; `POST /api/dossiers/{dossierPublicId}/archive`
+   `{ "rowVersion": n }` → 409 `dossier.latest_not_closed`. Close it with `isFinal: false` → archive → 409
+   `dossier.not_final` ("… nuk ka marrë formë të prerë …").
+2. `PUT /decision` with `"isFinal": true` (or close a fresh case with `isFinal: true`) → `permissions` now has
+   `decision.close_final` (only on the dossier's latest level). As avokat2 (secondary) the archive → 403; with an old
+   `rowVersion` → 409; as avokat1 → 200 (`archivedAt`, `caseRowVersion` n+1). *Historiku*: DOSSIER_ARCHIVED.
+3. Afterwards on EVERY level of the dossier: `header.isArchived` true, `permissions` = ["case.view"]. Adding a hearing,
+   a party, the claim, a document upload, removing a document, `PUT /decision`, notify-not-closed → 409 "Dosja është e
+   arkivuar." (code `dossier.archived`). *Shkarko* / *Shiko* of its documents still work. The archive again → 409.
+4. *Vazhdo çështje*: the dossier shows "Dosja është arkivuar" and cannot be continued (task 018).
+5. Undoing an archiving is not possible (client question *unarchive*).

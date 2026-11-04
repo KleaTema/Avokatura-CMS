@@ -31,6 +31,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.OpenedBy).HasColumnName("opened_by");
             b.Property(x => x.OpenedAt).HasColumnName("opened_at");
             b.Property(x => x.ArchivedAt).HasColumnName("archived_at");
+            b.Property(x => x.ArchivedBy).HasColumnName("archived_by");
         });
 
         modelBuilder.Entity<Case>(b =>
@@ -231,6 +232,8 @@ public sealed class Dossier
     public DateTime OpenedAt { get; set; }
     /// <summary>Set when the dossier is closed with a final decision; an archived dossier is not continued.</summary>
     public DateTime? ArchivedAt { get; set; }
+    /// <summary>Who archived it (POST /api/dossiers/{id}/archive, task 038).</summary>
+    public uint? ArchivedBy { get; set; }
 }
 
 public sealed class Case

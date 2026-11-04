@@ -21,6 +21,13 @@ public interface ICaseAccessService
     Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(long caseId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The case's dossier is archived (task 038): every level is read-only — the effective permissions are case.view
+    /// only. Write handlers check it FIRST after the 404 and answer <see cref="DossierErrors.Archived"/>. False when the
+    /// user cannot view the case (the 404 comes first). Cached per request with the permissions.
+    /// </summary>
+    Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Documents (task 034): true when the user can view ANY level of the dossier — and then sees the documents of ALL
     /// its levels. A deliberate exception to the history rule (task 020: history rows of a level the user cannot view
     /// are skipped): the workflow treats the documents as ONE dossier timeline, and the lawyer of the appeal works from

@@ -79,7 +79,7 @@ Rules
 | --- | --- | --- | --- | --- |
 | 036 | [Record the decision and close the case](036-record-decision-close.md) | 030, 034 |  | done |
 | 037 | [Complete the decision later](037-update-decision-later.md) | 036 |  | done |
-| 038 | [Archive the dossier (final decision)](038-archive-dossier.md) | 036 |  | todo |
+| 038 | [Archive the dossier (final decision)](038-archive-dossier.md) | 036 |  | done |
 | 039 | [UI: decision, closing and archiving](039-ui-decision-archive.md) | 022, 036, 037, 038 |  | todo |
 
 ### Phase 6 — Notifications & background jobs

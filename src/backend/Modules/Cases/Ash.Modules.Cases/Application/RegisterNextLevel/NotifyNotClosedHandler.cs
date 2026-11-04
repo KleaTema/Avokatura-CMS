@@ -144,6 +144,11 @@ internal sealed class NotifyNotClosedHandler(
             return Error.NotFound("case.not_found", "Çështja nuk u gjet.");
         }
 
+        if (await db.Dossiers.AnyAsync(d => d.Id == target.DossierId && d.ArchivedAt != null, ct))
+        {
+            return DossierErrors.Archived;
+        }
+
         var latest = await db.Cases.AsNoTracking()
             .Where(c => c.DossierId == target.DossierId)
             .OrderByDescending(c => c.LevelSeq)

@@ -329,6 +329,25 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
     }
 
     [Fact]
+    public async Task An_archived_dossier_keeps_its_documents_downloadable_but_takes_no_upload_or_removal()
+    {
+        await using var s = await SetupAsync();
+        var doc = await DocAsync(s.Level1, "Vendimi", T0, type: "VENDIM");
+        await Execute("UPDATE dossiers SET archived_at = UTC_TIMESTAMP(3), archived_by = (SELECT id FROM users WHERE email = 'kryetar@ash.local') " +
+                      $"WHERE id = (SELECT dossier_id FROM cases WHERE id = {s.Level1})");
+        using var client = s.As(Primary);
+
+        (await client.GetAsync($"/api/documents/{doc.Id}/download", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await GetJson(client, $"/api/cases/{s.Level1Public}/documents")).GetProperty("items").GetArrayLength().ShouldBe(1);
+        (await Problem(await Delete(client, doc.Id, "Gabim."), HttpStatusCode.Conflict)).ShouldContain("Dosja është e arkivuar.");
+
+        var form = new MultipartFormDataContent { { new StringContent("VENDIM"), "documentTypeCode" } };
+        form.Add(new ByteArrayContent("%PDF-1.4 test"u8.ToArray()), "file", "vendim.pdf");
+        (await Problem(await client.PostAsync($"/api/cases/{s.Level1Public}/documents", form, Ct), HttpStatusCode.Conflict))
+            .ShouldContain("dossier.archived");
+    }
+
+    [Fact]
     public async Task Delete_needs_a_reason_of_at_most_300_characters()
     {
         await using var s = await SetupAsync();

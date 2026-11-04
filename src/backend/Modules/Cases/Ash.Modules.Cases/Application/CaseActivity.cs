@@ -10,23 +10,27 @@ internal sealed class CaseActivity(CasesDbContext db, ICaseAccessService access,
 {
     public async Task<CaseRef?> FindViewableAsync(Guid casePublicId, CancellationToken ct = default)
     {
-        var c = await db.Cases.AsNoTracking()
-            .Where(x => x.PublicId == casePublicId)
-            .Select(x => new { x.Id, x.DossierId, x.CaseCode, x.LifecycleStatus })
-            .SingleOrDefaultAsync(ct);
-        return c is null || !await access.CanViewAsync((long)c.Id, ct)
-            ? null
-            : new CaseRef((long)c.Id, (long)c.DossierId, c.CaseCode, c.LifecycleStatus == Case.Closed);
+        var c = await RefAsync(db.Cases.AsNoTracking().Where(x => x.PublicId == casePublicId), ct);
+        return c is null || !await access.CanViewAsync(c.Id, ct) ? null : c;
     }
 
-    public async Task<CaseRef?> FindAsync(long caseId, CancellationToken ct = default)
+    public Task<CaseRef?> FindAsync(long caseId, CancellationToken ct = default)
     {
         var id = (ulong)caseId;
-        var c = await db.Cases.AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new { x.Id, x.DossierId, x.CaseCode, x.LifecycleStatus })
+        return RefAsync(db.Cases.AsNoTracking().Where(x => x.Id == id), ct);
+    }
+
+    /// <summary>The one case of <paramref name="cases"/> with its closed state and its dossier's archived state (task 038).</summary>
+    private async Task<CaseRef?> RefAsync(IQueryable<Case> cases, CancellationToken ct)
+    {
+        var row = await (
+                from c in cases
+                join d in db.Dossiers.AsNoTracking() on c.DossierId equals d.Id
+                select new { c.Id, c.DossierId, c.CaseCode, c.LifecycleStatus, Archived = d.ArchivedAt != null })
             .SingleOrDefaultAsync(ct);
-        return c is null ? null : new CaseRef((long)c.Id, (long)c.DossierId, c.CaseCode, c.LifecycleStatus == Case.Closed);
+        return row is null
+            ? null
+            : new CaseRef((long)row.Id, (long)row.DossierId, row.CaseCode, row.LifecycleStatus == Case.Closed, row.Archived);
     }
 
     public async Task<IReadOnlyList<CaseLevel>> ListLevelsAsync(long dossierId, CancellationToken ct = default)

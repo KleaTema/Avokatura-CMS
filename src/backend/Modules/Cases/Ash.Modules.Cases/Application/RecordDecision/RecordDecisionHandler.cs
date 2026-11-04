@@ -43,6 +43,11 @@ internal sealed class RecordDecisionHandler(
             return AssignLawyersHandler.NotFound();
         }
 
+        if (await access.IsDossierArchivedAsync((long)c.Id, ct))
+        {
+            return DossierErrors.Archived;
+        }
+
         if (c.LifecycleStatus == Case.Closed)
         {
             return Error.Conflict("decision.exists", "Vendimi i kësaj çështjeje është regjistruar; plotësojeni atë.");

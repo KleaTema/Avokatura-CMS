@@ -59,6 +59,11 @@ internal sealed class UploadDocumentHandler(
             return Error.NotFound("case.not_found", "Çështja nuk u gjet.");
         }
 
+        if (c.IsArchived)
+        {
+            return DossierErrors.Archived;
+        }
+
         if (!(await access.GetEffectivePermissionsAsync(c.Id, ct)).Contains(UploadPermission))
         {
             // a CLOSED case keeps only CaseAccessService.ActionsAllowedWhenClosed (document.upload there: VENDIM only)

@@ -52,6 +52,7 @@ internal sealed class GetCaseHandler(
             .ToListAsync(ct);
         var hearingsCount = await db.CaseHearings.CountAsync(h => h.CaseId == c.Id, ct);
         var decision = await db.CaseDecisions.AsNoTracking().SingleOrDefaultAsync(d => d.CaseId == c.Id, ct);
+        var dossier = await db.Dossiers.AsNoTracking().SingleAsync(d => d.Id == c.DossierId, ct);
 
         // one call to Identity for every person on the page
         var people = await users.GetRefsAsync(team.Select(a => (long)a.UserId).Append(c.RegisteredBy).ToList(), ct);
@@ -60,7 +61,8 @@ internal sealed class GetCaseHandler(
 
         var permissions = await access.GetEffectivePermissionsAsync(caseId, ct);
         var response = new GetCaseResponse(
-            new CaseHeader(c.PublicId, c.CaseCode, c.LevelSeq, c.LifecycleStatus, c.Priority, c.IsSuspended, c.RowVersion),
+            new CaseHeader(c.PublicId, c.CaseCode, c.LevelSeq, c.LifecycleStatus, c.Priority, c.IsSuspended, c.RowVersion,
+                dossier.PublicId, dossier.ArchivedAt is not null),
             await DataAsync(c, people, ct),
             team.Where(a => people.ContainsKey(a.UserId))
                 .Select(a => new CaseTeamMember(a.CaseRole, people[a.UserId].PublicId, people[a.UserId].Name, a.AssignedAt))

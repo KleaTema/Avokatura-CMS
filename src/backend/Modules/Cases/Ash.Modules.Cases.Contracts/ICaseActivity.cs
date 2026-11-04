@@ -1,7 +1,8 @@
 namespace Ash.Modules.Cases.Contracts;
 
 /// <summary>A case as other modules see it: internal ids only for their foreign keys, never sent out.</summary>
-public sealed record CaseRef(long Id, long DossierId, string CaseCode, bool IsClosed);
+/// <remarks>IsArchived: the dossier is archived (task 038) — every write answers <see cref="DossierErrors.Archived"/>.</remarks>
+public sealed record CaseRef(long Id, long DossierId, string CaseCode, bool IsClosed, bool IsArchived = false);
 
 /// <summary>A level of a dossier: its case code is the "X/n" label.</summary>
 public sealed record CaseLevel(long CaseId, int LevelSeq, string CaseCode, bool IsClosed);

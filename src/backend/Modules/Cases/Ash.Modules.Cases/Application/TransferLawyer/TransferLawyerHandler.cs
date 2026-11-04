@@ -52,6 +52,11 @@ internal sealed class TransferLawyerHandler(
             return AssignLawyersHandler.NotFound();
         }
 
+        if (await access.IsDossierArchivedAsync((long)c.Id, ct))
+        {
+            return DossierErrors.Archived;
+        }
+
         if (c.LifecycleStatus == Case.Closed)
         {
             return Error.Conflict("case.closed", "Çështja është mbyllur.");

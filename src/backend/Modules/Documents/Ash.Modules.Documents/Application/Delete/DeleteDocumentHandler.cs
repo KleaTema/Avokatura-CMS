@@ -46,6 +46,11 @@ internal sealed class DeleteDocumentHandler(
 
         // the action belongs to the level the document was uploaded to
         var level = row.CaseId is { } caseId ? await cases.FindAsync((long)caseId, ct) : null;
+        if (level is { IsArchived: true })
+        {
+            return DossierErrors.Archived;
+        }
+
         var permissions = level is null ? new HashSet<string>() : await access.GetEffectivePermissionsAsync(level.Id, ct);
         if (!permissions.Contains(DeletePermission))
         {

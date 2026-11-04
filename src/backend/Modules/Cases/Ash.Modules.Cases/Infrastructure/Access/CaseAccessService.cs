@@ -39,6 +39,9 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     public async Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(long caseId, CancellationToken cancellationToken = default) =>
         (await GetAsync(caseId, cancellationToken)).Permissions;
 
+    public async Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken cancellationToken = default) =>
+        (await GetAsync(caseId, cancellationToken)).Archived;
+
     /// <inheritdoc/>
     public async Task<bool> CanViewDossierDocumentsAsync(long dossierId, CancellationToken cancellationToken = default)
     {
@@ -71,6 +74,7 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
 
     public const string DecisionRecordPermission = "decision.record";
     public const string DocumentUploadPermission = "document.upload";
+    public const string CloseFinalPermission = "decision.close_final";
 
     /// <summary>
     /// What still applies to a CLOSED case, if the user holds it (the next level continues the work):
@@ -78,7 +82,9 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// - decision.record: complete the decision later (task 037 — the reasoned decision arrives, the appeal is filed,
     ///   it becomes final);
     /// - document.upload: ONLY the decision document (type VENDIM) — the upload handler refuses any other type on a
-    ///   CLOSED case with 409 "Në një çështje të mbyllur ngarkohet vetëm vendimi.".
+    ///   CLOSED case with 409 "Në një çështje të mbyllur ngarkohet vetëm vendimi.";
+    /// - decision.close_final: archive the dossier (task 038) — further narrowed by ApplyStateRules to the latest level
+    ///   with a final decision.
     /// Every other write action is off for a CLOSED case.
     /// </summary>
     public static readonly IReadOnlySet<string> ActionsAllowedWhenClosed = new HashSet<string>
@@ -87,6 +93,7 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
         "chat.case",
         DecisionRecordPermission,
         DocumentUploadPermission,
+        CloseFinalPermission,
     };
 
     /// <summary>The Kryetar of the case's office (system permissions held for their own office only).</summary>
@@ -123,6 +130,10 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
                 c.LifecycleStatus,
                 c.RegisteredBy,
                 c.CategoryId,
+                Archived = db.Dossiers.Any(d => d.Id == c.DossierId && d.ArchivedAt != null),
+                // archiving (task 038) is possible on the dossier's LATEST level once its decision is final
+                ArchivableLevel = db.CaseDecisions.Any(d => d.CaseId == c.Id && d.IsFinal)
+                    && !db.Cases.Any(n => n.DossierId == c.DossierId && n.LevelSeq > c.LevelSeq),
                 HasProfile = db.CaseAccess.Any(a => a.UserId == userId && a.CaseId == c.Id),
                 Permission = p == null ? null : p.PermissionCode
             }).ToListAsync(cancellationToken);
@@ -144,6 +155,12 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             return CaseAccess.None;
         }
 
+        // an archived dossier is read-only on EVERY level: view only (ActionsAllowedWhenClosed does not apply)
+        if (first.Archived)
+        {
+            return new CaseAccess(true, ArchivedPermissions, Archived: true);
+        }
+
         // institution.assign_jurist acts only on cases its user's institution is linked to (task 027)
         var institutionLinked = user.InstitutionId is { } institutionId && user.HasPermission(AssignJuristPermission)
             && await db.CaseInstitutions.AnyAsync(
@@ -154,7 +171,7 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             && (await reference.ListCaseCategoriesAsync(cancellationToken)).Any(x => x.Id == categoryId && x.IsDelegation);
 
         var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked);
-        ApplyStateRules(effective, first.LifecycleStatus, delegatedCategory);
+        ApplyStateRules(effective, first.LifecycleStatus, delegatedCategory, first.ArchivableLevel);
         return new CaseAccess(true, effective);
     }
 
@@ -170,11 +187,18 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// with its specific 409 (already assigned, not assigned, not active, delegated) rather than a 403.
     /// - case.assign_lawyer: only while REGISTERED (afterwards it is a transfer);
     /// - case.transfer, case.delegate: only while ACTIVE (there is a lawyer and the case is open);
-    /// - case.set_category: not while the category is DELEGIM / RELATIM (it changes through the delegation).
-    /// CLOSED is handled by <see cref="ActionsAllowedWhenClosed"/>.
+    /// - case.set_category: not while the category is DELEGIM / RELATIM (it changes through the delegation);
+    /// - decision.close_final (archive the dossier, task 038): only on the dossier's latest level, CLOSED with a final
+    ///   decision.
+    /// CLOSED is handled by <see cref="ActionsAllowedWhenClosed"/>; an archived dossier by <see cref="ArchivedPermissions"/>.
     /// </summary>
-    private static void ApplyStateRules(HashSet<string> effective, string status, bool delegatedCategory)
+    private static void ApplyStateRules(HashSet<string> effective, string status, bool delegatedCategory, bool archivableLevel)
     {
+        if (status != Case.Closed || !archivableLevel)
+        {
+            effective.Remove(CloseFinalPermission);
+        }
+
         if (status != Case.Registered)
         {
             effective.Remove(AssignLawyerPermission);
@@ -226,7 +250,14 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
         return effective;
     }
 
-    private sealed record CaseAccess(bool CanView, IReadOnlySet<string> Permissions)
+    /// <summary>
+    /// An archived dossier (task 038): only viewing, on every level — no chat, no decision, no upload. Its documents stay
+    /// downloadable (they need case.view on any level, task 034). TODO(client-q-unarchive): undoing an archiving is not
+    /// possible now; later admin-only, with a reason and an audit row.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ArchivedPermissions = new HashSet<string> { ViewPermission };
+
+    private sealed record CaseAccess(bool CanView, IReadOnlySet<string> Permissions, bool Archived = false)
     {
         public static CaseAccess None { get; } = new(false, new HashSet<string>());
     }
