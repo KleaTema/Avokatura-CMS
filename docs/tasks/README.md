@@ -86,7 +86,7 @@ Rules
 
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
-| 040 | [Notifications (Njoftimet) with real-time push](040-notifications.md) | 023 | yes | todo |
+| 040 | [Notifications (Njoftimet) with real-time push](040-notifications.md) | 023 | yes | done |
 | 041 | [Background jobs: reminders and maintenance](041-background-jobs.md) | 040, 008 |  | todo |
 
 ### Phase 7 — Reports & statistics

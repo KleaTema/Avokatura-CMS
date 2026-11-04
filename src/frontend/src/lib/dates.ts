@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import 'dayjs/locale/sq'
+import { sq } from '../i18n/sq'
 
 const TIME_ZONE = 'Europe/Tirane'
 
@@ -106,6 +107,23 @@ export function tiraneDateOf(utcIso: string | null | undefined): string | null {
  */
 export function tiraneWallClockIso(utcIso: string): string {
   return new Date(tiraneWallMs(Date.parse(utcIso))).toISOString()
+}
+
+/**
+ * "Tani", "5 minuta më parë", "3 orë më parë", "2 ditë më parë" — for activity feeds (notifications); from 7 days on
+ * the exact dd.MM.yyyy HH:mm. Always show formatDateTime() in a tooltip next to it. A time slightly in the future
+ * (clock skew) reads "Tani".
+ */
+export function formatRelative(utcIso: string | null | undefined, now: Date = new Date()): string {
+  if (!utcIso) return ''
+  const at = Date.parse(utcIso)
+  if (Number.isNaN(at)) return ''
+  const minutes = Math.floor((now.getTime() - at) / MINUTE)
+  if (minutes < 1) return sq.relative.justNow
+  if (minutes < 60) return sq.relative.minutes(minutes)
+  if (minutes < 24 * 60) return sq.relative.hours(Math.floor(minutes / 60))
+  if (minutes < 7 * 24 * 60) return sq.relative.days(Math.floor(minutes / (24 * 60)))
+  return formatDateTime(utcIso)
 }
 
 /** Formats a UTC ISO string as dd.MM.yyyy HH:mm in Europe/Tirane. */

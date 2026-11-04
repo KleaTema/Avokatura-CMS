@@ -6,7 +6,7 @@ namespace Ash.Modules.Cases.Contracts.Events;
 /// The Kryetar changed the lawyers of an ACTIVE case: the primary and/or the secondary, as they were before and are
 /// after (an unchanged primary has Old = New; a secondary is null when there is none). Handlers run in the same
 /// transaction.
-/// TODO(task-040): Notifications tell the old and the new lawyer.
+/// Notifications (task 040) tell the old and the new lawyer of each role that changed.
 /// </summary>
 public sealed record LawyerTransferred(
     Guid CasePublicId,

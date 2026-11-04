@@ -120,6 +120,8 @@ public sealed class ScanQueueJob(
             else if (verdict.Value.Clean)
             {
                 quarantineKey = await MarkCleanAsync(services.GetRequiredService<IFileStorage>(), db, row, clock, ct);
+                await services.GetRequiredService<IEventPublisher>().PublishAsync(
+                    new DocumentScanned(row.PublicId, row.UploadedBy, DocumentRow.Clean), ct);
             }
             else
             {

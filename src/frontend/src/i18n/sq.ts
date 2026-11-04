@@ -8,7 +8,6 @@ export const sq = {
   shell: {
     search: 'Kërko çështje (kodi, nr. i aktit, pala)…',
     searchLabel: 'Kërko çështje',
-    notifications: 'Njoftimet',
     userMenu: 'Menyja e përdoruesit',
     profile: 'Profili',
     logout: 'Dil',
@@ -326,6 +325,38 @@ export const sq = {
     /** the first option of an optional field: clears it */
     none: '— Asnjë —',
     clear: 'Pastro',
+  },
+  /** task 040: the bell in the header, the live toast and the "Njoftimet" page */
+  notifications: {
+    /** the browser tab title; "(3) ASH" while there are unread ones */
+    tabTitle: 'ASH',
+    tabTitleWithCount: (n: number) => `(${n}) ASH`,
+    bell: 'Njoftimet',
+    bellWithCount: (n: number) => `Njoftimet, ${n} të palexuara`,
+    title: 'Njoftimet',
+    subtitle: 'Njoftimet tuaja për çështjet dhe dokumentet.',
+    latest: 'Njoftimet e fundit',
+    empty: 'Nuk keni njoftime.',
+    emptyUnread: 'Nuk keni njoftime të palexuara.',
+    markAll: 'Shëno të gjitha si të lexuara',
+    seeAll: 'Shiko të gjitha',
+    unread: 'E palexuar',
+    /** spoken by screen readers when one arrives */
+    announced: (title: string) => `Njoftim i ri: ${title}`,
+    open: 'Hap',
+    filterLabel: 'Shfaq',
+    filterUnread: 'Të palexuara',
+    filterAll: 'Të gjitha',
+    tableLabel: 'Lista e njoftimeve',
+    colNotification: 'Njoftimi',
+    loadError: 'Njoftimet nuk u ngarkuan.',
+  },
+  /** relative times in feeds ("2 orë më parë"), the exact time in a tooltip (lib/dates formatRelative) */
+  relative: {
+    justNow: 'Tani',
+    minutes: (n: number) => (n === 1 ? '1 minutë më parë' : `${n} minuta më parë`),
+    hours: (n: number) => (n === 1 ? '1 orë më parë' : `${n} orë më parë`),
+    days: (n: number) => `${n} ditë më parë`,
   },
   /** the pagination footer under every table (components/ui/DataTable) */
   paging: {

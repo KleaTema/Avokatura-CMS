@@ -15,11 +15,12 @@ import { ContinueCasePage } from '../pages/cases/ContinueCase'
 import { RegisterCasePage } from '../pages/cases/RegisterCase'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { DashboardPage } from '../pages/Dashboard'
+import { NotificationsPage } from '../pages/Notifications'
 import { Layout } from './Layout'
 import { RequirePermission } from './RequirePermission'
 
 // Menu codes without a real page yet; each shows the "coming soon" placeholder.
-const placeholderMenuCodes = ['chat', 'notifications', 'profile', 'reports']
+const placeholderMenuCodes = ['chat', 'profile', 'reports']
 
 export const router = createBrowserRouter([
   { path: '/login', element: <DevLogin /> },
@@ -30,6 +31,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
+      // every user has menu.notifications; the rows are the user's own
+      { path: 'notifications', element: <NotificationsPage /> },
       ...placeholderMenuCodes.map((code) => ({ path: code, element: <PlaceholderPage menu={code} /> })),
       {
         path: 'agenda',

@@ -132,7 +132,7 @@ export function CloseCaseDialog({
   const received = useWatch({ control, name: 'decisionReceived' })
   const documentId = useWatch({ control, name: 'documentPublicId' })
 
-  const documents = useDecisionDocuments(caseId, uploaded !== null)
+  const documents = useDecisionDocuments(caseId)
   const uploadedDocument = (documents.data ?? []).find((d) => d.publicId === uploaded)
   useEffect(() => {
     if (uploadedDocument?.scanStatus === 'CLEAN' && getValues('documentPublicId') !== uploadedDocument.publicId) {

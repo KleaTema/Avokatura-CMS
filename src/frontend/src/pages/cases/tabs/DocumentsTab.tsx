@@ -11,7 +11,7 @@ import { EmptyState } from '../../../components/ui/EmptyState'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { StatusChip } from '../../../components/ui/StatusChip'
 import { SuccessToast } from '../../../components/ui/SuccessToast'
-import { afterCaseChange, caseKeys, type CaseDetail } from '../../../features/cases/api'
+import { afterCaseChange, type CaseDetail } from '../../../features/cases/api'
 import {
   fetchDocument,
   saveBlob,
@@ -32,9 +32,11 @@ const t = sq.cases.documents
 /** URL prefix of this tab's page and size (docspage, docssize). */
 const DOCS = 'docs'
 
-/** A just-uploaded document is polled while it is checked, at most this long. TODO(task-040): SignalR instead. */
-const POLL_MS = 3000
-const POLL_LIMIT_MS = 2 * 60 * 1000
+/**
+ * A just-uploaded document still "Në kontroll" after this long gets the slow-scan note. The list itself reloads on
+ * the "document.status" push (NotificationsProvider, task 040) and once after a reconnect — no polling.
+ */
+const SLOW_SCAN_MS = 2 * 60 * 1000
 
 /** A fallback download name when the response has none: the title plus the type's usual extension. */
 const fallbackName = (d: DocumentItem) =>
@@ -71,7 +73,7 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   const items = useMemo(() => documents.data?.items ?? [], [documents.data])
   const can = (code: string) => detail.permissions.includes(code)
 
-  // just uploaded → polled every 3 s while "Në kontroll", for at most 2 minutes
+  // just uploaded and still "Në kontroll" after 2 minutes → the slow-scan note (the push updates the row itself)
   const [watched, setWatched] = useState<Record<string, number>>({})
   const [slow, setSlow] = useState<Set<string>>(new Set())
   const pending = items.filter((d) => d.scanStatus === 'PENDING' && watched[d.publicId] !== undefined && !slow.has(d.publicId))
@@ -79,14 +81,13 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   useEffect(() => {
     if (!pendingKey) return
     const ids = pendingKey.split(',')
-    const timer = setInterval(() => {
+    const due = Math.min(...ids.map((id) => watched[id] + SLOW_SCAN_MS)) - Date.now()
+    const timer = setTimeout(() => {
       const now = Date.now()
-      const late = ids.filter((id) => now - watched[id] >= POLL_LIMIT_MS)
-      if (late.length > 0) setSlow((s) => new Set([...s, ...late]))
-      if (late.length < ids.length) void qc.invalidateQueries({ queryKey: caseKeys.documents(caseId) })
-    }, POLL_MS)
-    return () => clearInterval(timer)
-  }, [pendingKey, watched, qc, caseId])
+      setSlow((s) => new Set([...s, ...ids.filter((id) => now - watched[id] >= SLOW_SCAN_MS)]))
+    }, Math.max(0, due))
+    return () => clearTimeout(timer)
+  }, [pendingKey, watched])
 
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)

@@ -18,12 +18,20 @@ using Ash.Modules.Reports;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Events;
+using Ash.Api.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
+    // sinks and enrichers registered in DI too (the integration tests capture events this way)
+    .ReadFrom.Services(services)
+    // task 040: the host's per-request lines carry the full query string (the hubs' access_token / dev_user);
+    // UseSerilogRequestLogging below logs each request without it
+    .MinimumLevel.Override(LogRedaction.HostingDiagnostics, LogEventLevel.Warning)
     .Enrich.FromLogContext()
+    .Enrich.With<LogRedaction>()
     .WriteTo.Console()
     .WriteTo.File("logs/ash-.log", rollingInterval: RollingInterval.Day));
 
@@ -58,7 +66,9 @@ builder.Services.AddChatModule(builder.Configuration);
 
 var app = builder.Build();
 
-app.UseSerilogRequestLogging();
+// RequestPath only — never the query string (task 040: hub credentials travel there)
+app.UseSerilogRequestLogging(o => o.MessageTemplate =
+    "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms");
 app.UseMiddleware<AuditMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();

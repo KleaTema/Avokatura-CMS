@@ -13,7 +13,8 @@ public sealed class UnitOfWorkMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context, IUnitOfWork unitOfWork)
     {
-        if (!WriteMethods.Contains(context.Request.Method))
+        // SignalR's negotiate / long-polling POSTs write nothing: no transaction held open for a connection
+        if (!WriteMethods.Contains(context.Request.Method) || context.Request.Path.StartsWithSegments("/hubs"))
         {
             await next(context);
             return;

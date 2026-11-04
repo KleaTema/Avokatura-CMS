@@ -32,6 +32,20 @@ public static class AuthExtensions
                 o.Authority = authority;
                 o.Audience = audience;
                 o.MapInboundClaims = false;
+                // SignalR sends the token as ?access_token= for the WebSocket handshake: read it for /hubs/* only
+                o.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        if (string.IsNullOrEmpty(context.Token) && HubQuery.IsHubRequest(context.Request)
+                            && context.Request.Query[HubQuery.AccessTokenName].ToString() is { Length: > 0 } token)
+                        {
+                            context.Token = token;
+                        }
+
+                        return Task.CompletedTask;
+                    },
+                };
             });
         }
 

@@ -10,7 +10,31 @@ import {
   tiraneLocalToUtcIso,
   tiraneWallClockIso,
   todayInTirane,
+  formatRelative,
 } from './dates'
+
+describe('formatRelative (notifications, task 040)', () => {
+  const now = new Date('2026-11-04T12:00:00Z')
+  const ago = (ms: number) => new Date(now.getTime() - ms).toISOString()
+  const MIN = 60_000
+
+  it('reads minutes, hours and days back, singular and plural', () => {
+    expect(formatRelative(ago(20_000), now)).toBe('Tani')
+    expect(formatRelative(ago(MIN), now)).toBe('1 minutë më parë')
+    expect(formatRelative(ago(59 * MIN), now)).toBe('59 minuta më parë')
+    expect(formatRelative(ago(60 * MIN), now)).toBe('1 orë më parë')
+    expect(formatRelative(ago(23 * 60 * MIN + 59 * MIN), now)).toBe('23 orë më parë')
+    expect(formatRelative(ago(24 * 60 * MIN), now)).toBe('1 ditë më parë')
+    expect(formatRelative(ago(6 * 24 * 60 * MIN), now)).toBe('6 ditë më parë')
+  })
+
+  it('shows the exact Tirane time from 7 days on, "Tani" for a time slightly ahead, nothing for no time', () => {
+    expect(formatRelative('2026-10-28T09:30:00Z', now)).toBe('28.10.2026 10:30')
+    expect(formatRelative(new Date(now.getTime() + 5000).toISOString(), now)).toBe('Tani')
+    expect(formatRelative(null, now)).toBe('')
+    expect(formatRelative('nope', now)).toBe('')
+  })
+})
 
 describe('tiraneWallClockIso (the agenda calendar runs in UTC, task 031)', () => {
   it('writes the Tirane wall clock as UTC, in winter and summer and across midnight', () => {

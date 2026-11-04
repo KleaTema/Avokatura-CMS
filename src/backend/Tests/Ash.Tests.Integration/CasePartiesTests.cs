@@ -277,6 +277,7 @@ public class CasePartiesTests(MySqlFixture db) : IntegrationTest(db)
         await using var seed = await CaseSeed.CreateAsync(Db.AppConnectionString);
         await using var orgSeed = await Seed.CreateAsync(Db.AppConnectionString);
         var ministryId = await orgSeed.InstitutionAsync("Ministria e Financave", $"MF{orgSeed.Suffix}");
+        var institutionUser = await orgSeed.UserAsync("mf-user", "Perdorues", "MF", null, ministryId, "INSTITUTION_USER");
         try
         {
             var ministry = await PublicIdOf("institutions", ministryId);
@@ -298,7 +299,11 @@ public class CasePartiesTests(MySqlFixture db) : IntegrationTest(db)
             linked.CasePublicId.ShouldBe(caseId);
             linked.InstitutionPublicId.ShouldBe(ministry);
             linked.Mode.ShouldBe("MONITORING");
-            // TODO(task-040): assert the INSTITUTION_USER notification once Notifications exist.
+            // task 040: the institution's INSTITUTION_USER is told, in the same transaction
+            (await Scalar($"SELECT COUNT(*) FROM notifications WHERE case_id = {seed.RegisteredCaseId} AND user_id = {institutionUser} AND notification_type = 'INSTITUTION_LINKED'"))
+                .ShouldBe(1L);
+            (await Scalar($"SELECT body FROM notifications WHERE user_id = {institutionUser}"))
+                .ShouldBe($"Ministria e Financave u lidh me çështjen {await Scalar($"SELECT case_code FROM cases WHERE id = {seed.RegisteredCaseId}")} (Gjykata e Shkallës së Parë Tiranë) për monitorim.");
 
             // the ACTIVE case already has a MONITORING link to the seeded ministry: adding it as a party adds no second link
             using var primary = factory.CreateClient().AsUser("avokat1@ash.local");
@@ -315,6 +320,9 @@ public class CasePartiesTests(MySqlFixture db) : IntegrationTest(db)
         finally
         {
             await ClearCaseRows(seed);
+            await Scalar($"DELETE FROM notifications WHERE user_id = {institutionUser}");
+            await Scalar($"DELETE FROM user_roles WHERE user_id = {institutionUser}");
+            await Scalar($"DELETE FROM users WHERE id = {institutionUser}");
             await Scalar($"DELETE FROM institutions WHERE id = {ministryId}");
         }
     }

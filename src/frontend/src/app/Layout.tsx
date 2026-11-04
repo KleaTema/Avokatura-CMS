@@ -7,6 +7,7 @@ import { sq } from '../i18n/sq'
 import { ForbiddenPage, GenericErrorPage } from '../pages/ErrorPages'
 import { tokens } from '../theme/tokens'
 import { useAuth } from './authContext'
+import { NotificationsProvider } from './NotificationsProvider'
 import { AppHeader } from './shell/AppHeader'
 import { Sidebar } from './shell/Sidebar'
 
@@ -38,6 +39,8 @@ export function Layout() {
   }
 
   return (
+    // one SignalR connection for the whole logged-in session (task 040)
+    <NotificationsProvider>
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', '@media print': { display: 'block', bgcolor: 'common.white' } }}>
       {/* printing prints the page only (task 031): no header, no sidebar; "contents" keeps the flex layout on screen */}
       <Box sx={{ display: 'contents', displayPrint: 'none' }}>
@@ -70,5 +73,6 @@ export function Layout() {
       {/* Back/Forward return to the same scroll position (e.g. the case list, whose pages stay cached) */}
       <ScrollRestoration />
     </Box>
+    </NotificationsProvider>
   )
 }

@@ -39,17 +39,14 @@ export const useDocuments = (caseId: string, f: DocumentFilters, p: PageRequest)
         .then(unwrap),
   })
 
-/** How often the decision step looks again while a just-uploaded decision is "Në kontroll". TODO(task-040): SignalR. */
-const DECISION_POLL_MS = 3000
-
 /**
  * The dossier's documents of type VENDIM (every level, newest first, at most 50) — the reasoned decision is uploaded or
- * picked from these (task 039). Polled every 3 s while `poll` (a decision being checked).
+ * picked from these (task 039). Under caseKeys.documents: a just-uploaded decision turns "Gati" when the
+ * "document.status" push reloads them (NotificationsProvider, task 040), and once after a reconnect.
  */
-export const useDecisionDocuments = (caseId: string, poll: boolean) =>
+export const useDecisionDocuments = (caseId: string) =>
   useQuery({
     queryKey: [...caseKeys.documents(caseId), 'decision-picker'] as const,
-    refetchInterval: poll ? DECISION_POLL_MS : false,
     queryFn: () =>
       api
         .GET('/api/cases/{id}/documents', { params: { path: { id: caseId }, query: { type: 'VENDIM', limit: 50 } } })

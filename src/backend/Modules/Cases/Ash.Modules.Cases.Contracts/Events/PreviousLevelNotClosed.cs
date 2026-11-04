@@ -7,8 +7,8 @@ namespace Ash.Modules.Cases.Contracts.Events;
 /// first (client answer Q1b: Protokoll waits for the lawyer and never edits the previous level).
 /// Recipients: the current primary lawyer (if any) and the office head. Published only from
 /// POST /api/cases/{id}/notify-not-closed, inside that request's committed transaction.
-/// TODO(task-040): Notifications tell the lawyer and the Kryetar.
-/// TODO(task-040): reminder to lawyer + Kryetar if the level is still not closed 3 days before HearingAt.
+/// Notifications (task 040) tell the lawyer and the Kryetar, with the new summons' hearing date.
+/// TODO(task-041): reminder to lawyer + Kryetar if the level is still not closed 3 days before HearingAt.
 /// </summary>
 public sealed record PreviousLevelNotClosed(
     Guid PreviousCasePublicId,

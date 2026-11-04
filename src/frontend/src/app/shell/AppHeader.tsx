@@ -1,6 +1,5 @@
 import {
   Avatar,
-  Badge,
   Box,
   ButtonBase,
   IconButton,
@@ -10,9 +9,10 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { Bell, ChevronDown, LogOut, Menu as MenuIcon, Search, UserRound } from 'lucide-react'
+import { ChevronDown, LogOut, Menu as MenuIcon, Search, UserRound } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { NotificationBell } from '../../components/NotificationBell'
 import { searchTabOf, useCaseTabs } from '../../features/cases/api'
 import { sq } from '../../i18n/sq'
 import { tokens } from '../../theme/tokens'
@@ -28,7 +28,8 @@ export interface HeaderUser {
 }
 
 /**
- * The navy header: emblem + institution name, case search (→ /cases?q=…), notifications, user menu (Profili, Dil).
+ * The navy header: emblem + institution name, case search (→ /cases?q=…), the notification bell (task 040), user
+ * menu (Profili, Dil). Needs the NotificationsProvider of the Layout.
  * `onMenu` is set below 900 px, where the sidebar is a drawer.
  */
 export function AppHeader({
@@ -36,14 +37,11 @@ export function AppHeader({
   onMenu,
   menuOpen,
   onLogout,
-  notificationCount,
 }: {
   user: HeaderUser | undefined
   onMenu?: () => void
   menuOpen: boolean
   onLogout: () => void
-  /** none yet: the notifications task fills it; no badge without a count */
-  notificationCount?: number
 }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -159,11 +157,7 @@ export function AppHeader({
         />
       </Box>
 
-      <IconButton color="inherit" aria-label={s.notifications} onClick={() => navigate('/notifications')}>
-        <Badge color="error" badgeContent={notificationCount} invisible={!notificationCount}>
-          <Bell size={22} />
-        </Badge>
-      </IconButton>
+      <NotificationBell />
 
       {user && (
         <>

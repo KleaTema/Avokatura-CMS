@@ -413,3 +413,69 @@ page (the address stays `/cases/{id}/vendimi`).
 7. Errors: two users completing the decision at once → the second gets the shared conflict message with *Rifresko*;
    a server field error opens the step that has the field.
 8. At 390 px the dialog fills the screen, the money and m² fields stack, no side scrolling.
+
+## 040 — Notifications (API and SignalR)
+**Setup:** run the migrator (`dotnet run --project src/backend/Database/Ash.Database -- --local`; script 015 adds
+`notifications.public_id`), then restart the API. Calls with Scalar or curl and the header
+`X-Dev-User`. Each step: check `GET /api/notifications` (newest first, `items`, `nextCursor`, `total`) and
+`GET /api/notifications/unread-count` as the RECIPIENT; the actor never gets a row.
+1. As kryetar assign a REGISTERED case: avokat1 primary, avokat2 secondary → each has one "Ju u caktua një çështje"
+   ("U caktuat avokat kryesor/dytësor në çështjen X/1 (Gjykata …)."), `linkPath` `/cases/{publicId}/te-dhenat`; the
+   Kryetar has none; the users of an institution linked to the case have "Çështjes iu caktua avokati". No text shows
+   the object of the case.
+2. Kryetar assigns himself as primary → no row for him.
+3. Register a case as protokoll → the office head gets "Çështje e re për caktim".
+4. Transfer (primary avokat1 → avokat2) → avokat2 "Ju u caktua një çështje", avokat1 "Çështja u transferua … u caktua
+   Avokat2 Dev."; an unchanged lawyer gets nothing.
+5. As the primary add / remove a legal assistant → the assistant gets "U shtuat / U hoqët si ndihmës ligjor".
+6. As institucion assign the jurist, then a second one → the first "U caktuat jurist", then "U zëvendësuat si jurist";
+   the new one "U caktuat jurist".
+7. As protokoll add an institution party to a case → the institution's users get "Çështje e re për institucionin".
+   Delegate / end the delegation (primary lawyer) → institution users and the case's jurist: "Çështja u delegua /
+   relatua", "Delegimi përfundoi".
+8. Notify-not-closed on an open level → primary lawyer and Kryetar: "Shkalla nuk është mbyllur" with the hearing date
+   and time of the new summons in Tirana time; link to the *Vendimi* tab.
+9. Close a case (avokat1) → avokat2, the assistant and the jurist get "Çështja u mbyll" ("Avokat1 Dev mbylli …").
+10. With the ClamAV profile upload the EICAR test file → the uploader and every active admin get "Dokumenti u refuzua"
+    (no title, no virus name in the text).
+11. A deactivated user (Admin → users) gets no new rows.
+12. `POST /api/notifications/{id}/read` → `unread` one less (again: same `readAt`); another user's id → 404.
+    `POST /api/notifications/read-all` → `marked`, `unread` 0; the other users' rows unchanged.
+13. Paging: `?limit=5`, then `?after={nextCursor}` — no repeats, no gaps; `?unreadOnly=true`; `limit` above 50 gives 50.
+14. SignalR (browser console on the app, dev login): connect to `/hubs/notifications?dev_user=avokat1%40ash.local`
+    (`@microsoft/signalr`, `withUrl(...)`), `on('notification.new')`, `on('notification.count')`,
+    `on('document.status')`. Assign a case to avokat1 in another window → both arrive right after the response, never
+    for a request that failed. Upload a file → `document.status` `{ documentPublicId, scanStatus: "CLEAN" }` when the
+    scan finishes. Without `dev_user` (or an unknown / inactive user) the negotiate answers 401; `dev_user` on any
+    other URL is ignored (401).
+15. Logs (`Host/Ash.Api/logs/ash-*.log` and the console): no line contains `access_token=` or `dev_user=` with a
+    value — only `***` where a URL with them was logged; the request lines show the path only.
+
+## 040 — Notifications (screens)
+**Setup:** API and `npm run dev` (the Vite proxy forwards `/hubs` with WebSockets). Two browsers (or a normal and a
+private window): avokat1 in one, kryetar in the other.
+1. avokat1 on the dashboard: the bell in the header has no badge, the browser tab reads "ASH".
+2. kryetar assigns a REGISTERED case to avokat1 (*Pa avokat* → *Cakto avokatin*). In avokat1's window, without
+   reloading, within about 2 seconds: the badge shows 1, the tab title "(1) ASH", and a toast "Ju u caktua një
+   çështje" with *Hap* (bottom right). A screen reader announces "Njoftim i ri: Ju u caktua një çështje". Reloading
+   the page shows the badge again but no toast.
+3. The bell opens "Njoftimet e fundit": the newest 10, unread in bold, each with its text and a relative time
+   ("Tani", "5 minuta më parë"); hovering the time shows dd.MM.yyyy HH:mm. A click: the popover closes, the case opens
+   on *Të dhënat*, the badge goes down, the title back to "ASH".
+4. *Shëno të gjitha si të lexuara* (popover or page): every row loses the bold, the badge disappears; disabled when
+   nothing is unread. In a second tab of the same user the badge follows at once (the count is pushed).
+5. *Shiko të gjitha* → *Njoftimet* (also from the sidebar's *Njoftime*): 10 per page with "1–10 nga N", *Pas ›* /
+   *‹ Para*, the page size; *Shfaq*: *Të gjitha* / *Të palexuara* (in the URL as `?show=unread`; empty: "Nuk keni
+   njoftime të palexuara."). An icon per type (assignment, transfer, institution, delegation, closed case, rejected
+   document, level not closed).
+6. More than 99 unread: the badge reads "99+".
+7. A notification of a case the user can no longer see (e.g. avokat1 after a transfer away): the click opens the case
+   page with "Çështja nuk u gjet ose nuk keni akses."
+8. Documents (035): upload a file on *Dokumentet* — "Në kontroll" turns *Gati* by itself when the scan finishes, with
+   no request every 3 s in the browser's network tab (one GET after the `document.status` push). The same in the
+   close-case dialog's *Vendimi i arsyetuar* step.
+9. Stop the API for a moment, then start it again: the app reconnects by itself and fetches the count, the newest
+   notifications and the documents once. With the hub unreachable, the count still refreshes every 60 s while the tab
+   is visible (not in a hidden tab).
+10. At 390 px: the popover fills the width, the page shows one column (text with its time under it), no side
+    scrolling.

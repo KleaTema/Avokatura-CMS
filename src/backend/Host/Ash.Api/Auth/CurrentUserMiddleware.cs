@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Audit.Infrastructure;
 using Ash.Modules.Identity.Application.ResolveUser;
+using Ash.SharedKernel.Identity;
 
 namespace Ash.Api.Auth;
 
@@ -27,6 +29,8 @@ public sealed class CurrentUserMiddleware(RequestDelegate next)
         }
 
         currentUser.Set(result.Value);
+        // the SignalR user id (PublicIdUserIdProvider): the resolved users row, not whatever the token names
+        context.User.AddIdentity(new ClaimsIdentity([new Claim(AshClaims.UserPublicId, result.Value.PublicId.ToString())]));
         audit.Actor = new AuditActor(result.Value.UserId, result.Value.DisplayName, string.Join(',', result.Value.Roles));
         await next(context);
     }

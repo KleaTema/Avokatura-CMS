@@ -21,7 +21,7 @@ namespace Ash.Modules.Cases.Application.TransferLawyer;
 /// Order of checks: fields → no view 404 → CLOSED 409 → REGISTERED 409 → case.transfer missing 403 → stale rowVersion
 /// 409 → people not offered for this case / no change / primary = secondary 400.
 /// Legal assistants stay. TODO(client-q-assistants-on-transfer): default keep; the new primary may remove them (task 026).
-/// TODO(task-040, chat): move the old lawyer's personal reminders for this case; remove the old lawyer from the case chat.
+/// TODO(task-041, chat): move the old lawyer's personal reminders for this case; remove the old lawyer from the case chat.
 /// </summary>
 internal sealed class TransferLawyerHandler(
     CasesDbContext db,

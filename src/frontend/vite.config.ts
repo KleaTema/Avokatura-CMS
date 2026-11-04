@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:5004',
+      // SignalR (task 040): negotiate over HTTP, then the WebSocket upgrade
+      '/hubs': { target: 'http://localhost:5004', ws: true },
     },
   },
   test: {

@@ -4,7 +4,7 @@ namespace Ash.Modules.Cases.Contracts.Events;
 
 /// <summary>
 /// The primary lawyer added a legal assistant to the case. Handlers run in the same transaction.
-/// TODO(task-040): Notifications tell the assistant.
+/// Notifications (task 040) tell the assistant — on removal too.
 /// </summary>
 public sealed record AssistantAssigned(Guid CasePublicId, Guid AssistantUserPublicId) : IEvent;
 

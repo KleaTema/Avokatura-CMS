@@ -16,6 +16,8 @@ its parts) and adds the retention period (Q9).
 **Task 034** (document timeline, download, delete) adds *docs-across-levels*, *deleted-docs* and *uploader-delete*.
 **Tasks 036/037** (decision, closing, completing later) add *closed-uploads* and *close-hearings*.
 **Task 038** (archive the dossier) adds *unarchive*.
+**Task 040** (notifications) implements *notifications-email* with its default (in-app only), adds *notification-texts*,
+and adds "AKSHI questions — real-time push": the SignalR backplane and WebSockets through the reverse proxy.
 
 **Numbering note.** The task files use "Client question N" inconsistently: *Q1* stands both for the identity-provider
 claims (005) and for the registration search fields (018), and *Q6* both for the 30-day reminder after a transfer (024)
@@ -52,6 +54,8 @@ and for report access (042/044). The ids below are unique; the old number is kep
 | closed-uploads | Pas mbylljes së çështjes, kush mund të ngarkojë vendimin e arsyetuar (Vendim)? Tani: kushdo që kishte të drejtë ngarkimi (edhe avokati dytësor, ndihmësi, institucioni monitorues); dokumente të tjera jo. | After closing, who may upload the reasoned decision (Vendim)? Now: whoever could upload (also the secondary lawyer, the assistant, the monitoring institution); no other documents. | `document.upload` stays on a CLOSED case for type VENDIM only (409 "Në një çështje të mbyllur ngarkohet vetëm vendimi." otherwise); linking it to the decision needs `decision.record`. | `TODO(client-q-closed-uploads)` in `Documents/Application/Upload/UploadDocumentHandler.cs` | 036 |
 | close-hearings | Kur mbyllet çështja me seanca ende të planifikuara, a anulohen ato automatikisht? | When a case is closed while hearings are still scheduled, are they cancelled automatically? | Not silently: the API answers 409 with the list; the user confirms (`cancelOpenHearings`) and they become CANCELLED with "Anuluar në mbyllje të çështjes" (a history row each). | `TODO(client-q-close-hearings)` in `Cases/Application/RecordDecision/RecordDecisionHandler.cs` | 036 |
 | unarchive | A mund të zhbëhet arkivimi i një dosjeje (p.sh. arkivuar gabimisht), dhe nga kush? | Can archiving a dossier be undone (e.g. archived by mistake), and by whom? | Not possible now: an archived dossier is read-only on every level (view and document download only). Later, if confirmed: admin only, with a reason and an audit row. | `TODO(client-q-unarchive)` in `Cases/Infrastructure/Access/CaseAccessService.cs` and `Cases/Application/ArchiveDossier/ArchiveDossierHandler.cs` | 038 |
+| notifications-email | A duhet që njoftimet të dërgohen edhe me email? Nëse po, cilat lloje (p.sh. caktimi i çështjes, shkalla e pambyllur) dhe përmes cilit server postar? | Should notifications also be sent by e-mail? If so, which types (e.g. case assigned, previous level not closed) and through which mail server? | In-app only: stored in `notifications` and pushed over SignalR; no e-mail is sent. | `TODO(client-q-email)` in `Notifications/Application/NotificationSender.cs` | 040 |
+| notification-texts | A janë të sakta tekstet e njoftimeve (titulli dhe përshkrimi, shqip)? Ato përmbajnë vetëm kodin e çështjes, gjykatën, veprimin dhe emrat — asnjëherë objektin apo përmbajtje tjetër të çështjes. | Are the notification texts (title and body, Albanian) right? They hold only the case code, the court, the action and names — never the object or other case content. | The texts in `NotificationTexts` (one place), written by the developer; a stored notification keeps the text it was sent with. | `Notifications/Application/NotificationTexts.cs` | 040 |
 | retention (Q9) | Sa kohë duhet të ruhen dokumentet e çështjeve (afati ligjor i ruajtjes)? | How long must case documents be kept (legal retention period)? | The application never deletes documents (only quarantined uploads); any retention period is left to the bucket's object-lock configuration. | `TODO(client-q9)` in `Ash.Infrastructure/Storage/IFileStorage.cs` | 032 |
 
 ## AKSHI questions — storage (task 032)
@@ -83,13 +87,19 @@ Questions for AKSHI's infrastructure team. Until answered, the code uses the def
 |---|---|---|---|---|
 | mysql-search-setting | Kërkimi në pjesë fjalësh kërkon këtë konfigurim të serverit MySQL (primar dhe replikë): `innodb_ft_enable_stopword = OFF` dhe `ngram_token_size = 2` (vlera e paracaktuar). A mund ta vendosë AKSHI në konfigurimin e serverit? | MySQL server setting needed for search: substring search needs `innodb_ft_enable_stopword = OFF` and `ngram_token_size = 2` (the default) on the MySQL server (primary and replica). Can AKSHI set them in the server configuration? | Script 014 turns stopwords off for its own session, so the indexes are built right; `docs/sql/mysql_server.cnf` and the local docker-compose set both values. Without them on the server, a later index rebuild (OPTIMIZE, ALTER … FORCE) drops 2-letter tokens such as "in", "an", and searches like "stri" (Ministria) or "inan" (Financave) stop finding. | `docs/sql/mysql_server.cnf`, `Database/Ash.Database/Scripts/014_ngram_search_indexes.sql` |
 
+## AKSHI questions — real-time push (task 040)
+
+| Id | Question (sq) | Question (en) | Default implemented | Where in code (TODO tag) |
+|---|---|---|---|---|
+| signalr-backplane | Sa instanca të API-së do të ekzekutohen? Me më shumë se një, njoftimet në kohë reale kërkojnë një "backplane" (p.sh. Redis) ose sesione "sticky" në load balancer. A ofron AKSHI Redis, apo sesione sticky? | How many API instances will run? With more than one, real-time pushes need a backplane (e.g. Redis) or sticky sessions on the load balancer. Does AKSHI provide Redis, or sticky sessions? | One instance assumed: SignalR in memory. With several instances a push reaches only users connected to the instance that sends it (the stored notification and the count are always right; the client sees them on its next load). | `TODO(akshi-q-signalr-backplane)` in `Notifications/Realtime/NotificationsHub.cs` |
+| websocket-proxy | A i kalon reverse proxy / load balancer lidhjet WebSocket te `/hubs/*` (header-at `Upgrade` / `Connection`, timeout i leximit të paktën 2 minuta)? A i shkruan proxy URL-të e plota (me query string) në log-et e veta? | Does the reverse proxy / load balancer pass WebSocket connections to `/hubs/*` (the `Upgrade` / `Connection` headers, a read timeout of at least 2 minutes)? Does the proxy write full URLs (with the query string) to its own logs? | WebSockets, falling back to Server-Sent Events / long polling when the upgrade fails. The browser sends the token as `?access_token=` on `/hubs/*` only (a WebSocket cannot carry headers); the API never logs that query string — the proxy must not either (or must mask `access_token`). | `Notifications/Realtime/NotificationsHub.cs`, `Host/Ash.Api/Logging/LogRedaction.cs` |
+
 ## Open — for tasks not built yet
 
 No code yet; the default is decided when the task is implemented.
 
 | Id | Question (sq) | Question (en) | Planned default | Task |
 |---|---|---|---|---|
-| notifications-email | A duhet që njoftimet të dërgohen edhe me email? | Should notifications also be sent by e-mail? | — | 040 |
 | report-access (Q6) | Cilat raporte dhe statistika mund të shohë secili rol? | Which reports and statistics may each role see? | — | 042, 044 |
 | dashboard-widgets | Cilat elemente do të shohë secili rol në faqen kryesore? | Which widgets does each role want on the dashboard? | — | 046 |
 | profile-fields (Q3) | Cilat fusha të profilit ka secili rol dhe cilat mund të ndryshohen? | Which profile fields per role, and which are editable? | — | 048 |

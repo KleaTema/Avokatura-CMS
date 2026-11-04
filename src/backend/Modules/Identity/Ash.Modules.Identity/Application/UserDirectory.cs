@@ -67,6 +67,23 @@ public sealed class UserDirectory(IdentityDbContext db) : IUserDirectory
             u => new UserRef(u.PublicId, u.FirstName + " " + u.LastName, u.InstitutionId is { } i ? i : null));
     }
 
+    public async Task<IReadOnlyList<UserState>> GetStatesAsync(
+        IReadOnlyCollection<long> userIds, IReadOnlyCollection<Guid> publicIds, CancellationToken ct = default)
+    {
+        if (userIds.Count == 0 && publicIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = userIds.Select(id => (uint)id).Distinct().ToList();
+        var publics = publicIds.Distinct().ToList();
+        var rows = await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id) || publics.Contains(u.PublicId))
+            .Select(u => new { u.Id, u.PublicId, u.FirstName, u.LastName, u.IsActive })
+            .ToListAsync(ct);
+        return rows.Select(u => new UserState(u.Id, u.PublicId, u.FirstName + " " + u.LastName, u.IsActive)).ToList();
+    }
+
     public async Task<IReadOnlyList<OfficeUser>> GetOfficeUsersByRoleAsync(long officeId, string roleCode, CancellationToken ct = default)
     {
         var office = (ushort)officeId;

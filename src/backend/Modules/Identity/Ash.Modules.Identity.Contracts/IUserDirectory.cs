@@ -14,6 +14,9 @@ public sealed record UserSummary(
 /// </summary>
 public sealed record UserRef(Guid PublicId, string Name, long? InstitutionId);
 
+/// <summary>A user with the internal id (foreign keys only), the public id, "First Last" and whether they are active.</summary>
+public sealed record UserState(long Id, Guid PublicId, string Name, bool IsActive);
+
 /// <summary>
 /// A user of an office or an institution as another module needs it: the internal id only for foreign keys, never
 /// sent out.
@@ -41,6 +44,13 @@ public interface IUserDirectory
 
     /// <summary>Public id + name (+ institution) per internal user id, inactive users included, in one call.</summary>
     Task<IReadOnlyDictionary<long, UserRef>> GetRefsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Users known by internal id or by public id (both lists in one query), with their active flag — e.g. the
+    /// recipients of a notification (task 040: inactive users are skipped). Unknown ids are simply missing.
+    /// </summary>
+    Task<IReadOnlyList<UserState>> GetStatesAsync(
+        IReadOnlyCollection<long> userIds, IReadOnlyCollection<Guid> publicIds, CancellationToken ct = default);
 
     /// <summary>Active users of the office that hold the role (e.g. the STATE_LAWYERs a case can be assigned to).</summary>
     Task<IReadOnlyList<OfficeUser>> GetOfficeUsersByRoleAsync(long officeId, string roleCode, CancellationToken ct = default);

@@ -109,3 +109,8 @@ export async function claimOf(caseId: string, user: string): Promise<string | nu
 export async function statusOf(caseId: string, user: string): Promise<string> {
   return (await ok<{ header: { status: string } }>('GET', `/api/cases/${caseId}`, user)).header.status
 }
+
+/** Task 040: the user starts with no unread notifications (the bell then counts only what the test causes). */
+export async function markAllNotificationsRead(user: string): Promise<void> {
+  await ok('POST', '/api/notifications/read-all', user)
+}
