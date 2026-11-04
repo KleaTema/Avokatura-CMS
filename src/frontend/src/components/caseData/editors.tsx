@@ -13,7 +13,7 @@ import {
 } from '../../features/cases/api'
 import { useCaseCategories, useCaseSubcategories } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
-import { AREA_INTEGER_DIGITS, parseAlbanianMoneyInput, toAlbanianInput } from '../../lib/money'
+import { AREA_INTEGER_DIGITS, CURRENCIES, parseAlbanianMoneyInput, toAlbanianInput } from '../../lib/money'
 import { isFilled, isoDateOf, isPickerValue, type PickerValue } from '../../lib/pickerValues'
 import { AppDatePicker } from '../AppDatePicker'
 import { AppSelect } from '../ui/AppSelect'
@@ -23,8 +23,6 @@ import { useSaveOutcome } from './useSaveOutcome'
 
 const e = sq.cases.edit
 
-/** The currencies offered (claim_currency is ISO 4217 text; there is no currency table). */
-const CURRENCIES = ['ALL', 'EUR', 'USD']
 
 interface EditorProps {
   detail: CaseDetail

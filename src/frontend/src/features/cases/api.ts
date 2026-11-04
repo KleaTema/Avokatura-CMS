@@ -390,6 +390,57 @@ export const useSetPriority = (caseId: string) =>
     (c, r) => ({ ...c, header: { ...c.header, priority: r.priority } }),
   )
 
+// ---------------------------------------------------------------- decision, closing, archiving (tasks 036–039)
+
+export type DecisionRequest = components['schemas']['DecisionRequest']
+export type CaseDecision = components['schemas']['CaseDecisionSummary']
+export type RecordDecisionResponse = components['schemas']['RecordDecisionResponse']
+export type UpdateDecisionResponse = components['schemas']['UpdateDecisionResponse']
+
+/** What the API suggests after a decision (DecisionSuggestions). */
+export const SUGGESTIONS = { retrial: 'RETRIAL_EXPECTED', archive: 'ARCHIVE_SUGGESTED' } as const
+
+/**
+ * POST /decision: records the decision and closes the level. Afterwards everything the closing touches reloads through
+ * the one helper: the case (header, decision, permissions), its hearings (cancelled ones), documents, history, the
+ * lists with their counts and the agenda.
+ */
+export const useRecordDecision = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DecisionRequest) => api.POST('/api/cases/{id}/decision', { ...path(caseId), body }).then(unwrap),
+    onSuccess: (result) => afterCaseChange(qc, caseId, result.caseRowVersion),
+  })
+}
+
+/** PUT /decision (decision rowVersion): completes the decision of a CLOSED level; the case row is not changed. */
+export const useUpdateDecision = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DecisionRequest) => api.PUT('/api/cases/{id}/decision', { ...path(caseId), body }).then(unwrap),
+    onSuccess: () => afterCaseChange(qc, caseId),
+  })
+}
+
+/**
+ * POST /api/dossiers/{id}/archive (rowVersion of the latest case). The whole dossier becomes read-only: besides this
+ * case, every level's page reloads (their permissions shrink to case.view).
+ */
+export const useArchiveDossier = (caseId: string, dossierPublicId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rowVersion: number) =>
+      api
+        .POST('/api/dossiers/{dossierPublicId}/archive', { params: { path: { dossierPublicId } }, body: { rowVersion } })
+        .then(unwrap),
+    onSuccess: (result) =>
+      Promise.all([
+        afterCaseChange(qc, caseId, result.caseRowVersion),
+        qc.invalidateQueries({ queryKey: ['case'] }),
+      ]),
+  })
+}
+
 // ---------------------------------------------------------------- legal assistants (task 026)
 
 export type AssignableAssistant = components['schemas']['AssignableAssistant']

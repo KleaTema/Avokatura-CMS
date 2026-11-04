@@ -516,6 +516,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dossiers/{dossierPublicId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ArchiveDossier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/documents": {
         parameters: {
             query?: never;
@@ -1604,6 +1620,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["UpdateDecision"];
+        post: operations["RecordDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1643,6 +1675,16 @@ export interface components {
             /** Format: uint64 */
             maxSizeBytes: number | string;
             appliesTo: string;
+        };
+        ArchiveDossierRequest: {
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
+        ArchiveDossierResponse: {
+            /** Format: date-time */
+            archivedAt: string;
+            /** Format: uint32 */
+            caseRowVersion: number | string;
         };
         AssignableAssistant: {
             /** Format: uuid */
@@ -1737,6 +1779,7 @@ export interface components {
             registeredBy: null | components["schemas"]["UserView"];
             /** Format: date-time */
             closedAt: null | string;
+            appealKind?: null | string;
         };
         CaseDecisionSummary: {
             result: components["schemas"]["CodeName"];
@@ -1748,6 +1791,25 @@ export interface components {
             isAppealed: boolean;
             isRecursed: boolean;
             isFinal: boolean;
+            dispositive: null | string;
+            currency: string;
+            wonAmount: null | string;
+            wonAreaM2: null | string;
+            lostAmount: null | string;
+            lostAreaM2: null | string;
+            preventedDamageAmount: null | string;
+            preventedDamageAreaM2: null | string;
+            causedDamageAmount: null | string;
+            causedDamageAreaM2: null | string;
+            courtCostsAmount: null | string;
+            /** Format: date-time */
+            decisionReceivedAt: null | string;
+            document: null | components["schemas"]["DecisionDocumentView"];
+            sendsBackForRetrial: boolean;
+            /** Format: date-time */
+            recordedAt: string;
+            /** Format: uint32 */
+            rowVersion: number | string;
         };
         CaseHeader: {
             /** Format: uuid */
@@ -1760,6 +1822,9 @@ export interface components {
             isSuspended: boolean;
             /** Format: uint32 */
             rowVersion: number | string;
+            /** Format: uuid */
+            dossierPublicId: string;
+            isArchived: boolean;
         };
         CaseHistoryItem: {
             level: string;
@@ -1980,6 +2045,38 @@ export interface components {
             /** Format: uuid */
             institutionId: null | string;
             roles: null | string[];
+        };
+        DecisionDocumentView: {
+            /** Format: uuid */
+            publicId: string;
+            title: string;
+        };
+        DecisionRequest: {
+            resultCode: null | string;
+            resultOtherText: null | string;
+            decisionNumber: null | string;
+            /** Format: date */
+            decisionDate: null | string;
+            dispositive: null | string;
+            currency: null | string;
+            wonAmount: null | string;
+            wonAreaM2: null | string;
+            lostAmount: null | string;
+            lostAreaM2: null | string;
+            preventedDamageAmount: null | string;
+            preventedDamageAreaM2: null | string;
+            causedDamageAmount: null | string;
+            causedDamageAreaM2: null | string;
+            courtCostsAmount: null | string;
+            decisionReceived: null | boolean;
+            /** Format: uuid */
+            decisionDocumentPublicId: null | string;
+            isAppealed: null | boolean;
+            isRecursed: null | boolean;
+            isFinal: null | boolean;
+            cancelOpenHearings: null | boolean;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
         };
         DecisionResultAdminResponse: {
             code: string;
@@ -2392,6 +2489,16 @@ export interface components {
             detail?: null | string;
             instance?: null | string;
         };
+        RecordDecisionResponse: {
+            /** Format: uint32 */
+            caseRowVersion: number | string;
+            /** Format: date-time */
+            closedAt: string;
+            /** Format: int32 */
+            cancelledHearings: number | string;
+            decision: components["schemas"]["CaseDecisionSummary"];
+            suggestions: string[];
+        };
         RegisterCaseRequest: {
             summonsNumber: null | string;
             summonsTypeCode: null | string;
@@ -2580,6 +2687,10 @@ export interface components {
             courtLevel: string;
             city: null | string;
             isForeign: boolean;
+        };
+        UpdateDecisionResponse: {
+            decision: components["schemas"]["CaseDecisionSummary"];
+            suggestions: string[];
         };
         UpdateDecisionResultRequest: {
             name: string;
@@ -4073,6 +4184,68 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ArchiveDossier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dossierPublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveDossierRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveDossierResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6922,6 +7095,130 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateDecisionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    RecordDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordDecisionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description Not Found */

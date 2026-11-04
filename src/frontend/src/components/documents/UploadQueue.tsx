@@ -46,7 +46,22 @@ function uploadError(error: unknown): string {
  * (XMLHttpRequest), cancel and retry per file. The extension and size are checked here first (fail fast); the
  * server checks again, including the file's first bytes.
  */
-export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded: (documentId: string) => void }) {
+export function UploadQueue({
+  caseId,
+  onUploaded,
+  presetType,
+  single,
+  secondaryButton,
+}: {
+  caseId: string
+  onUploaded: (documentId: string) => void
+  /** the type of every file, fixed (e.g. VENDIM in the close dialog, task 039): the type select is not offered */
+  presetType?: string
+  /** one file at a time */
+  single?: boolean
+  /** "Ngarko" not gold: inside a dialog whose own main action is gold */
+  secondaryButton?: boolean
+}) {
   const documentTypes = useDocumentTypes()
   const allowed = useAllowedFileTypes()
   const [items, setItems] = useState<QueueItem[]>([])
@@ -75,13 +90,15 @@ export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded
   const extensions = acceptOf(allowedTypes)
 
   const addFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    const added = Array.from(files).map((file): QueueItem => {
+    // the pre-check needs the allowed types: no file is taken before they are loaded
+    if (!files || files.length === 0 || !allowed.data) return
+    const chosen = single ? Array.from(files).slice(0, 1) : Array.from(files)
+    const added = chosen.map((file): QueueItem => {
       const problem = preCheck(file, allowedTypes)
       return {
         id: crypto.randomUUID(),
         file,
-        typeCode: '',
+        typeCode: presetType ?? '',
         otherText: '',
         title: titleOf(file.name).slice(0, MAX_TITLE),
         state: problem ? 'invalid' : 'ready',
@@ -91,7 +108,8 @@ export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded
         fieldErrors: {},
       }
     })
-    change((list) => [...list, ...added])
+    // one file at a time: the new file replaces a row that was not uploaded yet
+    change((list) => (single ? [...list.filter((i) => i.state === 'done' || i.state === 'uploading'), ...added] : [...list, ...added]))
   }
 
   /** Type chosen, "Tjetër" described, title not too long — otherwise the row shows what is missing. */
@@ -183,7 +201,7 @@ export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded
             <FileUp size={32} strokeWidth={1.5} />
           </Box>
           <Typography>{t.dropHere}</Typography>
-          <Button variant="outlined" onClick={() => input.current?.click()}>
+          <Button variant="outlined" onClick={() => input.current?.click()} disabled={!allowed.data}>
             {t.choose}
           </Button>
           {extensions && (
@@ -194,9 +212,10 @@ export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded
           <input
             ref={input}
             type="file"
-            multiple
+            multiple={!single}
             hidden
             accept={extensions}
+            disabled={!allowed.data}
             onChange={(e) => {
               addFiles(e.target.files)
               e.target.value = ''
@@ -213,6 +232,7 @@ export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded
               item={item}
               types={types}
               otherType={isOther(item.typeCode)}
+              typeLocked={presetType !== undefined}
               onChange={(values) => patch(item.id, { ...values, fieldErrors: {} })}
               onRemove={() => change((list) => list.filter((i) => i.id !== item.id))}
               onCancel={() => controllers.current.get(item.id)?.abort()}
@@ -229,7 +249,7 @@ export function UploadQueue({ caseId, onUploaded }: { caseId: string; onUploaded
           )}
           <Button
             variant="contained"
-            color="secondary"
+            color={secondaryButton ? 'primary' : 'secondary'}
             startIcon={<Upload size={20} aria-hidden />}
             disabled={ready.length === 0}
             onClick={() => queue(ready.map((i) => i.id))}
@@ -246,6 +266,7 @@ function QueueRow({
   item,
   types,
   otherType,
+  typeLocked,
   onChange,
   onRemove,
   onCancel,
@@ -254,6 +275,8 @@ function QueueRow({
   item: QueueItem
   types: { code: string; name: string }[]
   otherType: boolean
+  /** the queue's preset type: shown, not changed */
+  typeLocked: boolean
   onChange: (values: Partial<QueueItem>) => void
   onRemove: () => void
   onCancel: () => void
@@ -298,7 +321,7 @@ function QueueRow({
               label={t.type}
               value={item.typeCode}
               onChange={(typeCode) => onChange({ typeCode })}
-              disabled={!editable}
+              disabled={!editable || typeLocked}
               error={!!item.fieldErrors.type}
               helperText={item.fieldErrors.type}
               options={types.map((x) => ({ value: x.code, label: x.name }))}

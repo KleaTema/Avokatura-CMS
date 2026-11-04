@@ -45,6 +45,16 @@ export const useHearingTypes = () =>
     queryFn: () => api.GET('/api/reference/hearing-types').then(unwrap),
   })
 
+export type DecisionResult = components['schemas']['DecisionResultResponse']
+
+/** The active decision results (Rezultati i çështjes), in the list's order. */
+export const useDecisionResults = () =>
+  useQuery({
+    queryKey: referenceKeys.list('decision-results'),
+    staleTime: LIST_STALE_MS,
+    queryFn: () => api.GET('/api/reference/decision-results').then(unwrap),
+  })
+
 /**
  * Active judges (server search, at most 50): of one court (q optional), or of all courts (q of 2+ characters).
  * Disabled when neither a court nor a long enough q is given, or when `enabled` is false.

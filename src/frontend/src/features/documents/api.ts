@@ -39,7 +39,25 @@ export const useDocuments = (caseId: string, f: DocumentFilters, p: PageRequest)
         .then(unwrap),
   })
 
-const problemSchema = z.object({ title: z.string().nullish(), code: z.string().optional() }).passthrough()
+/** How often the decision step looks again while a just-uploaded decision is "Në kontroll". TODO(task-040): SignalR. */
+const DECISION_POLL_MS = 3000
+
+/**
+ * The dossier's documents of type VENDIM (every level, newest first, at most 50) — the reasoned decision is uploaded or
+ * picked from these (task 039). Polled every 3 s while `poll` (a decision being checked).
+ */
+export const useDecisionDocuments = (caseId: string, poll: boolean) =>
+  useQuery({
+    queryKey: [...caseKeys.documents(caseId), 'decision-picker'] as const,
+    refetchInterval: poll ? DECISION_POLL_MS : false,
+    queryFn: () =>
+      api
+        .GET('/api/cases/{id}/documents', { params: { path: { id: caseId }, query: { type: 'VENDIM', limit: 50 } } })
+        .then(unwrap)
+        .then((page) => page.items),
+  })
+
+const problemSchema =z.object({ title: z.string().nullish(), code: z.string().optional() }).passthrough()
 const uploadSchema = z.object({
   documentPublicId: z.string(),
   scanStatus: z.string(),

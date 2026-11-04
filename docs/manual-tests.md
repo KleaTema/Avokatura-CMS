@@ -383,3 +383,33 @@ second run says "Scripts applied: 0"). The local MySQL runs with `--innodb-ft-en
    arkivuar." (code `dossier.archived`). *Shkarko* / *Shiko* of its documents still work. The archive again → 409.
 4. *Vazhdo çështje*: the dossier shows "Dosja është arkivuar" and cannot be continued (task 018).
 5. Undoing an archiving is not possible (client question *unarchive*).
+
+## 039 — The Vendimi tab: close, complete later, archive (screens)
+**User:** avokat1, an ACTIVE first-instance case of theirs with a scheduled hearing. Every step happens on the case
+page (the address stays `/cases/{id}/vendimi`).
+1. *Vendimi* without a decision: "Nuk është regjistruar vendim …" and the gold "Regjistro vendimin dhe mbyll
+   çështjen". As avokat2 (secondary) or the Kryetar: no button.
+2. The dialog's stepper:
+   - *Rezultati*: the result (required; *Tjetër* asks for its text), number, date (not in the future, not before the
+     act date), dispositive. "Vazhdo" stops on a missing result.
+   - *Vlerat*: four rows (Vlera e fituar / e humbur / Dëmi i parandaluar / i shkaktuar), each with Shuma and Sipërfaqja
+     side by side, then *Shpenzimet gjyqësore*; one *Monedha*. "1250000,5" shows as 1.250.000,5.
+   - *Statusi*: on a first-instance level "Ankimuar" (an appeal level: "Rekursuar"), plus "Formë e prerë"; ticking one
+     disables the other.
+   - *Vendimi i arsyetuar*: without the switch → "Çështja mbyllet edhe pa vendimin e arsyetuar …". With it: drop or
+     choose the PDF (type Vendim fixed) and *Ngarko*; "Po kontrollohet…" until it is *Gati*, then it is selected by
+     itself. Or pick an earlier Vendim of the dossier (only *Gati* ones can be picked).
+3. *Mbyll çështjen* → "Çështja ka seanca të planifikuara" with the hearing; *Anuloji dhe mbyll* → closed: toast
+   "Vendimi u regjistrua dhe çështja u mbyll.", the header chip "E mbyllur më dd.MM.yyyy", *Seancat* shows the hearing
+   *Anuluar*, the list shows the case under *Të mbyllura*.
+4. With "Formë e prerë": "Arkivo çështjen?" appears (the whole dossier becomes read-only; "Arkivimi nuk zhbëhet.").
+   *Jo tani* closes it — "Arkivo dosjen" stays on the tab. *Arkivo* → the banner "Dosja është e arkivuar – vetëm për
+   lexim", no more buttons on any tab; *Shiko* of the decision still opens the PDF.
+5. Result *Kthim për rigjykim* → "Kur të vijë fletëthirrja, Protokolli e vazhdon çështjen si rigjykim." (only
+   "Në rregull").
+6. Closed without the reasoned decision: the orange notice "Vendimi i arsyetuar nuk ka ardhur ende" with *Shto
+   vendimin e arsyetuar* → the dialog opens at step 4; after saving the notice disappears and *Ardhur vendimi i
+   arsyetuar* reads "Po" with *Shiko*. The switch cannot be turned off again.
+7. Errors: two users completing the decision at once → the second gets the shared conflict message with *Rifresko*;
+   a server field error opens the step that has the field.
+8. At 390 px the dialog fills the screen, the money and m² fields stack, no side scrolling.

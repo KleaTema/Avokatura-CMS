@@ -1,5 +1,5 @@
 import { Alert, Box, Button, CircularProgress, Link as MuiLink, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
-import { ArrowLeft, UserPlus } from 'lucide-react'
+import { Archive, ArrowLeft, UserPlus } from 'lucide-react'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
 import { HeaderPrioritySelect } from '../../components/caseData/HeaderPrioritySelect'
 import { CaseCode } from '../../components/ui/CaseCode'
@@ -11,12 +11,12 @@ import { ApiError } from '../../api/client'
 import { LevelSwitcher } from '../../components/LevelSwitcher'
 import { useCase } from '../../features/cases/api'
 import { sq } from '../../i18n/sq'
-import { formatDateTime } from '../../lib/dates'
+import { formatDate, formatDateTime, tiraneDateOf } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { DataTab } from './tabs/DataTab'
 import { DocumentsTab } from './tabs/DocumentsTab'
 import { HearingsTab } from './tabs/HearingsTab'
-import { DecisionTab } from './tabs/SummaryTabs'
+import { DecisionTab } from './tabs/DecisionTab'
 import type { FromCaseList } from './CaseList'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PartiesTab } from './tabs/PartiesTab'
@@ -104,6 +104,11 @@ export function CasePage() {
   return (
     <Stack spacing={2}>
       <BackToList depth={listDepth} />
+      {header.isArchived && (
+        <Alert severity="info" icon={<Archive size={22} aria-hidden />} role="status">
+          {sq.cases.page.decision.archivedBanner}
+        </Alert>
+      )}
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={1.5}>
@@ -129,7 +134,12 @@ export function CasePage() {
             )}
           </Stack>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-            <StatusChip kind="status" value={header.status} size="medium" />
+            <StatusChip
+              kind="status"
+              value={header.status}
+              size="medium"
+              label={header.status === 'CLOSED' && data.closedAt ? sq.cases.page.decision.closedOn(formatDate(tiraneDateOf(data.closedAt))) : undefined}
+            />
             {/* the Kryetar sets the priority right here (case.set_priority_any); everyone else sees the chip */}
             {c.permissions.includes('case.set_priority_any') ? (
               <HeaderPrioritySelect detail={c} />

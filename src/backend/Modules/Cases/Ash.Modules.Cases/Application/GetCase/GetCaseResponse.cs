@@ -19,10 +19,13 @@ public sealed record GetCaseResponse(
     IReadOnlyList<CaseLevelView> Levels,
     IReadOnlyList<string> Permissions);
 
-/// <summary>DossierPublicId: for POST /api/dossiers/{id}/archive; IsArchived: the dossier is read-only (task 038).</summary>
+/// <summary>
+/// DossierPublicId: for POST /api/dossiers/{id}/archive; IsArchived: the dossier is read-only (task 038). No default
+/// values here: the OpenAPI schema exporter writes them, and a Guid default cannot be written (500 on /openapi).
+/// </summary>
 public sealed record CaseHeader(
     Guid PublicId, string CaseCode, int LevelSeq, string Status, string Priority, bool IsSuspended, uint RowVersion,
-    Guid DossierPublicId = default, bool IsArchived = false);
+    Guid DossierPublicId, bool IsArchived);
 
 public sealed record CodeName(string Code, string Name);
 

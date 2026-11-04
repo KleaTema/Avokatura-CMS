@@ -6,6 +6,9 @@
  * Albanian notation: "." groups thousands, "," is the decimal comma — 1.250.000,50.
  */
 
+/** The currencies offered (claim and decision currency are ISO 4217 text; there is no currency table). */
+export const CURRENCIES = ['ALL', 'EUR', 'USD']
+
 /** DECIMAL(18,2): 16 digits before the decimal comma. */
 export const MONEY_INTEGER_DIGITS = 16
 /** DECIMAL(14,2): 12 digits before the decimal comma (m²). */
