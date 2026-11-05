@@ -564,6 +564,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["SearchCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/documents": {
         parameters: {
             query?: never;
@@ -2758,6 +2774,23 @@ export interface components {
             name: string;
             scope: string;
         };
+        SearchResponse: {
+            items: components["schemas"]["SearchResultItem"][];
+            /** Format: int32 */
+            totalApprox: number | string;
+            capped: boolean;
+        };
+        SearchResultItem: {
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            status: string;
+            isArchived: boolean;
+            courtName: string;
+            primaryLawyerName: null | string;
+            matchedOn: string;
+            snippet: null | string;
+        };
         SecondaryChangeRequest: {
             action: null | string;
             /** Format: uuid */
@@ -4492,6 +4525,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardResponse"];
+                };
+            };
+        };
+    };
+    SearchCases: {
+        parameters: {
+            query?: {
+                q?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

@@ -22,6 +22,12 @@ public interface IReferenceData
     Task<CourtLevelDto?> GetCourtLevelByCode(string code, CancellationToken ct = default);
     Task<CourtDto?> GetCourt(ushort id, CancellationToken ct = default);
     Task<JudgeDto?> GetJudge(uint id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ids of the judges whose name matches a search (task 047): <paramref name="booleanWords"/> is
+    /// NgramSearch.BooleanQuery(q), matched on the ngram index (substring, accent-insensitive), at most <paramref name="limit"/>.
+    /// </summary>
+    Task<IReadOnlyList<uint>> SearchJudgeIdsAsync(string booleanWords, int limit, CancellationToken ct = default);
     Task<PartyRoleDto?> GetPartyRole(string code, CancellationToken ct = default);
     Task<SummonsTypeDto?> GetSummonsType(string code, CancellationToken ct = default);
     Task<HearingTypeDto?> GetHearingType(string code, CancellationToken ct = default);

@@ -87,5 +87,14 @@ public sealed class ReferenceData(ReferenceDbContext db, ReferenceCache cache) :
     public async Task<CaseSubcategoryDto?> GetCaseSubcategory(string code, CancellationToken ct = default) =>
         (await ListCaseSubcategoriesAsync(ct)).FirstOrDefault(x => SameCode(x.Code, code));
 
+    // ftn_judges_name (script 014); not cached: the words vary
+    public async Task<IReadOnlyList<uint>> SearchJudgeIdsAsync(string booleanWords, int limit, CancellationToken ct = default) =>
+        string.IsNullOrWhiteSpace(booleanWords)
+            ? []
+            : await db.Database.SqlQueryRaw<uint>(
+                    "SELECT id AS Value FROM judges WHERE MATCH(first_name, last_name) AGAINST ({0} IN BOOLEAN MODE) LIMIT {1}",
+                    booleanWords, limit)
+                .ToListAsync(ct);
+
     private static bool SameCode(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }

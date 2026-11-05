@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Ash.Infrastructure;
 using Ash.Modules.Cases;
 using Ash.Modules.Cases.Application.ListCases;
+using Ash.Modules.Identity;
 using Ash.Modules.Reference;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Ids;
@@ -583,6 +584,8 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         var services = new ServiceCollection();
         services.AddAshInfrastructure(Db.AppConnectionString);
         services.AddReferenceModule(new ConfigurationBuilder().Build());
+        // CaseSearch asks Identity for the institutions matching the text (task 047)
+        services.AddIdentityModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
         var currentUser = await LoadUser("monitor@ash.local");
         services.AddScoped<ICurrentUser>(_ => currentUser);
@@ -590,7 +593,10 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         await using var scope = provider.CreateAsyncScope();
         var builder = scope.ServiceProvider.GetRequiredService<CaseListQueryBuilder>();
 
-        var filter = new CaseListFilter(CaseListTab.All, CaseListFilter.AllStatuses, null, null, null, null, null, null, null, "640");
+        var filter = new CaseListFilter(CaseListTab.All, CaseListFilter.AllStatuses, null, null, null, null, null, null, null, "640")
+        {
+            Search = await scope.ServiceProvider.GetRequiredService<Ash.Modules.Cases.Application.Search.CaseSearch>().ResolveAsync("640", Ct),
+        };
         var sql = builder.Page(filter, null, 11).ToQueryString();
         var plan = await Explain(sql);
         var text = $"{sql}\n" + string.Join('\n', plan.Select(r => $"{r.Table,-20} type={r.Type,-8} key={r.Key ?? "NULL",-28} rows={r.Rows} {r.Extra}"));
@@ -720,6 +726,67 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
             added.ShouldNotBeEmpty(text);
             added.ShouldAllBe(r => r.Type != "ALL" && r.Key != null, text);
         }
+    }
+
+    /// <summary>
+    /// Task 046: the list scope is written per user from v_case_access's branches (speed); it must grant exactly the
+    /// cases the view grants, for every kind of user.
+    /// </summary>
+    [Theory]
+    [InlineData("avokat1@ash.local")]
+    [InlineData("avokat2@ash.local")]
+    [InlineData("ndihmes@ash.local")]
+    [InlineData("protokoll@ash.local")]
+    [InlineData("kryetar@ash.local")]
+    [InlineData("institucion@ash.local")]
+    [InlineData("jurist@ash.local")]
+    public async Task The_list_scope_grants_exactly_what_v_case_access_grants(string email)
+    {
+        await SeedAsync();
+        // a jurist assignment on a linked and on an unlinked case: only the linked one is granted
+        // (n = 10 has an active ministry link, 11 an ended one, 12 and 13 none); and an assistant on two cases
+        await Execute("""
+            INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by)
+            SELECT c.id, (SELECT id FROM users WHERE email = 'jurist@ash.local'), 'INSTITUTION_JURIST',
+                   (SELECT id FROM users WHERE email = 'kryetar@ash.local')
+              FROM cases c WHERE CAST(SUBSTRING(c.act_number, 5) AS UNSIGNED) IN (10, 11, 12, 13);
+            INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by)
+            SELECT c.id, (SELECT id FROM users WHERE email = 'ndihmes@ash.local'), 'LEGAL_ASSISTANT',
+                   (SELECT id FROM users WHERE email = 'kryetar@ash.local')
+              FROM cases c WHERE CAST(SUBSTRING(c.act_number, 5) AS UNSIGNED) IN (20, 21);
+            """);
+
+        var services = new ServiceCollection();
+        services.AddAshInfrastructure(Db.AppConnectionString);
+        services.AddReferenceModule(new ConfigurationBuilder().Build());
+        services.AddCasesModule(new ConfigurationBuilder().Build());
+        var currentUser = await LoadUser(email);
+        services.AddScoped<ICurrentUser>(_ => currentUser);
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<Ash.Modules.Cases.Infrastructure.CasesDbContext>();
+
+        var granted = await Ash.Modules.Cases.Infrastructure.Access.CaseScopeQuery.Apply(db.Cases.AsNoTracking(), db, currentUser)
+            .Select(c => c.Id).OrderBy(id => id).ToListAsync(Ct);
+
+        var office = currentUser.HasPermission("case.view_office") && currentUser.OfficeId is { } o ? $"c.office_id = {o} OR " : "";
+        var expected = new List<ulong>();
+        await using var connection = new MySqlConnection(Db.AppConnectionString);
+        await connection.OpenAsync(Ct);
+        await using var command = new MySqlCommand($"""
+            SELECT c.id FROM cases c
+            WHERE {office} EXISTS (SELECT 1 FROM v_case_access a WHERE a.user_id = {currentUser.UserId} AND a.case_id = c.id)
+               OR (c.registered_by = {currentUser.UserId} AND c.lifecycle_status = 'REGISTERED')
+            ORDER BY c.id
+            """, connection);
+        await using var reader = await command.ExecuteReaderAsync(Ct);
+        while (await reader.ReadAsync(Ct))
+        {
+            expected.Add(Convert.ToUInt64(reader.GetValue(0)));
+        }
+
+        expected.ShouldNotBeEmpty(email);
+        granted.ShouldBe(expected, email);
     }
 
     private sealed record PlanRow(string Table, string Type, string? Key, long Rows, string Extra);

@@ -44,7 +44,9 @@ var connectionString = builder.Configuration.GetConnectionString("App")
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
-builder.Services.AddAshInfrastructure(connectionString);
+// read queries are stopped by MySQL after Database:QueryTimeLimitSeconds (default 5) → 503, never a hang (task 046)
+builder.Services.AddAshInfrastructure(connectionString,
+    builder.Configuration.GetValue<double?>("Database:QueryTimeLimitSeconds") is { } seconds ? TimeSpan.FromSeconds(seconds) : null);
 // object storage (task 032); keys from user-secrets / environment, never logged (StorageOptions.ToString hides them)
 builder.Services.AddAshStorage(builder.Configuration.GetSection(StorageOptions.Section).Get<StorageOptions>() ?? new StorageOptions());
 // virus scanning (task 033): NoOp only in Development — elsewhere the app refuses to start with it

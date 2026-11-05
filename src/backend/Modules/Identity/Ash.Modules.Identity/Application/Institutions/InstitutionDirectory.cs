@@ -32,4 +32,13 @@ public sealed class InstitutionDirectory(IdentityDbContext db) : IInstitutionDir
             .Select(i => new InstitutionInfo(i.Id, i.PublicId, i.Name, i.IsActive))
             .ToListAsync(ct);
     }
+
+    // ftn_institutions_search (script 014)
+    public async Task<IReadOnlyList<long>> SearchIdsAsync(string booleanWords, int limit, CancellationToken ct = default) =>
+        string.IsNullOrWhiteSpace(booleanWords)
+            ? []
+            : (await db.Database.SqlQueryRaw<uint>(
+                    "SELECT id AS Value FROM institutions WHERE MATCH(name, short_name, nipt) AGAINST ({0} IN BOOLEAN MODE) LIMIT {1}",
+                    booleanWords, limit)
+                .ToListAsync(ct)).Select(id => (long)id).ToList();
 }

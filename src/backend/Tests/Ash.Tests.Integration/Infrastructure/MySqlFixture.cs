@@ -49,6 +49,9 @@ public sealed class MySqlFixture : IAsyncLifetime
     private static readonly string[] FullTextTables = ["cases", "case_parties"];
     private const int MaxDeletedFullTextDocs = 5000;
 
+    /// <summary>Above this many rows a dirty table is truncated rather than deleted from.</summary>
+    private const int LargeTableRows = 10_000;
+
     private readonly MySqlContainer _container = new MySqlBuilder("mysql:8.0")
         .WithUsername("root")
         .WithPassword(RootPassword)
@@ -119,6 +122,17 @@ public sealed class MySqlFixture : IAsyncLifetime
             }
 
             var truncate = new HashSet<string>(TruncateOnly);
+            // a big table (the 50,000-case Perf seed): one TRUNCATE instead of deleting row by row — through the ngram
+            // FULLTEXT indexes that took over 10 minutes
+            foreach (var table in dirty)
+            {
+                await using var big = new MySqlCommand($"SELECT EXISTS (SELECT 1 FROM {table} LIMIT 1 OFFSET {LargeTableRows})", connection);
+                if (Convert.ToInt64(await big.ExecuteScalarAsync()) == 1)
+                {
+                    truncate.Add(table);
+                }
+            }
+
             foreach (var table in FullTextTables)
             {
                 if (await DeletedFullTextDocsAsync(connection, table) > MaxDeletedFullTextDocs)

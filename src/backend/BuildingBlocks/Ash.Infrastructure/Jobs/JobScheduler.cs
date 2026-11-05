@@ -18,6 +18,23 @@ public sealed class JobOptions
 public sealed class JobSchedulerState
 {
     public DateTime? StartedAtUtc { get; set; }
+
+    /// <summary>Jobs that cannot run because the database lacks a table or procedure (not migrated): job → error.</summary>
+    public System.Collections.Concurrent.ConcurrentDictionary<string, string> SchemaMissing { get; } = new();
+
+    /// <summary>MySQL "table doesn't exist" (1146) or "procedure does not exist" (1305): the migrator has not run.</summary>
+    public static bool IsSchemaMissing(Exception exception)
+    {
+        for (var e = exception; e is not null; e = e.InnerException)
+        {
+            if (e is MySql.Data.MySqlClient.MySqlException { Number: 1146 or 1305 })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 /// <summary>
@@ -36,6 +53,9 @@ public sealed class JobScheduler(
     ILogger<JobScheduler> logger) : BackgroundService
 {
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often a job blocked by a missing table is tried again (without logging).</summary>
+    public static readonly TimeSpan SchemaRetry = TimeSpan.FromMinutes(10);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -86,6 +106,24 @@ public sealed class JobScheduler(
                 try
                 {
                     await runner.RunAsync(name, now, stoppingToken);
+                    if (state.SchemaMissing.TryRemove(name, out _))
+                    {
+                        logger.LogInformation("Job {Job} runs again: the database now has what it needs.", name);
+                    }
+                }
+                catch (Exception ex) when (!stoppingToken.IsCancellationRequested && JobSchedulerState.IsSchemaMissing(ex))
+                {
+                    // not migrated (e.g. a new script not applied locally): say it ONCE, report it in the health check,
+                    // and look again quietly every SchemaRetry — it recovers by itself once the migrator has run
+                    if (state.SchemaMissing.TryAdd(name, ex.Message))
+                    {
+                        logger.LogError(ex, "Job {Job} cannot run: the database is missing a table or procedure. Run the migrator " +
+                                            "(dotnet run --project src/backend/Database/Ash.Database). Retrying every {Minutes} minutes, silently.",
+                            name, SchemaRetry.TotalMinutes);
+                    }
+
+                    next[name] = now + SchemaRetry;
+                    continue;
                 }
                 catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
                 {

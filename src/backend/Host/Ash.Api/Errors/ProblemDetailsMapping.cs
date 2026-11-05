@@ -1,4 +1,5 @@
 using Ash.AspNetCore.Http;
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Contracts;
 using Ash.SharedKernel.Concurrency;
 using Microsoft.AspNetCore.Diagnostics;
@@ -26,6 +27,18 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             },
             _ => null
         };
+
+        // a read query stopped by MySQL's time limit (or the client backstop): a clear 503, never a hang (task 046)
+        if (problem is null && QueryTimeLimitInterceptor.IsTimeout(exception))
+        {
+            logger.LogWarning(exception, "A query exceeded the time limit: {Path}", httpContext.Request.Path.Value);
+            problem = new ProblemDetails
+            {
+                Status = StatusCodes.Status503ServiceUnavailable,
+                Title = "Kërkimi zgjati shumë. Provoni me më shumë filtra.",
+                Extensions = { ["code"] = "query.timeout" },
+            };
+        }
 
         if (problem is null)
         {

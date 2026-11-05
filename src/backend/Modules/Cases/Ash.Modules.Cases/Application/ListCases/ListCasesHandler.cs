@@ -1,4 +1,5 @@
 using Ash.Infrastructure.Persistence;
+using Ash.Modules.Cases.Application.Search;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Reference.Contracts;
@@ -68,6 +69,7 @@ internal sealed class ListCasesHandler(
     IOfficeDirectory offices,
     IInstitutionDirectory institutions,
     CaseListSpecialFactory specials,
+    CaseSearch caseSearch,
     ICurrentUser user,
     IClock clock)
 {
@@ -313,6 +315,7 @@ internal sealed class ListCasesHandler(
             RegisteredFromUtc = q.RegisteredFrom is { } rf ? TiraneTime.StartOfDayUtc(rf) : null,
             RegisteredToUtc = q.RegisteredTo is { } rt ? TiraneTime.StartOfDayUtc(rt.AddDays(1)) : null,
             Special = special,
+            Search = search is null ? null : await caseSearch.ResolveAsync(search, ct),
         };
     }
 

@@ -544,5 +544,28 @@ on a card = the total ("1–10 nga N") of the list it opens**, and every card, r
    that waits more than 5 s fails its widget the same way (MySQL stops it: max_execution_time / lock_wait_timeout are
    set on the request's connection while the dashboard is built).
 9. Widths: 4 cards per row from 1200 px, 2 on a tablet, 1 at 390 px; charts and tables fit, no side scrolling.
+11. Query time limit (all endpoints): every read query is stopped by MySQL after `Database:QueryTimeLimitSeconds`
+    (default 5). To see it, set it to `0.001` in user-secrets and restart: lists answer 503 "Kërkimi zgjati shumë.
+    Provoni me më shumë filtra." at once (writes still work). Put it back afterwards.
 10. Speed: `GET /api/dashboard` (network tab) well under 500 ms; a second load within a minute is faster still (office
     widgets cached 60 s, Monitor/admin 5 minutes).
+
+## 047 — Global search (header typeahead)
+**Setup:** restart the API; `npm run dev`. Log in as kryetar.
+1. `Ctrl+K` (or `/` when not typing) puts the cursor in the header search. Type one letter: nothing. Two or more: after
+   a short pause a list opens (a small spinner on the right while it loads; the box does not move).
+2. Part of a case number (e.g. the last 4 digits): the case appears under *Kodi* with the digits in bold, its status
+   chip, court and primary lawyer. ↑/↓ move the highlight; Enter opens the case; Esc closes the list.
+3. A party's name ("Hoxha"): under *Pala*, "Pala: Petrit Hoxha" with the name in bold. "ceshtje" finds objects with
+   "çështje" (*Objekti*, a short piece of the object around it). A judge's surname: *Gjyqtari: …* — that judge's cases.
+   An institution's name: *Institucioni: …*.
+4. The exact case code ranks first, above other cases that only mention it.
+5. Closed and archived cases are found too (status chip; "Arkivuar").
+6. Only cases you may see: as kryetar of TR, a party that also appears in a Durrës case shows only the TR case.
+7. The last row "Shiko të gjitha rezultatet (N) →" — and Enter with nothing highlighted — opens the case list with
+   the same text and *Të gjitha* statuses; it lists the same cases (N = its "nga N", up to 1,000).
+8. Typing fast: only the last text's answer is shown (the network tab shows earlier requests cancelled).
+9. Nothing found: "Nuk u gjet asnjë çështje për „…“."
+10. At 390 px the header shows a search icon; it opens a full-width search sheet (the same list); choosing a case
+    closes it. No side scrolling.
+11. Logs (`Host/Ash.Api/logs`): no search text — `q=***` where a URL is logged.

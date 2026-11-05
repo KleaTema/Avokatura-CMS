@@ -55,7 +55,8 @@ public sealed class JobRunner(IServiceScopeFactory scopes, PersistenceOptions pe
             {
                 await job.RunAsync(nowUtc, ct);
             }
-            catch (Exception ex)
+            // a missing table / procedure goes up to the scheduler, which says it once (not every run)
+            catch (Exception ex) when (!JobSchedulerState.IsSchemaMissing(ex))
             {
                 logger.LogError(ex, "Job {Job} failed.", name);
                 var message = $"{ex.GetType().Name}: {ex.Message}";

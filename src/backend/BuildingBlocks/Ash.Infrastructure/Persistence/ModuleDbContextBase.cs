@@ -15,7 +15,11 @@ public abstract class ModuleDbContextBase : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseMySQL(_unitOfWork.Connection);
+        // read queries: MySQL stops them at the limit (the hint); EF's command timeout is the backstop (task 046)
+        var limit = _unitOfWork.Options.QueryTimeLimit;
+        optionsBuilder
+            .UseMySQL(_unitOfWork.Connection, mysql => mysql.CommandTimeout((int)Math.Ceiling(limit.TotalSeconds) + 5))
+            .AddInterceptors(new QueryTimeLimitInterceptor(limit));
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

@@ -7,6 +7,9 @@ public interface IUnitOfWork
 {
     MySqlConnection Connection { get; }
 
+    /// <summary>The connection string and the read-query time limit (module DbContexts configure themselves from it).</summary>
+    PersistenceOptions Options { get; }
+
     bool HasActiveTransaction { get; }
 
     /// <summary>

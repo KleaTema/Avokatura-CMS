@@ -25,4 +25,14 @@ public class DashboardPerfTests(MySqlFixture db) : IntegrationTest(db)
         var factory = new AshApiFactory(Db, configureServices: services => services.AddSingleton<IClock>(new FixedClock(DashboardTests.Now)));
         await DashboardTiming.AssertFastAsync(factory, 50_000, TestContext.Current.TestOutputHelper, TestContext.Current.CancellationToken);
     }
+
+    /// <summary>The worst realistic case: the central office holds half of everything (25,000), one lawyer ~12,000.</summary>
+    [Fact(Explicit = true, Timeout = 600_000)]
+    [Trait("Category", "Perf")]
+    public async Task Dashboard_answers_in_under_500_ms_with_50000_cases_concentrated_in_one_office()
+    {
+        await DashboardSeed.CreateAsync(Db.AppConnectionString, 50_000, DashboardTests.Now, offices: 2, spreadHearings: true);
+        var factory = new AshApiFactory(Db, configureServices: services => services.AddSingleton<IClock>(new FixedClock(DashboardTests.Now)));
+        await DashboardTiming.AssertFastAsync(factory, 50_000, TestContext.Current.TestOutputHelper, TestContext.Current.CancellationToken);
+    }
 }

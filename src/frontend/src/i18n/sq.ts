@@ -373,6 +373,28 @@ export const sq = {
     clear: 'Pastro kërkimin',
     noOptions: 'Asnjë opsion',
   },
+  /** task 047: the header typeahead */
+  globalSearch: {
+    placeholder: 'Kërko çështje (kodi, nr. i aktit, pala, objekti, gjyqtari)…',
+    label: 'Kërko çështje',
+    shortcut: 'Ctrl+K',
+    results: 'Rezultatet e kërkimit',
+    noCases: (q: string) => `Nuk u gjet asnjë çështje për „${q}“.`,
+    viewAll: (n: string) => `Shiko të gjitha rezultatet (${n}) →`,
+    loading: 'Po kërkohet…',
+    archived: 'Arkivuar',
+    open: 'Hap kërkimin',
+    close: 'Mbyll kërkimin',
+    /** the groups, in the order of the ranking */
+    groups: {
+      CODE: 'Kodi',
+      ACT: 'Nr. i aktit / fletëthirrjes',
+      PARTY: 'Pala',
+      OBJECT: 'Objekti',
+      JUDGE: 'Gjyqtari',
+      INSTITUTION: 'Institucioni',
+    } as Record<string, string>,
+  },
   common: {
     cancel: 'Anulo',
     save: 'Ruaj',

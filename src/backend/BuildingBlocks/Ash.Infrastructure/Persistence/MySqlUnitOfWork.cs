@@ -11,10 +11,13 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
 
     public MySqlUnitOfWork(PersistenceOptions options)
     {
+        Options = options;
         Connection = new MySqlConnection(options.ConnectionString);
     }
 
     public MySqlConnection Connection { get; }
+
+    public PersistenceOptions Options { get; }
 
     public bool HasActiveTransaction => _transaction is not null;
 

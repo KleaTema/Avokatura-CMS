@@ -10,4 +10,10 @@ public interface IInstitutionDirectory
 
     /// <summary>By internal id (as stored in other modules' foreign keys); unknown ids are simply missing.</summary>
     Task<IReadOnlyList<InstitutionInfo>> GetByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ids of the institutions whose name, short name or NIPT matches a search (task 047): <paramref name="booleanWords"/>
+    /// is NgramSearch.BooleanQuery(q) on the ngram index, at most <paramref name="limit"/>.
+    /// </summary>
+    Task<IReadOnlyList<long>> SearchIdsAsync(string booleanWords, int limit, CancellationToken ct = default);
 }

@@ -486,17 +486,30 @@ public class BackgroundJobTests(MySqlFixture db) : IntegrationTest(db)
 
         // disabled jobs: nothing is expected to run
         var disabled = new JobsHealthCheck(new JobStatusReader(scopes, new JobSchedulerState(), persistence),
-            new JobOptions { Enabled = false }, new FixedClock(now.AddDays(9)));
+            new JobOptions { Enabled = false }, new JobSchedulerState(), new FixedClock(now.AddDays(9)));
         (await disabled.CheckHealthAsync(new HealthCheckContext(), Ct)).Status.ShouldBe(HealthStatus.Healthy);
+
+        // a job blocked by a missing table (not migrated): unhealthy, naming the job and the fix
+        var notMigrated = new JobSchedulerState { StartedAtUtc = now };
+        notMigrated.SchemaMissing["partition-check"] = "Table 'ash_ops.job_runs' doesn't exist";
+        var missing = await new JobsHealthCheck(new JobStatusReader(scopes, notMigrated, persistence),
+                new JobOptions { Enabled = true }, notMigrated, new FixedClock(now))
+            .CheckHealthAsync(new HealthCheckContext(), Ct);
+        missing.Status.ShouldBe(HealthStatus.Unhealthy);
+        missing.Description!.ShouldContain("partition-check");
+        missing.Description!.ShouldContain("migrator");
     }
 
     /// <summary>The "jobs" health check as if the scheduler were on, at <paramref name="now"/>.</summary>
     private sealed class StaleCheck(IServiceScopeFactory scopes, PersistenceOptions persistence, DateTime now)
     {
-        public Task<HealthCheckResult> Run() =>
-            new JobsHealthCheck(new JobStatusReader(scopes, new JobSchedulerState { StartedAtUtc = now }, persistence),
-                    new JobOptions { Enabled = true }, new FixedClock(now))
+        public Task<HealthCheckResult> Run()
+        {
+            var state = new JobSchedulerState { StartedAtUtc = now };
+            return new JobsHealthCheck(new JobStatusReader(scopes, state, persistence),
+                    new JobOptions { Enabled = true }, state, new FixedClock(now))
                 .CheckHealthAsync(new HealthCheckContext(), Ct);
+        }
     }
 
     [Fact]

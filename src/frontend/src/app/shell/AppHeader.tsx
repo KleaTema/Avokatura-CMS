@@ -2,18 +2,18 @@ import {
   Avatar,
   Box,
   ButtonBase,
+  Dialog,
   IconButton,
-  InputBase,
   Menu,
   MenuItem,
   Stack,
   Typography,
 } from '@mui/material'
-import { ChevronDown, LogOut, Menu as MenuIcon, Search, UserRound } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { ChevronDown, LogOut, Menu as MenuIcon, Search, UserRound, X } from 'lucide-react'
+import { useId, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { GlobalSearch } from '../../components/GlobalSearch'
 import { NotificationBell } from '../../components/NotificationBell'
-import { searchTabOf, useCaseTabs } from '../../features/cases/api'
 import { sq } from '../../i18n/sq'
 import { tokens } from '../../theme/tokens'
 import { BrandImage } from './BrandImage'
@@ -44,22 +44,9 @@ export function AppHeader({
   onLogout: () => void
 }) {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const menuId = useId()
-
-  // the widest tab of the user: a header search covers every case (and status) the user may see
-  const tabs = useCaseTabs(user !== undefined)
-  const search = (e: FormEvent) => {
-    e.preventDefault()
-    const q = query.trim()
-    if (!q) {
-      navigate('/cases')
-      return
-    }
-    const tab = searchTabOf(tabs.data?.tabs ?? [])
-    navigate(`/cases?${tab ? `tab=${tab}&` : ''}q=${encodeURIComponent(q)}`)
-  }
 
   const initials = user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase() : ''
   const role = user?.roles.map((r) => sq.roleNames[r] ?? r).join(', ') ?? ''
@@ -129,33 +116,27 @@ export function AppHeader({
 
       <Box sx={{ flex: 1 }} />
 
-      <Box
-        component="form"
-        role="search"
-        onSubmit={search}
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          alignItems: 'center',
-          gap: 1,
-          width: { md: 300, lg: 420 },
-          height: tokens.layout.controlHeight,
-          px: 1.5,
-          borderRadius: `${tokens.radius.control}px`,
-          bgcolor: c.onNavy.field,
-          border: `1px solid ${c.onNavy.border}`,
-          '&:hover': { bgcolor: c.onNavy.fieldHover },
-          '&:focus-within': { borderColor: c.primaryLight },
-        }}
-      >
-        <Search size={18} aria-hidden />
-        <InputBase
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={s.search}
-          inputProps={{ 'aria-label': s.searchLabel, maxLength: 100 }}
-          sx={{ flex: 1, color: c.white, '& input::placeholder': { color: c.onNavy.muted, opacity: 1 } }}
-        />
+      {/* the typeahead (task 047) from 900 px; below, the icon opens a full-width search sheet */}
+      <Box role="search" sx={{ display: { xs: 'none', md: 'block' }, width: { md: 360, lg: 460 } }}>
+        <GlobalSearch variant="header" />
       </Box>
+      <IconButton
+        color="inherit"
+        aria-label={sq.globalSearch.open}
+        onClick={() => setSheetOpen(true)}
+        sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+      >
+        <Search size={22} aria-hidden />
+      </IconButton>
+      {/* disableAutoFocus: the dialog would take the focus from the search box */}
+      <Dialog fullScreen disableAutoFocus open={sheetOpen} onClose={() => setSheetOpen(false)} aria-label={sq.globalSearch.label}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 2 }} role="search">
+          <GlobalSearch variant="sheet" onDone={() => setSheetOpen(false)} />
+          <IconButton aria-label={sq.globalSearch.close} onClick={() => setSheetOpen(false)}>
+            <X size={22} aria-hidden />
+          </IconButton>
+        </Stack>
+      </Dialog>
 
       <NotificationBell />
 

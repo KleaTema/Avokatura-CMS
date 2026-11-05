@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Ash.Infrastructure.Persistence;
+using Ash.Modules.Cases.Application.Search;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
 using Ash.SharedKernel.Identity;
@@ -53,6 +54,9 @@ public sealed record CaseListFilter(
     public DateTime? RegisteredFromUtc { get; init; }
 
     public DateTime? RegisteredToUtc { get; init; }
+
+    /// <summary>Q resolved by CaseSearch.ResolveAsync (task 047) — set whenever Q is.</summary>
+    public CaseSearchTerms? Search { get; init; }
 
     /// <summary>A named dashboard predicate (task 046, "filter="), or none.</summary>
     public CaseListSpecialFilter? Special { get; init; }
@@ -200,9 +204,11 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             cases = cases.Where(c => c.NextHearingAt < to);
         }
 
-        if (f.Q is { } q)
+        if (f.Q is not null)
         {
-            var matches = SearchIds(q);
+            // the shared case search (task 047): the same cases as the header search for the same text
+            var search = f.Search ?? throw new InvalidOperationException("A list filter with Q needs its resolved Search (CaseSearch.ResolveAsync).");
+            var matches = CaseSearch.Ids(db, search);
             cases = cases.Where(c => matches.Contains(c.Id));
         }
 
@@ -329,27 +335,5 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             CaseListTab.Institution => cases.Where(c => db.CaseInstitutions.Any(i => i.InstitutionId == institutionId && i.EndedAt == null && i.CaseId == c.Id)),
             _ => cases
         };
-    }
-
-    /// <summary>
-    /// Case ids matching q anywhere inside a value (substring, script 014): separate index-friendly MATCH queries over
-    /// the ngram FULLTEXT indexes, joined by UNION and composed into the list query as a subquery (never
-    /// materialized) — case code / act number / summons number (ftn_cases_numbers), the object (ftn_cases_object),
-    /// party names and NIPT (ftn_cp_name_identifier). Every word of q must be in the same source.
-    /// </summary>
-    private IQueryable<ulong> SearchIds(string q)
-    {
-        var words = NgramSearch.BooleanQuery(q);
-        if (words.Length == 0)
-        {
-            return db.Database.SqlQueryRaw<ulong>("SELECT id AS Value FROM cases WHERE FALSE");
-        }
-
-        const string sql = """
-            SELECT id AS Value FROM cases WHERE MATCH(case_code, act_number, summons_number) AGAINST (@list_words IN BOOLEAN MODE)
-            UNION SELECT id AS Value FROM cases WHERE MATCH(object_text) AGAINST (@list_words IN BOOLEAN MODE)
-            UNION SELECT case_id AS Value FROM case_parties WHERE deleted_at IS NULL AND MATCH(display_name, identifier) AGAINST (@list_words IN BOOLEAN MODE)
-            """;
-        return db.Database.SqlQueryRaw<ulong>(sql, new MySqlParameter("@list_words", words));
     }
 }

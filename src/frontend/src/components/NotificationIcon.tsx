@@ -1,7 +1,11 @@
 import {
   ArrowLeftRight,
   Bell,
+  CalendarClock,
+  ClipboardX,
+  DatabaseZap,
   FilePlus,
+  Hourglass,
   FileWarning,
   Gavel,
   Landmark,
@@ -30,6 +34,12 @@ const icons: Record<string, LucideIcon> = {
   CASE_CLOSED: Gavel,
   DOCUMENT_INFECTED: FileWarning,
   DOCUMENT_SCAN_FAILED: FileWarning,
+  // task 041 — the reminders of the background jobs
+  DATA_MISSING_30D: ClipboardX,
+  DATA_MISSING_6M: ClipboardX,
+  HEARING_TOMORROW: CalendarClock,
+  NEXT_LEVEL_PENDING_3D: Hourglass,
+  PARTITION_ALERT: DatabaseZap,
 }
 
 export function NotificationIcon({ type, size = 20 }: { type: string; size?: number }) {
