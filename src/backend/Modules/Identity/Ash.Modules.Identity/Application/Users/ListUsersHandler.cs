@@ -56,7 +56,7 @@ public sealed class ListUsersHandler(IdentityDbContext db, ParallelReads paralle
             u.OfficeId is { } o ? offices.GetValueOrDefault(o) : null,
             u.InstitutionId is { } i ? institutions.GetValueOrDefault(i) : null,
             roles.Where(r => r.UserId == u.Id).Select(r => r.Code).ToList(),
-            u.IsActive, u.LastLoginAt, counts.GetValueOrDefault(u.Id))).ToList();
+            u.IsActive, u.LastLoginAt, counts.GetValueOrDefault(u.Id), u.Phone)).ToList();
 
         var next = hasMore ? Cursor.Encode(string.Empty, rows[^1].Id) : null;
         return new KeysetPage<UserResponse>(items, next, await total);

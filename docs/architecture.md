@@ -10,7 +10,7 @@ Attach this file to a Copilot chat only when a task says so; `.github/copilot-in
 | Reference | `court_levels`, `courts`, `judges`, `party_roles`, `summons_types`, `hearing_types`, `document_types`, `decision_results`, `case_categories`, `case_subcategories`, `allowed_file_types`, `dossier_code_formats` | `IReferenceData` (cached lookups) |
 | Cases | `dossiers`, `cases`, `case_assignments`, `case_institutions`, `case_parties`, `case_hearings`, `case_security_measures`, `case_decisions`, `case_history_events`, `case_reminders` | `ICaseAccessService`, `IHistoryWriter`, `ICaseLookup`, integration events |
 | Documents | `documents` + object storage buckets | `IDocumentService` (attach decision PDF, list) |
-| Notifications | `notifications` | `INotificationSender` |
+| Notifications | `notifications`, `user_notification_prefs` (task 048: the sender skips an optional type the user turned off) | `INotificationSender`, `INotificationPreferences`, `NotificationTypes.Catalog` |
 | Audit | `ash_audit.audit_log`, `ash_audit.audit_daily_digests` | `IAuditLog` |
 | (building block `Ash.Infrastructure.Jobs`) | `ash_ops.job_runs`, `ash_core.sent_reminders` | `IScheduledJob`, `JobRunner`, `SentReminders` |
 | Reports | none (reads views `v_report_*` and statistics SQL, read-only, replica connection) | — |

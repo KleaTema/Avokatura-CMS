@@ -18,6 +18,7 @@ public sealed class MySqlFixture : IAsyncLifetime
         "ash_core.case_reminders",
         "ash_core.sent_reminders",
         "ash_core.notifications",
+        "ash_core.user_notification_prefs",
         "ash_core.case_history_events",
         "ash_core.documents",
         "ash_core.case_decisions",
@@ -152,6 +153,9 @@ public sealed class MySqlFixture : IAsyncLifetime
                     + " SET FOREIGN_KEY_CHECKS=1;";
                 await ExecuteAsync(connection, sql);
             }
+
+            // the seeded users stay, but a profile test may have given one a phone (task 048)
+            await ExecuteAsync(connection, "UPDATE ash_core.users SET phone = NULL WHERE phone IS NOT NULL;");
 
             return 0;
         });

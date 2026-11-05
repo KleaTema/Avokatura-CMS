@@ -302,6 +302,22 @@ public class BackgroundJobTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
+    public async Task Hearing_tomorrow_skips_a_user_who_turned_it_off_and_still_reaches_the_rest_of_the_team()
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await HearingAsync(s, Tirane(2026, 11, 11, 10));
+        await using var factory = new AshApiFactory(Db);
+        using var avokat2 = factory.CreateClient().AsUser("avokat2@ash.local");
+        (await avokat2.PutAsJsonAsync("/api/identity/profile/notifications",
+            new Dictionary<string, bool> { ["HEARING_TOMORROW"] = false }, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        await Run(factory, "hearing-reminders", Tirane(2026, 11, 10, 8, 0));
+
+        (await Notifications()).ShouldBe(new[] { "avokat1@ash.local", "jurist@ash.local", "ndihmes@ash.local" }
+            .Select(e => $"{e}|HEARING_TOMORROW").ToList());
+    }
+
+    [Fact]
     public async Task A_pending_next_level_summons_is_reminded_once_3_days_before_its_hearing_while_the_level_is_open()
     {
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);

@@ -63,4 +63,55 @@ public static class NotificationTypes
         CaseClosed, DocumentInfected, DocumentScanFailed, DataMissing30D, DataMissing6M, HearingTomorrow,
         NextLevelPending3D, PartitionAlert,
     ];
+
+    /// <summary>
+    /// Task 048, the ONE place saying which types a user may turn off on the profile. Mandatory = the user must act on
+    /// it or is told about their own work (assignment / transfer to or from them, missing data, the previous level
+    /// not closed, a pending next-level summons, an infected or failed document, the partition alert of the admins).
+    /// Optional = information only: tomorrow's hearing, a closed case, delegation / institution information.
+    /// </summary>
+    public static readonly IReadOnlyList<NotificationTypeInfo> Catalog =
+    [
+        new(CaseRegistered, Mandatory: true),
+        new(LawyerAssigned, Mandatory: true),
+        new(LawyerRemoved, Mandatory: true),
+        new(InstitutionCaseAssigned, Mandatory: false),
+        new(AssistantAssigned, Mandatory: true),
+        new(AssistantRemoved, Mandatory: true),
+        new(JuristAssigned, Mandatory: true),
+        new(JuristReplaced, Mandatory: true),
+        new(InstitutionLinked, Mandatory: false),
+        new(CaseDelegated, Mandatory: false),
+        new(CaseUndelegated, Mandatory: false),
+        new(PreviousLevelNotClosed, Mandatory: true),
+        new(CaseClosed, Mandatory: false),
+        new(DocumentInfected, Mandatory: true),
+        new(DocumentScanFailed, Mandatory: true),
+        new(DataMissing30D, Mandatory: true),
+        new(DataMissing6M, Mandatory: true),
+        new(HearingTomorrow, Mandatory: false),
+        new(NextLevelPending3D, Mandatory: true),
+        new(PartitionAlert, Mandatory: true),
+    ];
+
+    /// <summary>Null for an unknown code.</summary>
+    public static NotificationTypeInfo? Find(string type) => Catalog.FirstOrDefault(t => t.Type == type);
+}
+
+public sealed record NotificationTypeInfo(string Type, bool Mandatory);
+
+/// <summary>One type as the profile shows it: whether the user may turn it off, and whether it is on.</summary>
+public sealed record NotificationPreference(string Type, bool Mandatory, bool Enabled);
+
+/// <summary>The profile's notification switches (table user_notification_prefs, Notifications module).</summary>
+public interface INotificationPreferences
+{
+    /// <summary>Every type of <see cref="NotificationTypes.Catalog"/>, in its order; mandatory ones always on.</summary>
+    Task<IReadOnlyList<NotificationPreference>> GetAsync(long userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Saves the choices (in the caller's unit of work). Returns the codes refused: unknown, or mandatory and false —
+    /// then nothing is saved. Turning a mandatory type ON is accepted (a no-op).
+    /// </summary>
+    Task<IReadOnlyList<string>> SetAsync(long userId, IReadOnlyDictionary<string, bool> choices, CancellationToken ct = default);
 }

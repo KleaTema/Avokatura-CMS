@@ -27,6 +27,7 @@ public static class NotificationsModule
 		services.AddScoped<CurrentActor>();
 		services.AddScoped<INotificationSender, NotificationSender>();
 		services.AddScoped<NotificationQueries>();
+		services.AddScoped<INotificationPreferences, NotificationPreferences>();
 
 		services.AddScoped<CaseEventNotifications>();
 		services.AddScoped<IEventHandler<CaseRegistered>>(sp => sp.GetRequiredService<CaseEventNotifications>());

@@ -19,7 +19,9 @@ public sealed record UserResponse(
     IReadOnlyList<string> Roles,
     bool IsActive,
     DateTime? LastLoginAt,
-    int CurrentAssignments);
+    int CurrentAssignments,
+    // admins only (this is the admin users API). TODO(client-q-phone-visibility): should the case team see each other's phone
+    string? Phone);
 
 /// <summary>Shared rules and helpers of the user administration use cases.</summary>
 public sealed class UserAdminSupport(
@@ -139,7 +141,7 @@ public sealed class UserAdminSupport(
             .Select(i => new NamedRef(i.PublicId, i.Name)).FirstOrDefaultAsync(ct);
         return new UserResponse(
             user.PublicId, user.Email, user.FirstName, user.LastName, office, institution, roles,
-            user.IsActive, user.LastLoginAt, counts.GetValueOrDefault(user.Id));
+            user.IsActive, user.LastLoginAt, counts.GetValueOrDefault(user.Id), user.Phone);
     }
 
     /// <summary>

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ash.Modules.Notifications.Infrastructure;
 
-/// <summary>Notifications module table: notifications (004, public_id from 015).</summary>
+/// <summary>Notifications module tables: notifications (004, public_id from 015), user_notification_prefs (017).</summary>
 public sealed class NotificationsDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase(unitOfWork)
 {
     public DbSet<NotificationRow> Notifications => Set<NotificationRow>();
@@ -25,7 +25,26 @@ public sealed class NotificationsDbContext(IUnitOfWork unitOfWork) : ModuleDbCon
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.Property(x => x.ReadAt).HasColumnName("read_at");
         });
+
+        modelBuilder.Entity<NotificationPrefRow>(b =>
+        {
+            b.ToTable("user_notification_prefs");
+            b.HasKey(x => new { x.UserId, x.NotificationType });
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.NotificationType).HasColumnName("notification_type");
+            b.Property(x => x.Enabled).HasColumnName("enabled");
+        });
     }
+
+    public DbSet<NotificationPrefRow> Prefs => Set<NotificationPrefRow>();
+}
+
+/// <summary>A choice the user made on the profile (script 017); no row = on.</summary>
+public sealed class NotificationPrefRow
+{
+    public uint UserId { get; set; }
+    public string NotificationType { get; set; } = string.Empty;
+    public bool Enabled { get; set; }
 }
 
 public sealed class NotificationRow

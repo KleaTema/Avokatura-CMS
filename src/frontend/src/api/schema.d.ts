@@ -724,6 +724,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/identity/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetProfile"];
+        put: operations["UpdateProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/profile/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["UpdateProfileNotifications"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/users": {
         parameters: {
             query?: never;
@@ -2600,6 +2632,11 @@ export interface components {
             /** Format: date-time */
             readAt: null | string;
         };
+        NotificationPreference: {
+            type: string;
+            mandatory: boolean;
+            enabled: boolean;
+        };
         NotifyNotClosedRequest: {
             summonsNumber: null | string;
             /** Format: int32 */
@@ -2684,6 +2721,21 @@ export interface components {
             detail?: null | string;
             instance?: null | string;
         };
+        ProfileResponse: {
+            /** Format: uuid */
+            publicId: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+            office: null | components["schemas"]["NamedRef"];
+            institution: null | components["schemas"]["NamedRef"];
+            roles: components["schemas"]["RoleRef"][];
+            headOf: null | string;
+            /** Format: date-time */
+            lastLoginAt: null | string;
+            phone: null | string;
+            notifications: components["schemas"]["NotificationPreference"][];
+        };
         ReadAllResponse: {
             /** Format: int32 */
             marked: number | string;
@@ -2765,6 +2817,10 @@ export interface components {
             lastInstitutionParty: boolean;
             institutionLinkEnded: boolean;
             warnings: components["schemas"]["PartyWarning"][];
+        };
+        RoleRef: {
+            code: string;
+            name: string;
         };
         RoleRequest: {
             role: string;
@@ -2975,6 +3031,9 @@ export interface components {
             /** Format: int32 */
             sortOrder: number | string;
         };
+        UpdateProfileRequest: {
+            phone: null | string;
+        };
         UpdateSummonsTypeRequest: {
             name: string;
         };
@@ -3007,6 +3066,7 @@ export interface components {
             lastLoginAt: null | string;
             /** Format: int32 */
             currentAssignments: number | string;
+            phone: null | string;
         };
         UserView: {
             /** Format: uuid */
@@ -4980,6 +5040,94 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    GetProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+        };
+    };
+    UpdateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateProfileNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreference"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

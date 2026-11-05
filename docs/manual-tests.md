@@ -569,3 +569,24 @@ on a card = the total ("1–10 nga N") of the list it opens**, and every card, r
 10. At 390 px the header shows a search icon; it opens a full-width search sheet (the same list); choosing a case
     closes it. No side scrolling.
 11. Logs (`Host/Ash.Api/logs`): no search text — `q=***` where a URL is logged.
+
+## 048 — Profile
+**Setup:** run the migrator (`dotnet run --project src/backend/Database/Ash.Database -- --local`, applies 017; a second
+run applies nothing); restart the API; `npm run dev`.
+1. Avatar menu → *Profili* (or the *Profili* menu): *Të dhënat* shows name, surname, email and last login, read-only,
+   with the note "Emri dhe email-i menaxhohen nga sistemi i identifikimit". No way to edit them.
+2. *Rolet dhe zyra*: as kryetar — the office, the chip "Kryetari i Zyrës" and "Kryetar i zyrës …". As institucion —
+   the institution instead of an office, no "Kryetar" chip.
+3. *Kontakti* → pencil: type `069 123 4567` → *Ruaj*: shown as "+355 69 123 4567", toast "Telefoni u ruajt.".
+   Also accepted: `+355 69 123 4567`, `+355 4 222 3333`, `+39 333 123 4567`. Refused with a message under the field:
+   `12345`, `069 123 45`, `+355 1 234 5678`. Esc cancels. Empty + *Ruaj* removes the number.
+4. Audit (admin → audit log or `ash_audit.audit_log`): a `PROFILE_UPDATED` row whose details show only the last 3
+   digits (`+*********567`).
+5. *Njoftimet*: the mandatory ones (assignment, missing data, infected document…) are on, greyed, with a lock; hover or
+   Tab onto one: "Ky njoftim është i detyrueshëm". The partition alert is listed only for the admin.
+6. Turn off *Seancë nesër* as avokat2; reload: still off. With a hearing tomorrow, run the job (as admin
+   `POST /api/admin/jobs/hearing-reminders/run` after 08:00): the rest of the team gets the reminder, avokat2 does not.
+7. `PUT /api/identity/profile` with `{"firstName":"X"}` (Swagger) → 400 "Vetëm telefoni mund të ndryshohet…";
+   `PUT /api/identity/profile/notifications` with `{"LAWYER_ASSIGNED": false}` → 400.
+8. Admin → *Përdoruesit*: the *Telefoni* column shows the number set in step 3 (formatted). Other users never see it.
+9. 390 px: the cards stack, the switches and locks do not cover the labels, no side scrolling.

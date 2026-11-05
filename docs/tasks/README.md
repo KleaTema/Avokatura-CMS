@@ -103,8 +103,8 @@ Rules
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
 | 046 | [Dashboard per role](046-dashboard.md) | 019, 031, 040 | yes | done |
-| 047 | [Global search](047-global-search.md) | 019 |  | todo |
-| 048 | [Profile page](048-profile.md) | 006 | yes | todo |
+| 047 | [Global search](047-global-search.md) | 019 |  | done |
+| 048 | [Profile page](048-profile.md) | 006 | yes | done |
 
 ### Phase 9 — Chat
 

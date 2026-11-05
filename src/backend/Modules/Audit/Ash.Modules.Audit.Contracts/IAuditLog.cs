@@ -14,6 +14,8 @@ public static class AuditActions
     public const string DocumentDelete = "DOCUMENT_DELETE";
     public const string ReportExport = "REPORT_EXPORT";
     public const string AdminChange = "ADMIN_CHANGE";
+    /// <summary>The user changed their own profile (task 048; the phone, masked).</summary>
+    public const string ProfileUpdated = "PROFILE_UPDATED";
 }
 
 public static class AuditOutcomes

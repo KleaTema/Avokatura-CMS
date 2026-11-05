@@ -23,6 +23,7 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.Email).HasColumnName("email");
             b.Property(x => x.FirstName).HasColumnName("first_name");
             b.Property(x => x.LastName).HasColumnName("last_name");
+            b.Property(x => x.Phone).HasColumnName("phone");
             b.Property(x => x.OfficeId).HasColumnName("office_id");
             b.Property(x => x.InstitutionId).HasColumnName("institution_id");
             b.Property(x => x.IsActive).HasColumnName("is_active");
@@ -85,6 +86,8 @@ public sealed class UserRecord
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
+    /// <summary>E.164, set on the own profile (task 048). Shown only to the user and to admins.</summary>
+    public string? Phone { get; set; }
     public ushort? OfficeId { get; set; }
     public uint? InstitutionId { get; set; }
     public bool IsActive { get; set; }
