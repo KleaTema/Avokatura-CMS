@@ -590,3 +590,34 @@ run applies nothing); restart the API; `npm run dev`.
    `PUT /api/identity/profile/notifications` with `{"LAWYER_ASSIGNED": false}` → 400.
 8. Admin → *Përdoruesit*: the *Telefoni* column shows the number set in step 3 (formatted). Other users never see it.
 9. 390 px: the cards stack, the switches and locks do not cover the labels, no side scrolling.
+
+## 049 — Chat backend (API only; the screens come with 050)
+**Setup:** run the migrator (`dotnet run --project src/backend/Database/Ash.Database -- --local`: script 018 and
+LocalScripts 906, the local chat account). Then, once — the API does not start without it:
+`dotnet user-secrets set "ConnectionStrings:Chat" "Server=localhost;Port=3306;User=ash_chat_local;Password=ash_chat_local_pw;Database=ash_chat;" --project src/backend/Host/Ash.Api`
+and restart the API. Use Scalar (`/scalar`) with the header `X-Dev-User`. Take an ACTIVE case with avokat1 primary,
+avokat2 secondary, an assistant and a linked institution (its public id = `{case}`).
+1. As avokat1: `POST /api/chat/cases/{case}/conversation` → 200 with `id`, `title` "<case code> · <court>". Again →
+   the same `id`. As avokat2 → the same `id`.
+2. As kryetar (not on the team) → 403 "Nuk jeni pjesë e ekipit…"; as protokoll → 404. As institucion (linked) → 200.
+3. As avokat1: `POST /api/chat/conversations/{id}/messages` `{"body":"  Tung  "}` → 201, body "Tung". Empty or more than
+   4,000 characters → 400. 31 messages within a minute → the 31st is 429.
+4. As avokat2: `GET /api/chat/unread-total` → 1; `GET /api/chat/conversations` → unread 1, preview "Tung".
+   `POST /api/chat/conversations/{id}/read` `{"lastMessageId":"<message id>"}` → 204; unread-total → 0. An older id
+   never brings unread messages back.
+5. `GET /api/chat/conversations/{id}/messages?limit=2` → newest first, `nextCursor`; with `before=<nextCursor>` the
+   older ones, no repeats. No numeric ids anywhere in the answers.
+6. `PUT /api/chat/messages/{id}` (own, within 15 minutes) → 200 with `editedAt`; someone else's → 403; after 15 minutes
+   → 409. `DELETE` (own) → 200; others see "Mesazh i fshirë"; audit log: `CHAT_MESSAGE_DELETED`.
+7. As kryetar: transfer the primary to another lawyer. → In the chat: "<new> u shtua në bisedë", "<old> doli nga
+   biseda"; the old lawyer gets 403 on the messages and 404 on opening the case chat. Audit: `CHAT_PARTICIPANT_ADDED`
+   / `CHAT_PARTICIPANT_REMOVED`. Same for adding / removing an assistant.
+8. `POST /api/chat/direct` `{"userId":"…"}` → 403 "Biseda lejohet vetëm brenda çështjes."
+9. Close the case (final): sending still works. Archive the dossier: sending → 409 "Biseda është vetëm për lexim.";
+   the history still loads.
+10. Live (browser console or a SignalR test client on `/hubs/chat?dev_user=avokat2@ash.local`): `message.new`,
+    `message.edited`, `message.deleted`, `conversation.read`, `participants.changed` arrive; after the transfer in step
+    7 the old lawyer's connection receives nothing more from that chat.
+11. Repair: `POST /api/admin/jobs/chat-reconcile/run` as admin → `Succeeded`; a participant row changed by hand in
+    `ash_chat.conversation_participants` is put right (with its system message).
+12. Logs: no `access_token` / `dev_user` values in the request lines of `/hubs/chat`.

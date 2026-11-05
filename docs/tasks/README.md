@@ -110,7 +110,7 @@ Rules
 
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
-| 049 | [Chat backend](049-chat-backend.md) | 040 | yes | todo |
+| 049 | [Chat backend](049-chat-backend.md) | 040 | yes | done |
 | 050 | [Chat UI](050-chat-ui.md) | 011, 049 |  | todo |
 
 ### Phase 10 — Hardening & release

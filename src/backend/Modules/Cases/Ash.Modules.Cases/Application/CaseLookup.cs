@@ -27,6 +27,27 @@ internal sealed class CaseLookup(CasesDbContext db, IReferenceData reference) : 
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<long>> GetChatParticipantIdsAsync(long caseId, CancellationToken ct = default)
+    {
+        var id = (ulong)caseId;
+        var users = await db.CasePermissions.AsNoTracking()
+            .Where(p => p.CaseId == id && p.PermissionCode == ChatPermission)
+            .Select(p => p.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+        return users.Select(u => (long)u).Order().ToList();
+    }
+
+    public async Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken ct = default)
+    {
+        var id = (ulong)caseId;
+        return await db.Cases.AsNoTracking()
+            .Where(c => c.Id == id)
+            .AnyAsync(c => db.Dossiers.Any(d => d.Id == c.DossierId && d.ArchivedAt != null), ct);
+    }
+
+    private const string ChatPermission = "chat.case";
+
     private async Task<CaseSummary?> SummaryAsync(IQueryable<Case> cases, CancellationToken ct)
     {
         var c = await cases.Select(x => new { x.Id, x.PublicId, x.CaseCode, x.CourtId, x.OfficeId }).SingleOrDefaultAsync(ct);

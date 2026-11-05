@@ -7,6 +7,7 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
 {
     private readonly List<DbContext> _contexts = [];
     private readonly List<Action> _afterCommit = [];
+    private readonly List<Func<Task>> _afterCommitAsync = [];
     private MySqlTransaction? _transaction;
 
     public MySqlUnitOfWork(PersistenceOptions options)
@@ -39,7 +40,12 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
             throw new InvalidOperationException("A transaction is already active.");
         }
 
-        await Connection.OpenAsync(cancellationToken);
+        // a second transaction in the same scope (the chat unit, task 049) finds the connection open already
+        if (Connection.State != System.Data.ConnectionState.Open)
+        {
+            await Connection.OpenAsync(cancellationToken);
+        }
+
         _transaction = await Connection.BeginTransactionAsync(cancellationToken);
 
         foreach (var context in _contexts)
@@ -90,6 +96,20 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
         _afterCommit.Add(action);
     }
 
+    public void OnCommittedAsync(Func<Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (_transaction is null)
+        {
+            // nothing to wait for; no async caller to hand the task to (ASP.NET Core has no sync context: no deadlock)
+            RunSafely(action).GetAwaiter().GetResult();
+            return;
+        }
+
+        _afterCommitAsync.Add(action);
+    }
+
     public async Task CommitAsync(CancellationToken cancellationToken = default)
     {
         if (_transaction is null)
@@ -100,11 +120,31 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
         await _transaction.CommitAsync(cancellationToken);
         await ReleaseTransactionAsync();
         RunAfterCommitActions();
+
+        var asyncActions = _afterCommitAsync.ToArray();
+        _afterCommitAsync.Clear();
+        foreach (var action in asyncActions)
+        {
+            await RunSafely(action);
+        }
+    }
+
+    private static async Task RunSafely(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch
+        {
+            // committed already; the caller logged it and repairs it later (see OnCommittedAsync)
+        }
     }
 
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
     {
         _afterCommit.Clear();
+        _afterCommitAsync.Clear();
 
         if (_transaction is null)
         {
@@ -118,6 +158,7 @@ public sealed class MySqlUnitOfWork : IUnitOfWork, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _afterCommit.Clear();
+        _afterCommitAsync.Clear();
 
         if (_transaction is not null)
         {

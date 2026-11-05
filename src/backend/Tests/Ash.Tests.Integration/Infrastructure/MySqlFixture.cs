@@ -73,6 +73,8 @@ public sealed class MySqlFixture : IAsyncLifetime
     /// <summary>The audit digest account (ash_audit_digest_local: SELECT audit_log, SELECT + INSERT digests; task 041).</summary>
     public string AuditDigestConnectionString { get; private set; } = string.Empty;
 
+    public string ChatConnectionString { get; private set; } = string.Empty;
+
     private string RootConnectionString { get; set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
@@ -89,6 +91,8 @@ public sealed class MySqlFixture : IAsyncLifetime
         AppConnectionString = $"Server={host};Port={port};User=ash_dev;Password=ash_dev_local;Database=ash_core;AllowUserVariables=true;";
         AuditConnectionString = $"Server={host};Port={port};User=ash_audit_local;Password=ash_audit_local_pw;";
         AuditDigestConnectionString = $"Server={host};Port={port};User=ash_audit_digest_local;Password=ash_audit_digest_local_pw;";
+        // task 049: the chat's own account (LocalScripts/906, created by the migrator below like the others)
+        ChatConnectionString = $"Server={host};Port={port};User=ash_chat_local;Password=ash_chat_local_pw;Database=ash_chat;AllowUserVariables=true;";
 
         var result = Timing.Measure("migration", () => DatabaseUpgrader.Upgrade(RootConnectionString, local: true, quiet: true));
         if (!result.Successful)

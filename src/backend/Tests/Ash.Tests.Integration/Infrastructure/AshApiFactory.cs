@@ -38,6 +38,7 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         // background jobs (task 041) never run on their own in tests: a test runs a job explicitly (JobRunner/RunAsync)
         Environment.SetEnvironmentVariable("Jobs__Enabled", "false");
         Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", db.AuditDigestConnectionString);
+        Environment.SetEnvironmentVariable("ConnectionStrings__Chat", db.ChatConnectionString);
     }
 
     /// <summary>

@@ -16,6 +16,11 @@ public static class AuditActions
     public const string AdminChange = "ADMIN_CHANGE";
     /// <summary>The user changed their own profile (task 048; the phone, masked).</summary>
     public const string ProfileUpdated = "PROFILE_UPDATED";
+    /// <summary>Task 049: a chat message was deleted (soft; the body stays in the database).</summary>
+    public const string ChatMessageDeleted = "CHAT_MESSAGE_DELETED";
+    /// <summary>Task 049: someone joined or left a case chat (assignment, transfer, link, reconcile).</summary>
+    public const string ChatParticipantAdded = "CHAT_PARTICIPANT_ADDED";
+    public const string ChatParticipantRemoved = "CHAT_PARTICIPANT_REMOVED";
 }
 
 public static class AuditOutcomes

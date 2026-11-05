@@ -14,7 +14,7 @@ Attach this file to a Copilot chat only when a task says so; `.github/copilot-in
 | Audit | `ash_audit.audit_log`, `ash_audit.audit_daily_digests` | `IAuditLog` |
 | (building block `Ash.Infrastructure.Jobs`) | `ash_ops.job_runs`, `ash_core.sent_reminders` | `IScheduledJob`, `JobRunner`, `SentReminders` |
 | Reports | none (reads views `v_report_*` and statistics SQL, read-only, replica connection) | — |
-| Chat | `ash_chat.*` | — |
+| Chat | `ash_chat.*` — own connection `ConnectionStrings:Chat` (account `ash_chat_app`) and own transaction; follows the case team after the core commit (task 049) | — |
 
 ## Cross-module communication
 - Synchronous: call an interface from the other module's `.Contracts`.
@@ -52,6 +52,7 @@ is a MySQL named lock here.
 | `data-reminders` | Cases | hourly | DATA_MISSING_30D / _6M from the current primary assignment |
 | `hearing-reminders` | Cases | hourly | HEARING_TOMORROW (from 08:00 Tirane), NEXT_LEVEL_PENDING_3D |
 | `notification-cleanup` | Notifications | 02:00 Tirane | read notifications older than 12 months, 5,000 per statement |
+| `chat-reconcile` | Chat | 01:30 Tirane | every case chat's participants recomputed from the case (repairs a missed event), task 049 |
 | `partition-check` | Notifications | 03:00 Tirane | p_max holding rows / next month's partition missing → admins |
 | `audit-digest` | Audit | 02:00 Tirane | SHA-256 chain per Tirane day into `audit_daily_digests` (own account `ash_audit_digest`) |
 

@@ -12,6 +12,7 @@ public static class ErrorResults
         ErrorType.Conflict => StatusCodes.Status409Conflict,
         ErrorType.Forbidden => StatusCodes.Status403Forbidden,
         ErrorType.TooLarge => StatusCodes.Status413PayloadTooLarge,
+        ErrorType.TooManyRequests => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status500InternalServerError
     };
 

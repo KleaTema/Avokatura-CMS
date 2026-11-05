@@ -21,4 +21,14 @@ public interface ICaseLookup
 
     /// <summary>The case's current assignments (lawyers, assistants, institution jurists), not ended ones.</summary>
     Task<IReadOnlyList<CaseMember>> GetTeamAsync(long caseId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Task 049: who belongs in the case chat — every user whose case PROFILE gives chat.case now (v_case_permissions):
+    /// the current team (primary, secondary, assistants, the institution jurist) and the active INSTITUTION_USERs of a
+    /// linked institution. System permissions do not count: a Kryetar or Monitor is in only when on the team.
+    /// </summary>
+    Task<IReadOnlyList<long>> GetChatParticipantIdsAsync(long caseId, CancellationToken ct = default);
+
+    /// <summary>Whether the case's dossier is archived (task 038) — no access check.</summary>
+    Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken ct = default);
 }

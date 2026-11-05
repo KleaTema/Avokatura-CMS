@@ -29,4 +29,11 @@ public interface IUnitOfWork
     /// (e.g. cache invalidation). Discarded on rollback. With no active transaction it runs immediately.
     /// </summary>
     void OnCommitted(Action action);
+
+    /// <summary>
+    /// Like <see cref="OnCommitted(Action)"/> for async work that must be done before the response (task 049: the chat
+    /// participants follow a committed assignment). Awaited in order after the commit; a failure is swallowed (the data
+    /// is committed) — the caller logs it and has its own repair (the chat's nightly reconcile).
+    /// </summary>
+    void OnCommittedAsync(Func<Task> action);
 }
