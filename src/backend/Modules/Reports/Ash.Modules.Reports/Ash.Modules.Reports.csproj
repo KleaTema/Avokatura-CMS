@@ -3,6 +3,15 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <!-- task 044: the statistics SQL, embedded (never built from strings at request time) -->
+    <EmbeddedResource Include="Infrastructure\Sql\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Ash.AspNetCore\Ash.AspNetCore.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Ash.SharedKernel\Ash.SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Ash.Infrastructure\Ash.Infrastructure.csproj" />
     <ProjectReference Include="..\Ash.Modules.Reports.Contracts\Ash.Modules.Reports.Contracts.csproj" />

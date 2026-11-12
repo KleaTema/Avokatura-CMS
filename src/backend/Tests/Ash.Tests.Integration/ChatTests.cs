@@ -312,6 +312,10 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         system.ShouldContain("Avokat Tre u shtua në bisedë");
         system.ShouldContain(m => m.EndsWith("doli nga biseda"));
         await hub2.WaitForAsync("participants.changed", _ => true);
+        // the old lawyer is told on their own connection (task 050) — the conversation id only, never a message
+        (await hub1.WaitForAsync("participants.changed", p => p.GetProperty("conversationId").GetGuid() == conversation))
+            .EnumerateObject().Select(x => x.Name).ShouldBe(["conversationId"]);
+        hub1.Got("message.new", p => p.GetProperty("message").GetProperty("body").GetString()!.EndsWith("doli nga biseda")).ShouldBeFalse();
 
         (await avokat1.GetAsync($"/api/chat/conversations/{conversation}/messages", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await Send(avokat1, conversation, "A më dëgjon dikush?")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -458,6 +462,70 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         (await Scalar($"SELECT body FROM messages WHERE public_id = UUID_TO_BIN('{message}', 1)", Db.ChatConnectionString))
             .ShouldBe("Gabim shtypi, u rregullua"); // kept for the record
         await WaitForAudit($"action = 'CHAT_MESSAGE_DELETED' AND case_id = {s.ActiveCaseId}");
+    }
+
+    private static async Task<List<JsonElement>> ParticipantList(HttpClient client, Guid conversation)
+    {
+        var response = await client.GetAsync($"/api/chat/conversations/{conversation}/participants", Ct);
+        var text = await response.Content.ReadAsStringAsync(Ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, text);
+        return JsonDocument.Parse(text).RootElement.EnumerateArray().ToList();
+    }
+
+    [Fact]
+    public async Task Participants_come_from_the_participant_rows_with_role_and_institution_and_a_gap_is_repaired()
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        var casePublicId = await PublicIdOf("cases", s.ActiveCaseId);
+        await using var factory = new AshApiFactory(Db);
+        using var avokat1 = factory.CreateClient().AsUser("avokat1@ash.local");
+        var conversation = await Open(avokat1, casePublicId);
+
+        var list = await ParticipantList(avokat1, conversation);
+        list.Select(p => p.GetProperty("role").GetString()).ShouldBe(
+            ["PRIMARY_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST", "INSTITUTION_USER"]);
+        list.Count(p => p.GetProperty("isMe").GetBoolean()).ShouldBe(1);
+        list[0].GetProperty("isMe").GetBoolean().ShouldBeTrue();
+        list.Where(p => p.GetProperty("role").GetString()!.StartsWith("INSTITUTION"))
+            .ShouldAllBe(p => !string.IsNullOrEmpty(p.GetProperty("institutionName").GetString()));
+        list[0].GetProperty("institutionName").ValueKind.ShouldBe(JsonValueKind.Null);
+        foreach (var p in list)
+        {
+            p.EnumerateObject().Select(x => x.Name).ShouldBe(["id", "name", "role", "institutionName", "isMe"]); // no email, no phone
+        }
+
+        // a sync gap (avokat2 lost their row): the list shows the gap is repaired from the rows, not hidden by the team
+        await Execute($"""
+            UPDATE conversation_participants SET left_at = NOW(3)
+             WHERE user_id = {s.User("avokat2").Id}
+               AND conversation_id = (SELECT id FROM conversations WHERE case_id = {s.ActiveCaseId})
+            """, Db.ChatConnectionString);
+        (await ParticipantList(avokat1, conversation)).Count.ShouldBe(5);
+        (await Participants(s.ActiveCaseId)).ShouldContain("avokat2@ash.local");
+        (await SystemMessages(s.ActiveCaseId)).ShouldHaveSingleItem().ShouldEndWith("u shtua në bisedë");
+    }
+
+    [Fact]
+    public async Task A_removed_assistant_is_not_listed_and_loses_the_conversation()
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        var casePublicId = await PublicIdOf("cases", s.ActiveCaseId);
+        await using var factory = new AshApiFactory(Db);
+        using var avokat1 = factory.CreateClient().AsUser("avokat1@ash.local");
+        using var ndihmes = factory.CreateClient().AsUser("ndihmes@ash.local");
+        var conversation = await Open(avokat1, casePublicId);
+        (await ParticipantList(ndihmes, conversation)).Count.ShouldBe(5);
+
+        var rowVersion = Convert.ToUInt32(await Scalar($"SELECT row_version FROM cases WHERE id = {s.ActiveCaseId}"));
+        var ndihmesId = await PublicIdOf("users", s.User("ndihmes").Id);
+        var removed = await avokat1.DeleteAsync($"/api/cases/{casePublicId}/assistants/{ndihmesId}?rowVersion={rowVersion}", Ct);
+        removed.StatusCode.ShouldBe(HttpStatusCode.OK, await removed.Content.ReadAsStringAsync(Ct));
+
+        var list = await ParticipantList(avokat1, conversation);
+        list.Count.ShouldBe(4);
+        list.ShouldNotContain(p => p.GetProperty("id").GetGuid() == ndihmesId);
+        (await ndihmes.GetAsync($"/api/chat/conversations/{conversation}/participants", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await ndihmes.GetFromJsonAsync<JsonElement>("/api/chat/conversations", Ct)).GetProperty("items").GetArrayLength().ShouldBe(0);
     }
 
     [Fact]

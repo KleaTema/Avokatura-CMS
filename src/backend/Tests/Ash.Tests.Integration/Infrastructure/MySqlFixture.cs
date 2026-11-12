@@ -15,6 +15,9 @@ public sealed class MySqlFixture : IAsyncLifetime
     // Business tables, emptied between tests (children before parents). Lookup and seed tables (users, roles, offices, courts, lists...) are kept.
     private static readonly string[] BusinessTables =
     [
+        // task 044: a snapshot taken by one test must not freeze a year for the next
+        "ash_core.statistics_snapshot_cases",
+        "ash_core.statistics_snapshots",
         "ash_core.case_reminders",
         "ash_core.sent_reminders",
         "ash_core.notifications",

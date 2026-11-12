@@ -621,3 +621,113 @@ avokat2 secondary, an assistant and a linked institution (its public id = `{case
 11. Repair: `POST /api/admin/jobs/chat-reconcile/run` as admin → `Succeeded`; a participant row changed by hand in
     `ash_chat.conversation_participants` is put right (with its system message).
 12. Logs: no `access_token` / `dev_user` values in the request lines of `/hubs/chat`.
+
+## 050 — Chat (screens)
+**Setup:** 049's setup (ConnectionStrings:Chat), restart the API, `npm run dev`. An ACTIVE case with avokat1 primary,
+avokat2 secondary and ndihmes as assistant. Two browsers (or a normal and a private window): avokat1 and avokat2.
+1. Case page as avokat1: the tab *Chat* is there (not for kryetar or protokoll). It opens the case's conversation;
+   empty: "Nuk ka ende mesazhe. Shkruani i pari."
+2. Type two lines (Shift+Enter between them), Enter: the message appears at once (light, "Po dërgohet…"), then normal;
+   the line break is kept. In avokat2's window, on the same tab, it appears without a reload — once.
+3. A message with `https://example.com` becomes a link (new tab); `<b>x</b>` and `javascript:alert(1)` stay plain text.
+4. Day separators "Sot" / "Dje" / dd.MM.yyyy; the time under each message, the full date and time on hover. A run of
+   messages of one person shows the name once.
+5. Hover a message (or Tab onto it): *Përgjigju* — the answer shows "Përgjigje për …" above it. Own message within 15
+   minutes: *Ndrysho* (Enter saves, Esc cancels; "(ndryshuar)" appears) and *Fshi* (asks first; everyone sees
+   "Mesazh i fshirë"). After 15 minutes those two actions are gone.
+6. avokat2 scrolls up in a long chat; avokat1 writes: no jump, a pill "1 mesazh i ri ↓" — clicking it goes down.
+   At the bottom new messages scroll into view by themselves.
+7. Scroll up: older messages load at the top and the view stays where it was (no jump). In a chat with more than 300
+   messages, going back down drops the oldest from view; scrolling up loads them again.
+8. 31 messages within a minute: "Po dërgoni shumë shpejt, prisni pak. Nuk u dërgua —" with *Provo përsëri* on it.
+   Stop the API, send: *Nuk u dërgua — Provo përsëri*; start the API, *Provo përsëri* sends it.
+9. Leave a draft, reload the tab: the draft is still there (per conversation).
+10. Menu *Chat*: the badge counts unread messages, live. As avokat2 on the dashboard, avokat1 writes → badge 1; reload
+    → still 1; the tab title adds it to the notifications ("(n) ASH"). No bell notification for chat messages.
+11. *Chat* page: conversations newest first — case code · court, preview, time, unread badge (99+ above 99). Choose one
+    → the thread on the right; reading it clears its badge (only when the newest message is on screen and the window
+    has focus — read it in a background window: the badge stays).
+12. *Pjesëmarrësit*: name, role on the case (Avokat primar, Avokat dytësor, Ndihmës ligjor, Jurist i institucionit,
+    Institucioni) and the institution; no e-mail, no phone.
+13. As ndihmes with the conversation open, avokat1 removes the assistant: at once "Nuk jeni më pjesë e kësaj
+    bisede.", no message box; the conversation leaves the list. Reload with the same address: the same message (the
+    API answers 403).
+14. Archive the dossier: the thread shows "Biseda është vetëm për lexim." instead of the message box; history readable.
+15. 390 px: the *Chat* page shows the list, then the thread with a back arrow; no side scrolling.
+16. Keyboard only: Tab reaches the message list, the actions of each message and the box; a screen reader announces
+    new messages (the list is a live log).
+
+## 042 / 043 — Reports: active and closed cases (API only; the screens come with 045)
+**Setup:** restart the API. Use Scalar (`/scalar`) with the header `X-Dev-User`. Optional: `ConnectionStrings:Reporting`
+(otherwise the App connection is used).
+1. As avokat1: `GET /api/reports/active-cases` → 10 rows a page, `total`, `nextCursor`, `columns` (Albanian headers).
+   Only avokat1's open cases — the same ones as *Çështje* (all tabs, open). As kryetar: the office; as institucion: the
+   linked cases; as monitor / admin: all. As protokoll → 403.
+2. Filters: `officeId`, `lawyerId`, `courtId`, `categoryCode`, `courtLevelCode`, `priority`, `suspended`, `q` (the same
+   search as the header). Each narrows the rows; `total` follows.
+3. Columns: Paditësi / I padituri (with role in brackets) list every party; Avokati "primary / secondary"; Seanca e
+   radhës; Përshkrimi i seancës së fundit; claim amount, currency and m² separate.
+4. `GET /api/reports/active-cases/export` (same filters) → downloads `raporti-ceshtjet-aktive-YYYY-MM-DD.xlsx`. In
+   Excel: header row frozen with filters, long Objekti wrapped; dates are real dates (sortable), hearings with the time
+   (Tirane); amounts are numbers with 2 decimals; a party named `=1+1` shows `=1+1` (text, not 2). Sheet *Filtrat*: the
+   report, when (Tirane), by whom, the filters in Albanian, the row count.
+5. Audit log: one `REPORT_EXPORT` row per export with the report, the filters and the row count.
+6. `GET /api/reports/closed-cases?closedFrom=2026-01-01&closedTo=2026-12-31` → one row per closed LEVEL, levels of a
+   dossier together (/1 then /2), each with its own result, decision number and date, values per currency, the flags
+   Ankimuar / Rekursuar / Formë e prerë / Vendimi i arsyetuar ardhur. Avokati = the primary when the level was closed
+   (a later transfer does not change it). Filters: `resultCode`, `outcomeGroup` (WIN / LOSS / PARTIAL / PROCEDURAL /
+   OTHER), `courtId`, `lawyerId`, `officeId`. `closedFrom` after `closedTo` → 400.
+7. `GET /api/reports/closed-cases/export` → `raporti-ceshtjet-mbyllura-YYYY-MM-DD.xlsx`, same checks as step 4.
+8. An export of more than 200,000 rows → 400 "… Ngushtoni filtrat." (to try it: set `Reports:MaxExportRows` to 1 in
+   user-secrets, restart, export; put it back).
+9. A large export (a whole Monitor's report) downloads in a few seconds; the API's memory does not climb with it.
+
+## 044 — Statistics (Tabela 5 and 6; API only, the screens come with 045)
+**Setup:** run the migrator (script 019), restart the API. Scalar with `X-Dev-User`. Definitions:
+`docs/statistics-definitions.md`.
+1. As monitor: `GET /api/reports/statistics?year=<this year>` → `courts` (one row per court of the LEVEL, the last row
+   "Gjithsej"), `measures` (the Albanian names), `money` (one row per court and currency, plus a total per currency —
+   never ALL and EUR together), `results`, `inHand` (per primary lawyer), `filters`.
+2. Point in time: a case registered last year and closed this year counts in last year's *Aktive*. A case registered on
+   31.12. late in the evening counts in that year.
+3. Last year without a snapshot: `"frozen": false` and the warning "Jo e ngrirë…". As admin:
+   `POST /api/admin/statistics/snapshot/<last year>` with `{"reason":"…"}` (at least 10 characters; shorter → 400)
+   → `{ year, cases }`; the same GET now says `"frozen": true`.
+   Change a case's category (Delegim) — last year's figures stay; this year's change. Audit: `ADMIN_CHANGE` with
+   `STATISTICS_SNAPSHOT_TAKEN` / `_REPLACED` and the reason. The current year → 400; as kryetar → 403.
+4. Drill-down: for any number, `GET /api/reports/statistics/cases?year=…&measure=<code>&courtId=…` (and `resultCode`,
+   `rowLawyerId` for the Rezultati / Në dorë rows) → exactly that many cases (`total`), 10 a page.
+5. Filters: `officeId`, `lawyerId` (open figures by the primary at year end / today, closed figures by the primary at
+   closing), `table=6&institutionId=` (party or linked), `table=6&ministryId=` (the ministry and its agencies).
+6. Access: kryetar sees only their office (another `officeId` → 403); a lawyer only their own cases (another
+   `lawyerId` → 403); institucion only Tabela 6 of their institution (`table=5` → 403); protokoll → 403.
+7. `GET /api/reports/statistics/export?year=…` → `raporti-statistikat-<year>-<date>.xlsx`: sheets *Tabela 5*,
+   *Rezultati*, *Në dorë*, *Filtrat*; numbers are numbers; one damage column per currency, m² separate. Audit
+   `REPORT_EXPORT`.
+8. The current year's figures are cached for 5 minutes: a change shows within 5 minutes.
+
+## 045 — Reports and statistics (screens)
+**Setup:** restart the API (042–044), `npm run dev`.
+1. As kryetar: menu *Raporte* → tab *Çështjet aktive* (the default). Click *Eksporto në Excel* → the file
+   `raporti-ceshtjet-aktive-<date>.xlsx` downloads (two clicks from the menu). While it downloads: "Po shkarkohet… 0,4 MB"
+   and *Anulo* (cancels; "Eksporti u anulua.").
+2. Below the button: "Do të eksportohen N rreshta" = the table footer's total. Above 200.000 rows the button is disabled
+   with "… Ngushtoni filtrat."
+3. Filters (*Filtra*): kryetar has the lawyer filter but no office filter; monitor / admin both; a lawyer neither (only
+   their own cases). Every filter goes into the address (reload keeps it), shows as a chip; *Pastro filtrat* clears all.
+4. Tables: 10 rows a page with *Para* / *Pas* and "1–10 nga N"; wide tables scroll sideways inside the card, the case
+   code column stays; the case code opens the case; dates dd.MM.yyyy (hearing with the time); amounts "1.500,50 ALL"; m²
+   separate.
+5. *Çështjet e mbyllura*: date range (*Mbyllur nga / deri*), result, result group, court, lawyer; the levels of one
+   dossier sit together in one shaded / unshaded block (/1 then /2).
+6. *Statistikat*: year, *Tabela 5* / *Tabela 6* (Tabela 6 asks for an institution or a ministry first). The badge: "E
+   ngrirë më …" (a frozen year), "Viti nuk është ngrirë ende — shifrat mund të ndryshojnë", or "Viti aktual — shifra të
+   përditësuara". As institucion: only Tabela 6 of their institution, no switch.
+7. The table: the header row and the *Gjykata* column stay while scrolling; *Gjithsej* bold at the bottom; numbers
+   right-aligned "1.234"; damage per currency, m² separate. Hover (or Tab onto) a column name: its definition.
+8. Click any number above 0: a drawer "<measure> — <court>" lists exactly that many cases, 10 a page, each a link.
+   The same from *Rezultati* and *Në dorë* (with its bar chart).
+9. *Printo*: A4 landscape — the title, the year, the filters, the table, "Gjeneruar më … nga …"; no menu, no buttons.
+10. A query stopped by the time limit: "Raporti zgjati shumë. Ngushtoni filtrat."; an export: "Eksporti zgjati
+    shumë. Ngushtoni filtrat."
+11. 390 px: filters in the *Filtra* panel, tables scroll sideways, no page-wide side scrolling.

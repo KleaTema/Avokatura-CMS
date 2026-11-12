@@ -724,6 +724,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/statistics/snapshot/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TakeStatisticsSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/profile": {
         parameters: {
             query?: never;
@@ -1796,10 +1812,275 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/active-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportActiveCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/active-cases/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ExportReportActiveCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/closed-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportClosedCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/closed-cases/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ExportReportClosedCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/statistics/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportStatisticsCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/statistics/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ExportReportStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListChatConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/cases/{caseId}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OpenCaseChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/direct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OpenDirectChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListChatMessages"];
+        put?: never;
+        post: operations["SendChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/conversations/{id}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListChatParticipants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["EditChatMessage"];
+        post?: never;
+        delete: operations["DeleteChatMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/conversations/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MarkChatRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/unread-total": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ChatUnreadTotal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActiveCaseRow: {
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            actNumber: string;
+            plaintiffs: null | string;
+            defendants: null | string;
+            objectText: null | string;
+            court: string;
+            judge: null | string;
+            /** Format: date-time */
+            nextHearingAt: null | string;
+            lawyers: string;
+            lastHearingDescription: null | string;
+            hasSecurityMeasure: boolean;
+            /** Format: double */
+            claimAmount: null | number | string;
+            claimCurrency: null | string;
+            /** Format: double */
+            claimAreaM2: null | number | string;
+            category: null | string;
+            subcategory: null | string;
+            priority: string;
+            isSuspended: boolean;
+        };
         AddAssistantRequest: {
             /** Format: uuid */
             userPublicId: null | string;
@@ -2087,10 +2368,99 @@ export interface components {
             rowVersion: number | string;
             objectText: string;
         };
+        ChatConversation: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            /** Format: uuid */
+            casePublicId: null | string;
+            title: string;
+            isReadOnly: boolean;
+            /** Format: date-time */
+            lastMessageAt: null | string;
+            lastMessagePreview: null | string;
+            /** Format: int32 */
+            unread: number | string;
+            unreadCapped: boolean;
+        };
+        ChatMessage: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            sender: null | components["schemas"]["ChatUser"];
+            body: string;
+            isDeleted: boolean;
+            /** Format: uuid */
+            replyToMessageId: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            editedAt: null | string;
+        };
+        ChatParticipant: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            role: null | string;
+            institutionName: null | string;
+            isMe: boolean;
+        };
+        ChatUser: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         ClaimView: {
             amount: null | string;
             currency: null | string;
             areaM2: null | string;
+        };
+        ClosedCaseRow: {
+            /** Format: uuid */
+            casePublicId: string;
+            /** Format: uuid */
+            dossierPublicId: string;
+            caseCode: string;
+            actNumber: string;
+            courtLevel: string;
+            court: string;
+            judge: null | string;
+            plaintiffs: null | string;
+            defendants: null | string;
+            objectText: null | string;
+            lawyer: null | string;
+            result: string;
+            resultOtherText: null | string;
+            decisionNumber: null | string;
+            /** Format: date */
+            decisionDate: null | string;
+            dispositive: null | string;
+            currency: null | string;
+            /** Format: double */
+            wonAmount: null | number | string;
+            /** Format: double */
+            wonAreaM2: null | number | string;
+            /** Format: double */
+            lostAmount: null | number | string;
+            /** Format: double */
+            lostAreaM2: null | number | string;
+            /** Format: double */
+            preventedDamageAmount: null | number | string;
+            /** Format: double */
+            preventedDamageAreaM2: null | number | string;
+            /** Format: double */
+            causedDamageAmount: null | number | string;
+            /** Format: double */
+            causedDamageAreaM2: null | number | string;
+            /** Format: double */
+            courtCostsAmount: null | number | string;
+            hasSecurityMeasure: boolean;
+            isAppealed: boolean;
+            isRecursed: boolean;
+            isFinal: boolean;
+            decisionReceived: boolean;
+            /** Format: date-time */
+            closedAt: string;
         };
         CodeName: {
             code: string;
@@ -2107,6 +2477,10 @@ export interface components {
             hearing: components["schemas"]["HearingView"];
             next: null | components["schemas"]["HearingView"];
             warnings: components["schemas"]["RegistrationWarning"][];
+        };
+        ConversationPage: {
+            items: components["schemas"]["ChatConversation"][];
+            nextCursor: null | string;
         };
         CourtAdminResponse: {
             /** Format: int32 */
@@ -2370,6 +2744,9 @@ export interface components {
             createdAt: string;
             note: null | string;
         };
+        EditMessageRequest: {
+            body: null | string;
+        };
         FileTypeAdminResponse: {
             /** Format: uint8 */
             id: number | string;
@@ -2587,6 +2964,14 @@ export interface components {
             /** Format: int32 */
             activeSecondary: number | string;
         };
+        MarkReadRequest: {
+            /** Format: uuid */
+            lastMessageId: string;
+        };
+        MessagePage: {
+            items: components["schemas"]["ChatMessage"][];
+            nextCursor: null | string;
+        };
         NamedRef: {
             /** Format: uuid */
             publicId: string;
@@ -2669,6 +3054,10 @@ export interface components {
             isActive: boolean;
             /** Format: int32 */
             activeUsers: number | string;
+        };
+        OpenDirectRequest: {
+            /** Format: uuid */
+            userId: string;
         };
         PartyInstitutionRef: {
             /** Format: uuid */
@@ -2818,6 +3207,32 @@ export interface components {
             institutionLinkEnded: boolean;
             warnings: components["schemas"]["PartyWarning"][];
         };
+        ReportColumn: {
+            key: string;
+            header: string;
+            kind: components["schemas"]["ReportColumnKind"];
+            /** Format: double */
+            width: number | string;
+        };
+        ReportColumnKind: number;
+        ReportFilterText: {
+            label: string;
+            value: string;
+        };
+        ReportPageOfActiveCaseRow: {
+            items: components["schemas"]["ActiveCaseRow"][];
+            nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
+            columns: components["schemas"]["ReportColumn"][];
+        };
+        ReportPageOfClosedCaseRow: {
+            items: components["schemas"]["ClosedCaseRow"][];
+            nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
+            columns: components["schemas"]["ReportColumn"][];
+        };
         RoleRef: {
             code: string;
             name: string;
@@ -2857,6 +3272,11 @@ export interface components {
             /** Format: date */
             decisionDate: string;
             dispositive: null | string;
+        };
+        SendMessageRequest: {
+            body: null | string;
+            /** Format: uuid */
+            replyToMessageId: null | string;
         };
         SetCategoryRequest: {
             categoryCode: null | string;
@@ -2912,6 +3332,89 @@ export interface components {
             /** Format: date-time */
             suspendedAt: null | string;
         };
+        SnapshotRequest: {
+            reason: null | string;
+        };
+        StatisticsCaseRow: {
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            court: string;
+            lawyer: null | string;
+            status: string;
+            /** Format: date-time */
+            registeredAt: string;
+            /** Format: date-time */
+            closedAt: null | string;
+        };
+        StatisticsCasesPage: {
+            items: components["schemas"]["StatisticsCaseRow"][];
+            nextCursor: null | string;
+            /** Format: int32 */
+            total: number | string;
+        };
+        StatisticsCourtRow: {
+            /** Format: int32 */
+            courtId: null | number | string;
+            court: string;
+            values: {
+                [key: string]: number | string;
+            };
+        };
+        StatisticsLawyerRow: {
+            /** Format: uuid */
+            lawyerId: string;
+            lawyer: string;
+            /** Format: int32 */
+            count: number | string;
+        };
+        StatisticsMeasure: {
+            code: string;
+            name: string;
+            definition: string;
+            /** @default  */
+            example: string;
+        };
+        StatisticsMoneyRow: {
+            /** Format: int32 */
+            courtId: null | number | string;
+            court: string;
+            currency: null | string;
+            /** Format: double */
+            preventedAmount: number | string;
+            /** Format: double */
+            preventedM2: number | string;
+            /** Format: double */
+            causedAmount: number | string;
+            /** Format: double */
+            causedM2: number | string;
+        };
+        StatisticsResponse: {
+            /** Format: int32 */
+            year: number | string;
+            /** Format: int32 */
+            table: number | string;
+            frozen: boolean;
+            /** Format: date-time */
+            frozenAt: null | string;
+            warning: null | string;
+            measures: components["schemas"]["StatisticsMeasure"][];
+            damageMeasure: components["schemas"]["StatisticsMeasure"];
+            inHandMeasure: components["schemas"]["StatisticsMeasure"];
+            courts: components["schemas"]["StatisticsCourtRow"][];
+            money: components["schemas"]["StatisticsMoneyRow"][];
+            results: components["schemas"]["StatisticsResultRow"][];
+            inHand: components["schemas"]["StatisticsLawyerRow"][];
+            filters: components["schemas"]["ReportFilterText"][];
+        };
+        StatisticsResultRow: {
+            resultCode: string;
+            result: string;
+            /** Format: int32 */
+            ash: number | string;
+            /** Format: int32 */
+            deleguar: number | string;
+        };
         SummonsTypeAdminResponse: {
             code: string;
             name: string;
@@ -2945,6 +3448,11 @@ export interface components {
         UnreadCountResponse: {
             /** Format: int32 */
             unread: number | string;
+        };
+        UnreadTotal: {
+            /** Format: int32 */
+            unread: number | string;
+            capped: boolean;
         };
         UpdateClaimRequest: {
             claimAmount: null | string;
@@ -5040,6 +5548,32 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    TakeStatisticsSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -7836,6 +8370,696 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportActiveCases: {
+        parameters: {
+            query?: {
+                OfficeId?: string;
+                LawyerId?: string;
+                CourtId?: number | string;
+                CategoryCode?: string;
+                CourtLevelCode?: string;
+                Priority?: string;
+                Suspended?: boolean;
+                Q?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPageOfActiveCaseRow"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ExportReportActiveCases: {
+        parameters: {
+            query?: {
+                OfficeId?: string;
+                LawyerId?: string;
+                CourtId?: number | string;
+                CategoryCode?: string;
+                CourtLevelCode?: string;
+                Priority?: string;
+                Suspended?: boolean;
+                Q?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportClosedCases: {
+        parameters: {
+            query?: {
+                ClosedFrom?: string;
+                ClosedTo?: string;
+                ResultCode?: string;
+                OutcomeGroup?: string;
+                CourtId?: number | string;
+                LawyerId?: string;
+                OfficeId?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPageOfClosedCaseRow"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ExportReportClosedCases: {
+        parameters: {
+            query?: {
+                ClosedFrom?: string;
+                ClosedTo?: string;
+                ResultCode?: string;
+                OutcomeGroup?: string;
+                CourtId?: number | string;
+                LawyerId?: string;
+                OfficeId?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportStatistics: {
+        parameters: {
+            query?: {
+                Year?: number | string;
+                Table?: number | string;
+                OfficeId?: string;
+                LawyerId?: string;
+                InstitutionId?: string;
+                MinistryId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatisticsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportStatisticsCases: {
+        parameters: {
+            query?: {
+                Year?: number | string;
+                Table?: number | string;
+                OfficeId?: string;
+                LawyerId?: string;
+                InstitutionId?: string;
+                MinistryId?: string;
+                Measure?: string;
+                CourtId?: number | string;
+                Currency?: string;
+                ResultCode?: string;
+                RowLawyerId?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatisticsCasesPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ExportReportStatistics: {
+        parameters: {
+            query?: {
+                Year?: number | string;
+                Table?: number | string;
+                OfficeId?: string;
+                LawyerId?: string;
+                InstitutionId?: string;
+                MinistryId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListChatConversations: {
+        parameters: {
+            query?: {
+                after?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPage"];
+                };
+            };
+        };
+    };
+    OpenCaseChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversation"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    OpenDirectChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenDirectRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversation"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListChatMessages: {
+        parameters: {
+            query?: {
+                before?: string;
+                limit?: number | string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SendChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListChatParticipants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatParticipant"][];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    EditChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    MarkChatRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkReadRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ChatUnreadTotal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadTotal"];
                 };
             };
         };

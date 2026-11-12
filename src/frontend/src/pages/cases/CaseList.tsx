@@ -22,11 +22,10 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
-import dayjs from 'dayjs'
 import { useId, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CirclePause, UserPlus } from 'lucide-react'
-import { AppDatePicker } from '../../components/AppDatePicker'
+import { RangeFilter } from '../../components/RangeFilter'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
 import { InstitutionPicker } from '../../components/InstitutionPicker'
 import { JudgePicker } from '../../components/JudgePicker'
@@ -51,7 +50,6 @@ import { useCaseCategories, useCourtLevels, useCourts } from '../../features/ref
 import { sq } from '../../i18n/sq'
 import { addDays, formatDate, formatDateTime, tiraneDateOf, todayInTirane } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
-import { isoDateOf, type PickerValue } from '../../lib/pickerValues'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
@@ -513,6 +511,8 @@ export function CaseListPage() {
               sx={{ width: { xs: '100%', md: 170 } }}
             />
             <RangeFilter
+              fromLabel={t.from}
+              toLabel={t.to}
               legend={t.hearingRange}
               from={filters.hearingFrom}
               to={filters.hearingTo}
@@ -520,6 +520,8 @@ export function CaseListPage() {
               onTo={(to) => set({ to })}
             />
             <RangeFilter
+              fromLabel={t.from}
+              toLabel={t.to}
               legend={t.registeredRange}
               from={filters.registeredFrom}
               to={filters.registeredTo}
@@ -765,78 +767,3 @@ function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Col
   )
 }
 
-/** A "nga – deri" pair of date filters under one legend (hearing dates, registration dates). */
-function RangeFilter({
-  legend,
-  from,
-  to,
-  onFrom,
-  onTo,
-}: {
-  legend: string
-  from: string
-  to: string
-  onFrom: (isoDate: string) => void
-  onTo: (isoDate: string) => void
-}) {
-  return (
-    <Box component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
-      <Typography component="legend" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {legend}
-      </Typography>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap sx={{ alignItems: { sm: 'center' } }}>
-        {/* short labels; the legend names the pair (fieldset) */}
-        <DateFilter label={t.from} value={from} maxDate={to} onChange={onFrom} />
-        <Typography aria-hidden sx={{ display: { xs: 'none', sm: 'block' } }}>
-          –
-        </Typography>
-        <DateFilter label={t.to} value={to} minDate={from} onChange={onTo} />
-      </Stack>
-    </Box>
-  )
-}
-
-/**
- * A date filter kept in the URL as yyyy-MM-dd. Local picker state holds a half-typed date; only a complete date (or
- * clearing it) reaches the URL, and a change of the URL (e.g. "Pastro filtrat") resets the picker.
- */
-function DateFilter({
-  label,
-  value,
-  onChange,
-  minDate,
-  maxDate,
-}: {
-  label: string
-  value: string
-  onChange: (isoDate: string) => void
-  minDate?: string
-  maxDate?: string
-}) {
-  const [local, setLocal] = useState<PickerValue>(value ? dayjs(value) : null)
-  const [fromUrl, setFromUrl] = useState(value)
-  if (value !== fromUrl) {
-    setFromUrl(value)
-    setLocal(value ? dayjs(value) : null)
-  }
-
-  const change = (next: PickerValue) => {
-    setLocal(next)
-    if (next === null) onChange('')
-    else if (isoDateOf(next)) onChange(isoDateOf(next) ?? '')
-  }
-
-  return (
-    <Box sx={{ width: { xs: '100%', sm: 170 } }}>
-      <AppDatePicker
-        label={label}
-        value={local}
-        onChange={change}
-        size="small"
-        fullWidth
-        minDate={minDate ? dayjs(minDate) : undefined}
-        maxDate={maxDate ? dayjs(maxDate) : undefined}
-      />
-    </Box>
-  )
-}

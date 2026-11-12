@@ -12,6 +12,7 @@ export const USERS = {
   avokat2: 'avokat2@ash.local',
   monitor: 'monitor@ash.local',
   institucion: 'institucion@ash.local',
+  ndihmes: 'ndihmes@ash.local',
 } as const
 
 const COURT = 'Gjykata e Shkallës së Parë Tiranë'
@@ -108,6 +109,43 @@ export async function claimOf(caseId: string, user: string): Promise<string | nu
 
 export async function statusOf(caseId: string, user: string): Promise<string> {
   return (await ok<{ header: { status: string } }>('GET', `/api/cases/${caseId}`, user)).header.status
+}
+
+/**
+ * Task 050: the user starts with no unread chat messages (the Chat badge and the tab title count only what the test
+ * causes). Marks every conversation read up to its newest message.
+ */
+export async function markAllChatRead(user: string): Promise<void> {
+  let after: string | null | undefined
+  do {
+    const page = await ok<{ items: { id: string; unread: number }[]; nextCursor: string | null }>(
+      'GET', `/api/chat/conversations?limit=50${after ? `&after=${encodeURIComponent(after)}` : ''}`, user)
+    for (const c of page.items.filter((x) => Number(x.unread) > 0)) {
+      const newest = await ok<{ items: { id: string }[] }>('GET', `/api/chat/conversations/${c.id}/messages?limit=1`, user)
+      if (newest.items[0]) await ok('POST', `/api/chat/conversations/${c.id}/read`, user, { lastMessageId: newest.items[0].id })
+    }
+    after = page.nextCursor
+  } while (after)
+}
+
+/** The user's public id (GET /api/identity/me). */
+export async function publicIdOf(user: string): Promise<string> {
+  return (await ok<{ publicId: string }>('GET', '/api/identity/me', user)).publicId
+}
+
+/** The primary lawyer adds a legal assistant to the case (task 026). */
+export async function addAssistant(caseId: string, primary: string, assistant: string): Promise<void> {
+  const detail = await ok<{ header: { rowVersion: number } }>('GET', `/api/cases/${caseId}`, primary)
+  await ok('POST', `/api/cases/${caseId}/assistants`, primary, {
+    userPublicId: await publicIdOf(assistant),
+    rowVersion: detail.header.rowVersion,
+  })
+}
+
+/** The primary lawyer removes the legal assistant again. */
+export async function removeAssistant(caseId: string, primary: string, assistant: string): Promise<void> {
+  const detail = await ok<{ header: { rowVersion: number } }>('GET', `/api/cases/${caseId}`, primary)
+  await ok('DELETE', `/api/cases/${caseId}/assistants/${await publicIdOf(assistant)}?rowVersion=${detail.header.rowVersion}`, primary)
 }
 
 /** Task 040: the user starts with no unread notifications (the bell then counts only what the test causes). */

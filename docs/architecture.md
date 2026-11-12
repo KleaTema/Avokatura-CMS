@@ -52,6 +52,7 @@ is a MySQL named lock here.
 | `data-reminders` | Cases | hourly | DATA_MISSING_30D / _6M from the current primary assignment |
 | `hearing-reminders` | Cases | hourly | HEARING_TOMORROW (from 08:00 Tirane), NEXT_LEVEL_PENDING_3D |
 | `notification-cleanup` | Notifications | 02:00 Tirane | read notifications older than 12 months, 5,000 per statement |
+| `statistics-snapshot` | Reports | 00:30 Tirane | freezes the year that just ended (per-case statistics flags) if not yet frozen, task 044 |
 | `chat-reconcile` | Chat | 01:30 Tirane | every case chat's participants recomputed from the case (repairs a missed event), task 049 |
 | `partition-check` | Notifications | 03:00 Tirane | p_max holding rows / next month's partition missing → admins |
 | `audit-digest` | Audit | 02:00 Tirane | SHA-256 chain per Tirane day into `audit_daily_digests` (own account `ash_audit_digest`) |

@@ -93,10 +93,10 @@ Rules
 
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
-| 042 | [Report: active cases (Tabela 1)](042-report-active-cases.md) | 019 | yes | todo |
-| 043 | [Report: closed cases (Tabela 3)](043-report-closed-cases.md) | 042 |  | todo |
-| 044 | [Statistics (Tabela 5 and 6)](044-statistics.md) | 042 | yes | todo |
-| 045 | [UI: reports and statistics](045-ui-reports.md) | 011, 042, 043, 044 |  | todo |
+| 042 | [Report: active cases (Tabela 1)](042-report-active-cases.md) | 019 | yes | in progress |
+| 043 | [Report: closed cases (Tabela 3)](043-report-closed-cases.md) | 042 |  | in progress |
+| 044 | [Statistics (Tabela 5 and 6)](044-statistics.md) | 042 | yes | in progress |
+| 045 | [UI: reports and statistics](045-ui-reports.md) | 011, 042, 043, 044 |  | in progress |
 
 ### Phase 8 — Dashboard, search & profile
 
@@ -111,7 +111,7 @@ Rules
 | # | Task | Depends on | Open question | Status |
 | --- | --- | --- | --- | --- |
 | 049 | [Chat backend](049-chat-backend.md) | 040 | yes | done |
-| 050 | [Chat UI](050-chat-ui.md) | 011, 049 |  | todo |
+| 050 | [Chat UI](050-chat-ui.md) | 011, 049 |  | in progress |
 
 ### Phase 10 — Hardening & release
 

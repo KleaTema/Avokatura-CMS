@@ -1,4 +1,5 @@
 using Ash.Infrastructure.Persistence;
+using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Reference.Contracts;
@@ -52,6 +53,12 @@ public sealed class CaseSearch(IReferenceData reference, IInstitutionDirectory i
             return db.Database.SqlQueryRaw<ulong>("SELECT id AS Value FROM cases WHERE FALSE");
         }
 
+        return db.Database.SqlQueryRaw<ulong>(IdsSql(terms), new MySqlParameter("@search_words", terms.Words));
+    }
+
+    /// <summary>The id query of <see cref="Ids"/> as text (parameter @search_words): the reports use it too (task 042).</summary>
+    public static string IdsSql(CaseSearchTerms terms)
+    {
         var sql = """
             SELECT id AS Value FROM cases WHERE MATCH(case_code, act_number, summons_number) AGAINST (@search_words IN BOOLEAN MODE)
             UNION SELECT id AS Value FROM cases WHERE MATCH(object_text) AGAINST (@search_words IN BOOLEAN MODE)
@@ -71,6 +78,16 @@ public sealed class CaseSearch(IReferenceData reference, IInstitutionDirectory i
             sql += $"\nUNION SELECT case_id AS Value FROM case_institutions WHERE ended_at IS NULL AND institution_id IN ({ids})";
         }
 
-        return db.Database.SqlQueryRaw<ulong>(sql, new MySqlParameter("@search_words", terms.Words));
+        return sql;
+    }
+}
+
+/// <summary><see cref="ICaseSearchSql"/>: the same search as the case list and the header search.</summary>
+internal sealed class CaseSearchSqlProvider(CaseSearch search) : ICaseSearchSql
+{
+    public async Task<CaseSearchSql?> ResolveAsync(string q, CancellationToken ct = default)
+    {
+        var terms = await search.ResolveAsync(q.Trim(), ct);
+        return terms.IsEmpty ? null : new CaseSearchSql(CaseSearch.IdsSql(terms), terms.Words);
     }
 }

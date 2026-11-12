@@ -10,6 +10,15 @@ import { useAuth } from './authContext'
 import { NotificationsProvider } from './NotificationsProvider'
 import { AppHeader } from './shell/AppHeader'
 import { Sidebar } from './shell/Sidebar'
+import { ChatProvider } from '../features/chat/ChatProvider'
+import { useChat } from '../features/chat/chatContext'
+
+/** The sidebar with the Chat menu's live unread count (task 050); it must sit inside ChatProvider. */
+function ChatBadgeSidebar(props: Omit<Parameters<typeof Sidebar>[0], 'counts'>) {
+  const { unread, unreadCapped } = useChat()
+  // the server stops counting at 99; the Badge shows "99+" above its max of 99
+  return <Sidebar {...props} counts={unread ? { chat: unreadCapped ? 100 : unread } : undefined} />
+}
 
 /**
  * The app shell: navy header, navy sidebar (icons only below 1200 px, a drawer below 900 px), and the page on the
@@ -39,8 +48,9 @@ export function Layout() {
   }
 
   return (
-    // one SignalR connection for the whole logged-in session (task 040)
+    // one SignalR connection for the whole logged-in session (task 040), and one for the chat (task 050)
     <NotificationsProvider>
+    <ChatProvider meId={me.data?.publicId}>
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', '@media print': { display: 'block', bgcolor: 'common.white' } }}>
       {/* printing prints the page only (task 031): no header, no sidebar; "contents" keeps the flex layout on screen */}
       <Box sx={{ display: 'contents', displayPrint: 'none' }}>
@@ -50,7 +60,7 @@ export function Layout() {
           menuOpen={menuOpen}
           onLogout={() => void logout()}
         />
-        <Sidebar
+        <ChatBadgeSidebar
           menus={me.data?.menus ?? []}
           collapsed={collapsed}
           temporary={drawer}
@@ -73,6 +83,7 @@ export function Layout() {
       {/* Back/Forward return to the same scroll position (e.g. the case list, whose pages stay cached) */}
       <ScrollRestoration />
     </Box>
+    </ChatProvider>
     </NotificationsProvider>
   )
 }

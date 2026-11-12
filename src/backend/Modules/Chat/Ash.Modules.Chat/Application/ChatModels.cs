@@ -37,6 +37,13 @@ public sealed record MessagePage(IReadOnlyList<ChatMessage> Items, string? NextC
 
 public sealed record UnreadTotal(int Unread, bool Capped);
 
+/// <summary>
+/// Someone who receives the conversation's messages now (an active participant row, task 050). Role = their case role
+/// (PRIMARY_LAWYER, SECONDARY_LAWYER, LEGAL_ASSISTANT, INSTITUTION_JURIST) or INSTITUTION_USER for a linked
+/// institution's user; null when the case no longer gives them one (a sync gap, repaired at once). No phone, no email.
+/// </summary>
+public sealed record ChatParticipant(Guid Id, string Name, string? Role, string? InstitutionName, bool IsMe);
+
 public sealed record SendMessageRequest(string? Body, Guid? ReplyToMessageId);
 
 public sealed record EditMessageRequest(string? Body);

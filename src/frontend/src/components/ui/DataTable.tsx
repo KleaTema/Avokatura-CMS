@@ -9,6 +9,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableFooter,
   TableHead,
   TableRow,
   Typography,
@@ -23,6 +24,8 @@ export interface DataColumn {
   label: ReactNode
   align?: 'left' | 'right' | 'center'
   width?: number | string
+  /** stays on screen while the table scrolls sideways (the first column of a wide table); rows use stickyCellSx (tableStyles.ts) */
+  sticky?: boolean
 }
 
 const SKELETON_ROWS = 5
@@ -38,6 +41,10 @@ export function DataTable({
   empty,
   footer,
   children,
+  minWidth,
+  maxHeight,
+  stickyHeader,
+  summary,
 }: {
   /** accessible name of the table */
   label: string
@@ -47,15 +54,30 @@ export function DataTable({
   empty?: ReactNode
   footer?: ReactNode
   children?: ReactNode
+  /** a wide table (reports): below this width it scrolls sideways inside its card, never the page */
+  minWidth?: number
+  /** with stickyHeader: the table scrolls inside this height and the header row stays */
+  maxHeight?: number | string
+  stickyHeader?: boolean
+  /** rows kept at the bottom while scrolling (a TOTAL row) */
+  summary?: ReactNode
 }) {
   return (
     <Box>
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small" aria-label={label}>
+      <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto', maxHeight }}>
+        <Table size="small" aria-label={label} stickyHeader={stickyHeader} sx={minWidth ? { minWidth } : undefined}>
           <TableHead>
             <TableRow>
               {columns.map((c) => (
-                <TableCell key={c.key} align={c.align} sx={c.width === undefined ? undefined : { width: c.width }}>
+                <TableCell
+                  key={c.key}
+                  align={c.align}
+                  sx={{
+                    ...(c.width === undefined ? {} : { width: c.width }),
+                    // the header bar's own colour stays; only the position pins
+                    ...(c.sticky ? { position: 'sticky', left: 0, zIndex: 3 } : {}),
+                  }}
+                >
                   {c.label}
                 </TableCell>
               ))}
@@ -79,6 +101,13 @@ export function DataTable({
               </TableRow>
             )}
           </TableBody>
+          {summary && !loading && (
+            <TableFooter
+              sx={{ position: 'sticky', bottom: 0, zIndex: 2, '& td': { bgcolor: 'background.paper', fontWeight: 700, color: 'text.primary' } }}
+            >
+              {summary}
+            </TableFooter>
+          )}
         </Table>
       </TableContainer>
       {footer}

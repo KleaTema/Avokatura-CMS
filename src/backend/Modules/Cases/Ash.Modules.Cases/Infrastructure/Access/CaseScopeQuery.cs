@@ -1,11 +1,13 @@
 using System.Linq.Expressions;
+using Ash.Modules.Cases.Contracts;
 using Ash.SharedKernel.Identity;
 
 namespace Ash.Modules.Cases.Infrastructure.Access;
 
 /// <summary>
-/// Filter for case lists. Rule: view_all OR (view_office AND same office) OR the user's access row (v_case_access)
-/// OR (registered_by = me AND REGISTERED). Everything translates to SQL.
+/// The ONE place deciding which access branches apply to a user (<see cref="For"/> → <see cref="CaseScopeSpec"/>), and
+/// its EF rendering for case lists. Rule: view_all OR (view_office AND same office) OR the user's access row
+/// (v_case_access) OR (registered_by = me AND REGISTERED). The reports (task 042) render the same spec as SQL.
 /// Composed per user so only the branches that apply reach SQL (no constant "@flag OR …" terms): a view_all user
 /// gets no filter at all. Case lists apply it ON TOP of their own index-friendly predicate (defence in depth).
 /// <para>
@@ -20,46 +22,69 @@ public static class CaseScopeQuery
 {
     public const string ViewAllPermission = "case.view_all";
     public const string ViewOfficePermission = "case.view_office";
-    public const string RegisteredStatus = "REGISTERED";
+    public const string RegisteredStatus = CaseScopeSpec.Registered;
     public const string InstitutionUserRole = "INSTITUTION_USER";
-    public const string InstitutionJuristRole = "INSTITUTION_JURIST";
+    public const string InstitutionJuristRole = CaseScopeSpec.InstitutionJurist;
 
-    /// <summary>The lawyer roles of v_case_access's first branch.</summary>
-    private static readonly string[] LawyerRoles =
-        [CaseAssignmentRow.PrimaryLawyer, CaseAssignmentRow.SecondaryLawyer, CaseAssignmentRow.LegalAssistant];
-
-    public static IQueryable<Case> Apply(IQueryable<Case> cases, CasesDbContext db, ICurrentUser user)
+    /// <summary>Which branches apply to the user — decided by permissions and the kind of user.</summary>
+    public static CaseScopeSpec For(ICurrentUser user)
     {
-        if (user.HasPermission(ViewAllPermission))
+        long? linked = null, jurist = null;
+        if (user.InstitutionId is { } institution)
+        {
+            if (user.Roles.Contains(InstitutionUserRole))
+            {
+                linked = institution;
+            }
+
+            jurist = institution;
+        }
+
+        return new CaseScopeSpec(
+            user.HasPermission(ViewAllPermission),
+            user.UserId,
+            user.HasPermission(ViewOfficePermission) ? user.OfficeId : null,
+            linked,
+            jurist);
+    }
+
+    public static IQueryable<Case> Apply(IQueryable<Case> cases, CasesDbContext db, ICurrentUser user) =>
+        Apply(cases, db, For(user));
+
+    public static IQueryable<Case> Apply(IQueryable<Case> cases, CasesDbContext db, CaseScopeSpec spec)
+    {
+        if (spec.All)
         {
             return cases;
         }
 
-        var userId = (uint)user.UserId;
+        var userId = (uint)spec.UserId;
+        var lawyerRoles = CaseScopeSpec.LawyerRoles.ToArray();
         // REGISTERED cases the user registered (the Protokoll, until the Kryetar assigns them)
         Expression<Func<Case, bool>> scope = c => c.RegisteredBy == userId && c.LifecycleStatus == RegisteredStatus;
 
         // branch 1: a current lawyer / assistant assignment (anyone may hold one)
         scope = Or(scope, c => db.CaseAssignments.Any(a =>
-            a.CaseId == c.Id && a.UserId == userId && a.EndedAt == null && LawyerRoles.Contains(a.CaseRole)));
+            a.CaseId == c.Id && a.UserId == userId && a.EndedAt == null && lawyerRoles.Contains(a.CaseRole)));
 
-        if (user.InstitutionId is { } institution)
+        if (spec.LinkedInstitutionId is { } linked)
         {
-            var institutionId = (uint)institution;
-            if (user.Roles.Contains(InstitutionUserRole))
-            {
-                // branch 2: an active link of the user's institution (the user is active: resolved as such)
-                scope = Or(scope, c => db.CaseInstitutions.Any(i =>
-                    i.CaseId == c.Id && i.InstitutionId == institutionId && i.EndedAt == null));
-            }
+            // branch 2: an active link of the user's institution (the user is active: resolved as such)
+            var institutionId = (uint)linked;
+            scope = Or(scope, c => db.CaseInstitutions.Any(i =>
+                i.CaseId == c.Id && i.InstitutionId == institutionId && i.EndedAt == null));
+        }
 
+        if (spec.JuristInstitutionId is { } juristInstitution)
+        {
             // branch 3: a current jurist assignment on a case linked to the jurist's institution
+            var institutionId = (uint)juristInstitution;
             scope = Or(scope, c => db.CaseAssignments.Any(a =>
                 a.CaseId == c.Id && a.UserId == userId && a.EndedAt == null && a.CaseRole == CaseAssignmentRow.InstitutionJurist
                 && db.CaseInstitutions.Any(i => i.CaseId == c.Id && i.InstitutionId == institutionId && i.EndedAt == null)));
         }
 
-        if (user.HasPermission(ViewOfficePermission) && user.OfficeId is { } office)
+        if (spec.OfficeId is { } office)
         {
             var officeId = (ushort)office;
             scope = Or(c => c.OfficeId == officeId, scope);
@@ -80,4 +105,10 @@ public static class CaseScopeQuery
     {
         protected override Expression VisitParameter(ParameterExpression node) => node == from ? to : node;
     }
+}
+
+/// <summary><see cref="ICaseScope"/> for other modules (the reports).</summary>
+internal sealed class CaseScope(ICurrentUser user) : ICaseScope
+{
+    public CaseScopeSpec Current() => CaseScopeQuery.For(user);
 }

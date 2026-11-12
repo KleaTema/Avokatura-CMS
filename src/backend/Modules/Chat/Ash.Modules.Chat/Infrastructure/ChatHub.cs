@@ -104,6 +104,16 @@ public sealed class ChatPush(IHubContext<ChatHub> hub, ChatConnections connectio
         }
     }
 
+    /// <summary>
+    /// Task 050: the people about to leave hear participants.changed on their OWN connections (awaited, before they
+    /// leave the group), so an open thread can say "Nuk jeni më pjesë e kësaj bisede." at once. Only the conversation id.
+    /// </summary>
+    public Task TellLeaversAsync(Guid conversation, IReadOnlyCollection<Guid> userPublicIds) =>
+        userPublicIds.Count == 0
+            ? Task.CompletedTask
+            : Guard(() => hub.Clients.Users(userPublicIds.Select(u => u.ToString()).ToList())
+                .SendAsync(ChatHub.ParticipantsChanged, new ParticipantsChangedPushed(conversation)));
+
     /// <summary>The users' open connections leave the group at once: they hear nothing more from it.</summary>
     public async Task LeaveAsync(Guid conversation, IReadOnlyCollection<Guid> userPublicIds)
     {

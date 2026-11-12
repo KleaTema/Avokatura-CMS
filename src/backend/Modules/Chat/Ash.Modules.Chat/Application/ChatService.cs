@@ -8,6 +8,7 @@ using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Paging;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
 
 namespace Ash.Modules.Chat.Application;
@@ -29,7 +30,9 @@ public sealed class ChatService(
     MessageStore store,
     ChatPush push,
     ChatRateLimiter rateLimiter,
-    IAuditLog audit)
+    IAuditLog audit,
+    IInstitutionDirectory institutionDirectory,
+    ILogger<ChatService> logger)
 {
     public const int DefaultPage = 50;
     public const int MaxPage = 100;
@@ -431,6 +434,89 @@ public sealed class ChatService(
 
         return new UnreadTotal(total, false);
     }
+
+    /// <summary>
+    /// GET /conversations/{id}/participants (task 050): the ACTIVE participant rows — the people who actually receive
+    /// the messages — only ENRICHED with the case role and the institution's name. Never built from the case team, so a
+    /// sync gap shows; when the rows and the case disagree it is logged and repaired (reconcile), then read again.
+    /// </summary>
+    public async Task<Result<IReadOnlyList<ChatParticipant>>> ParticipantsAsync(Guid conversationId, CancellationToken ct)
+    {
+        var found = await ActiveAsync(conversationId, ct);
+        if (found.IsFailure)
+        {
+            return found.Error!;
+        }
+
+        var conversation = found.Value.Conversation;
+        var rows = await ActiveUserIdsAsync(conversation.Id, ct);
+        if (conversation.CaseId is { } caseId)
+        {
+            var expected = (await policy.CaseParticipantsAsync((long)caseId, ct)).ToHashSet();
+            if (!expected.SetEquals(rows))
+            {
+                logger.LogWarning(
+                    "Case chat {Conversation}: participants differ from the case (extra {Extra}, missing {Missing}); reconciling.",
+                    conversation.PublicId, rows.Except(expected).Count(), expected.Except(rows).Count());
+                await participants.ReconcileAsync((long)caseId, ct);
+                db.ChangeTracker.Clear();
+                rows = await ActiveUserIdsAsync(conversation.Id, ct);
+                if (!rows.Contains(currentUser.UserId))
+                {
+                    return Left;
+                }
+            }
+        }
+
+        var team = conversation.CaseId is { } c ? await cases.GetTeamAsync((long)c, ct) : [];
+        var refs = await users.GetRefsAsync(rows, ct);
+        var institutionIds = refs.Values.Where(r => r.InstitutionId is not null).Select(r => r.InstitutionId!.Value).Distinct().ToList();
+        var institutions = institutionIds.Count == 0
+            ? new Dictionary<long, string>()
+            : (await institutionDirectory.GetByIdsAsync(institutionIds, ct)).ToDictionary(i => i.Id, i => i.Name);
+
+        string? RoleOf(long userId, UserRef? user)
+        {
+            // a person can hold more than one assignment row; the strongest case role wins
+            var roles = team.Where(m => m.UserId == userId).Select(m => m.Role).ToList();
+            foreach (var role in RoleOrder)
+            {
+                if (roles.Contains(role))
+                {
+                    return role;
+                }
+            }
+
+            return user?.InstitutionId is not null ? InstitutionUserRole : null;
+        }
+
+        return rows
+            .Select(id =>
+            {
+                var user = refs.GetValueOrDefault(id);
+                return new ChatParticipant(
+                    user?.PublicId ?? Guid.Empty,
+                    user?.Name ?? "?",
+                    RoleOf(id, user),
+                    user?.InstitutionId is { } i ? institutions.GetValueOrDefault(i) : null,
+                    id == currentUser.UserId);
+            })
+            .OrderBy(p => p.Role is null ? RoleOrder.Length + 1 : p.Role == InstitutionUserRole ? RoleOrder.Length : Array.IndexOf(RoleOrder, p.Role))
+            .ThenBy(p => p.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    private const string InstitutionUserRole = "INSTITUTION_USER";
+
+    private static readonly string[] RoleOrder = ["PRIMARY_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST"];
+
+    private async Task<List<long>> ActiveUserIdsAsync(ulong conversationId, CancellationToken ct) =>
+        (await db.Participants.AsNoTracking()
+            .Where(p => p.ConversationId == conversationId && p.LeftAt == null)
+            .Select(p => p.UserId)
+            .ToListAsync(ct))
+        .Select(u => (long)u)
+        .ToList();
 
     // ------------------------------------------------------------------ helpers
 

@@ -106,6 +106,9 @@ public static class CasesModule
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();
 		services.AddScoped<CaseSearch>();
+		// task 042: the scope and the search for the reports (rendered as SQL there)
+		services.AddScoped<ICaseSearchSql, CaseSearchSqlProvider>();
+		services.AddScoped<ICaseScope, CaseScope>();
 		services.AddScoped<GlobalSearchHandler>();
 		services.AddScoped<DashboardWidgets>();
 		services.AddScoped<DashboardHandler>();

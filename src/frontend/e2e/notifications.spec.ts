@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { markAllNotificationsRead, registerCase, USERS } from './support/api'
+import { markAllChatRead, markAllNotificationsRead, registerCase, USERS } from './support/api'
 import { login } from './support/login'
 
 /** Optional: a folder for the screenshots of the bell popover and the page (E2E_SHOTS=…). */
@@ -17,6 +17,8 @@ async function shot(page: Page, name: string) {
 test('the lawyer sees a new assignment on the bell within 2 seconds, without reloading', async ({ browser }) => {
   const created = await registerCase()
   await markAllNotificationsRead(USERS.avokat1)
+  // the tab title adds the chat's unread count (task 050): start from none
+  await markAllChatRead(USERS.avokat1)
 
   const lawyerContext = await browser.newContext()
   const kryetarContext = await browser.newContext()

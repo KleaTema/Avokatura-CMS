@@ -119,9 +119,11 @@ public sealed class ChatParticipants(
                 .Select(m => new MessagePushed(conversationPublicId, new ChatMessage(m.PublicId, m.MessageType, null, m.Body!, false, null, m.CreatedAt, null)))
                 .ToList();
 
-            // after the chat commit: leavers out of the group FIRST (they must not hear their own "doli"), newcomers in
+            // after the chat commit: the leavers are told (on their own connections, only the conversation id), then
+            // leave the group BEFORE anything else is sent (they must not hear their own "doli"); newcomers join
             chat.Work.OnCommittedAsync(async () =>
             {
+                await push.TellLeaversAsync(conversationPublicId, leftPublic);
                 await push.LeaveAsync(conversationPublicId, leftPublic);
                 await push.JoinAsync(conversationPublicId, joinedPublic);
                 foreach (var message in pushed)

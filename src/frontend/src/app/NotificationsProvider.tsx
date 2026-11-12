@@ -1,4 +1,4 @@
-import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
+import { HubConnectionState } from '@microsoft/signalr'
 import { Alert, Button, Snackbar } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -7,15 +7,12 @@ import { z } from 'zod'
 import { dashboardKeys } from '../features/dashboard/api'
 import { notificationKeys, useMarkRead, useUnreadCount } from '../features/notifications/api'
 import { sq } from '../i18n/sq'
-import { authMode, getDevUser, userManager } from './authConfig'
+import { buildHub, startWithRetry } from './hub'
 import { isAppPath, NotificationsContext, type LiveNotification, type NotificationsState } from './notificationsContext'
 
 const t = sq.notifications
 
 const HUB_PATH = '/hubs/notifications'
-
-/** First connection attempts when the server is not reachable yet (later drops: withAutomaticReconnect). */
-const START_RETRY_MS = [2_000, 5_000, 10_000, 30_000]
 
 const newSchema = z.object({
   publicId: z.string(),
@@ -24,23 +21,6 @@ const newSchema = z.object({
   createdAt: z.string(),
 })
 const countSchema = z.object({ unread: z.union([z.number(), z.string()]) })
-
-/**
- * The hub URL: in Development the dev user travels in the query string (a browser WebSocket cannot send the
- * X-Dev-User header; the API accepts `dev_user` on /hubs/* only and never logs it). With OIDC the token comes from
- * accessTokenFactory instead (sent as a header, or `access_token` for the WebSocket handshake).
- */
-function hubUrl(): string {
-  if (authMode !== 'dev') return HUB_PATH
-  const email = getDevUser()
-  return email ? `${HUB_PATH}?dev_user=${encodeURIComponent(email)}` : HUB_PATH
-}
-
-async function accessToken(): Promise<string> {
-  if (authMode === 'dev') return ''
-  const user = await userManager?.getUser()
-  return user && !user.expired ? user.access_token : ''
-}
 
 /**
  * Task 040: ONE SignalR connection per logged-in session (mounted once in the Layout), with automatic reconnect.
@@ -64,12 +44,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let disposed = false
-    let retry: ReturnType<typeof setTimeout> | undefined
-    const connection = new HubConnectionBuilder()
-      .withUrl(hubUrl(), { accessTokenFactory: accessToken })
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.None)
-      .build()
+    const connection = buildHub(HUB_PATH)
 
     connection.on('notification.new', (payload: unknown) => {
       const parsed = newSchema.safeParse(payload)
@@ -90,30 +65,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     })
     connection.onreconnected(refreshAfterGap)
 
-    const start = async (attempt: number) => {
-      try {
-        await connection.start()
-        if (attempt > 0) refreshAfterGap()
-      } catch {
-        // not reachable yet, or stopped while starting (unmount): try again unless disposed
-        if (disposed) return
-        retry = setTimeout(() => void start(attempt + 1), START_RETRY_MS[Math.min(attempt, START_RETRY_MS.length - 1)])
-      }
-    }
-    void start(0)
+    const cancelRetry = startWithRetry(connection, () => disposed, (attempt) => {
+      if (attempt > 0) refreshAfterGap()
+    })
 
     return () => {
       disposed = true
-      clearTimeout(retry)
+      cancelRetry()
       if (connection.state !== HubConnectionState.Disconnected) void connection.stop()
     }
   }, [qc, refreshAfterGap])
 
+  // the browser tab's title adds the chat's unread count to this one: ChatProvider sets it (task 050)
   const unread = count.data
-  useEffect(() => {
-    document.title = unread ? t.tabTitleWithCount(unread) : t.tabTitle
-  }, [unread])
-  useEffect(() => () => void (document.title = t.tabTitle), [])
 
   const { mutate: markAsRead } = markRead
   const open = useCallback<NotificationsState['open']>(

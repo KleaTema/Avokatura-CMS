@@ -20,10 +20,11 @@ import { DecisionTab } from './tabs/DecisionTab'
 import type { FromCaseList } from './CaseList'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PartiesTab } from './tabs/PartiesTab'
+import { ChatTab } from './tabs/ChatTab'
 
 const t = sq.cases.page
 
-const CASE_TABS =['te-dhenat', 'palet', 'seancat', 'dokumentet', 'vendimi', 'historiku'] as const
+const CASE_TABS = ['te-dhenat', 'palet', 'seancat', 'dokumentet', 'vendimi', 'historiku', 'chat'] as const
 type CaseTab = (typeof CASE_TABS)[number]
 const isCaseTab = (value: string | undefined): value is CaseTab => CASE_TABS.some((x) => x === value)
 
@@ -89,6 +90,7 @@ export function CasePage() {
   const { header, data } = c
   // from permissions[] only: case.assign_lawyer exists only while REGISTERED (CaseAccessService state rules)
   const canAssign = c.permissions.includes('case.assign_lawyer')
+  const canChat = c.permissions.includes('chat.case')
   // hearings and documents of this level: the counts follow every change (afterCaseChange reloads the case)
   const counts: Partial<Record<CaseTab, number | string>> = { seancat: c.hearingsCount, dokumentet: c.documentsCount }
   const tabLabel = (x: CaseTab) => (counts[x] === undefined ? t.tabs[x] : `${t.tabs[x]} (${counts[x]})`)
@@ -173,7 +175,8 @@ export function CasePage() {
       </Paper>
 
       <Tabs value={current} variant="scrollable" allowScrollButtonsMobile aria-label={t.tabsLabel}>
-        {CASE_TABS.map((x) => (
+        {/* the Chat tab (task 050) only for the case team: chat.case comes from the case profile */}
+        {CASE_TABS.filter((x) => x !== 'chat' || canChat).map((x) => (
           <Tab key={x} value={x} label={tabLabel(x)} component={Link} to={`/cases/${publicId}/${x}`} state={linkState} />
         ))}
       </Tabs>
@@ -185,6 +188,7 @@ export function CasePage() {
         {current === 'dokumentet' && <DocumentsTab detail={c} />}
         {current === 'vendimi' && <DecisionTab detail={c} />}
         {current === 'historiku' && <HistoryTab casePublicId={header.publicId} />}
+        {current === 'chat' && (canChat ? <ChatTab casePublicId={header.publicId} /> : <Alert severity="info">{sq.chat.notAllowed}</Alert>)}
       </Box>
 
       {assigning && (

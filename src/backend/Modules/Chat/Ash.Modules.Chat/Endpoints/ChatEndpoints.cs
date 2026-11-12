@@ -40,6 +40,13 @@ public static class ChatEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("ListChatMessages");
 
+        group.MapGet("/conversations/{id:guid}/participants", async (Guid id, ChatService chat, CancellationToken ct) =>
+                ToResult(await chat.ParticipantsAsync(id, ct)))
+            .Produces<IReadOnlyList<ChatParticipant>>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("ListChatParticipants");
+
         group.MapPost("/conversations/{id:guid}/messages", async (Guid id, SendMessageRequest req, ChatService chat, CancellationToken ct) =>
             {
                 var result = await chat.SendAsync(id, req, ct);
