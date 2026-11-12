@@ -10,9 +10,21 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
     public DbSet<InstitutionRecord> Institutions => Set<InstitutionRecord>();
     public DbSet<RoleRecord> Roles => Set<RoleRecord>();
     public DbSet<UserRoleRecord> UserRoles => Set<UserRoleRecord>();
+    public DbSet<OfficeCourtRecord> OfficeCourts => Set<OfficeCourtRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // task 053c (script 021): the courts an office handles; at most one active office per court
+        modelBuilder.Entity<OfficeCourtRecord>(b =>
+        {
+            b.ToTable("office_courts");
+            b.HasKey(x => new { x.OfficeId, x.CourtId });
+            b.Property(x => x.OfficeId).HasColumnName("office_id");
+            b.Property(x => x.CourtId).HasColumnName("court_id");
+            b.Property(x => x.IsActive).HasColumnName("is_active");
+            b.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+        });
+
         modelBuilder.Entity<UserRecord>(b =>
         {
             b.ToTable("users");
@@ -118,6 +130,14 @@ public sealed class OfficeRecord
     public ushort? ParentOfficeId { get; set; }
     public uint? HeadUserId { get; set; }
     public bool IsActive { get; set; } = true;
+}
+
+public sealed class OfficeCourtRecord
+{
+    public ushort OfficeId { get; set; }
+    public ushort CourtId { get; set; }
+    public bool IsActive { get; set; }
+    public uint UpdatedBy { get; set; }
 }
 
 public sealed class InstitutionRecord

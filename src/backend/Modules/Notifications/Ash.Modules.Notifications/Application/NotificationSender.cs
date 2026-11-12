@@ -11,8 +11,8 @@ namespace Ash.Modules.Notifications.Application;
 
 /// <summary>
 /// <see cref="INotificationSender"/>: rows in the caller's transaction, the push after its commit.
-/// TODO(client-q-email): in-app only (stored + SignalR); no e-mail until the client confirms it is wanted (and AKSHI
-/// gives an SMTP relay) — see docs/client-questions.md.
+/// In-app only (stored + SignalR). E-mail exists since task 053c (IEmailOutbox) and is used where the client asked for
+/// it: the handoff to the receiving Protokoll. TODO(client-q-email): which other notifications also go by e-mail.
 /// </summary>
 internal sealed class NotificationSender(
     NotificationsDbContext db,

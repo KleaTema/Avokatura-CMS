@@ -18,6 +18,10 @@ public sealed class MySqlFixture : IAsyncLifetime
         // task 044: a snapshot taken by one test must not freeze a year for the next
         "ash_core.statistics_snapshot_cases",
         "ash_core.statistics_snapshots",
+        // task 053c
+        "ash_core.email_outbox",
+        "ash_core.case_handoffs",
+        "ash_core.office_courts",
         "ash_core.case_reminders",
         "ash_core.sent_reminders",
         "ash_core.notifications",

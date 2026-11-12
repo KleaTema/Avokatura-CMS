@@ -1,6 +1,7 @@
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Cases.Application.ArchiveDossier;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.Handoff;
 using Ash.Modules.Cases.Application.RecordDecision;
 using Ash.Modules.Cases.Application.UpdateCaseData;
 using Ash.Modules.Cases.Contracts;
@@ -29,6 +30,7 @@ internal sealed class UpdateDecisionHandler(
     IHistoryWriter history,
     IAuditLog audit,
     IDocumentService documents,
+    HandoffService handoffs,
     ICurrentUser user,
     IClock clock)
 {
@@ -132,6 +134,12 @@ internal sealed class UpdateDecisionHandler(
         catch (DbUpdateConcurrencyException)
         {
             return AssignLawyersHandler.Changed();
+        }
+
+        // task 053c: final now → an open handoff is cancelled ("Vendimi mori formë të prerë"), its Protokoll told
+        if (becomesFinal)
+        {
+            await handoffs.CancelBecauseFinalAsync(c, ct);
         }
 
         audit.Record(AuditActions.CaseUpdate, "CASE", (long)c.Id, (long)c.Id,

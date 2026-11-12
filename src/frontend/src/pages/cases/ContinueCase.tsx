@@ -55,12 +55,17 @@ export function ContinueCasePage() {
     setParams((prev) => {
       const next = new URLSearchParams(prev)
       if (publicId) next.set('case', publicId)
-      else next.delete('case')
+      else ['case', 'level', 'court'].forEach((key) => next.delete(key))
       return next
     })
 
+  // task 053c: opened from "Çështjet e ardhura" with the handoff's level and court
+  const level = params.get('level') ?? ''
+  const court = params.get('court') ?? ''
+  const initialCourt = level && court ? { courtLevelCode: level, courtId: court } : undefined
+
   return selected ? (
-    <NextLevel previousCasePublicId={selected} onBack={() => select(null)} />
+    <NextLevel previousCasePublicId={selected} initialCourt={initialCourt} onBack={() => select(null)} />
   ) : (
     <Search onContinue={select} />
   )
@@ -376,7 +381,15 @@ function NotifyButton({ caseId, onClick }: { caseId: string; onClick: () => void
 
 // ---------------------------------------------------------------- next level
 
-function NextLevel({ previousCasePublicId, onBack }: { previousCasePublicId: string; onBack: () => void }) {
+function NextLevel({
+  previousCasePublicId,
+  initialCourt,
+  onBack,
+}: {
+  previousCasePublicId: string
+  initialCourt?: { courtLevelCode: string; courtId: string }
+  onBack: () => void
+}) {
   const preview = useNextLevelPreview(previousCasePublicId)
   const register = useRegisterNextLevel(previousCasePublicId)
 
@@ -405,6 +418,7 @@ function NextLevel({ previousCasePublicId, onBack }: { previousCasePublicId: str
         title={t.nextTitle(preview.data.caseCode)}
         above={<PreviewPanel preview={preview.data} />}
         send={(request) => register.mutateAsync(request)}
+        initialCourt={initialCourt}
         anotherLabel={t.back}
         onAnother={onBack}
       />

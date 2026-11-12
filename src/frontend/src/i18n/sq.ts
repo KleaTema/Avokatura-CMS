@@ -119,6 +119,16 @@ export const sq = {
     add: 'Shto zyrë',
     edit: 'Ndrysho',
     setHead: 'Cakto Kryetarin',
+    /** task 053c: the courts the office handles (a handoff finds the receiving office from the court) */
+    courts: 'Gjykatat që mbulon',
+    courtsTitle: (office: string) => `Gjykatat që mbulon — ${office}`,
+    courtsIntro:
+      'Kur një çështje përcillet në shkallën e radhës, zyra që e merr gjendet nga gjykata. Një gjykatë mbulohet nga një zyrë e vetme.',
+    courtsSearch: 'Kërko gjykatën',
+    courtsTakenBy: (office: string) => `Mbulohet nga ${office}`,
+    courtsCount: (count: number) => (count === 1 ? '1 gjykatë' : `${count} gjykata`),
+    courtsSaved: 'Gjykatat u ruajtën.',
+    courtsNone: 'Asnjë gjykatë',
     search: 'Kërko (kod, emër, Kryetar)',
     createTitle: 'Shto zyrë',
     editTitle: 'Ndrysho zyrën',
@@ -622,6 +632,8 @@ export const sq = {
       HEARING_TOMORROW: 'Seancë nesër',
       NEXT_LEVEL_PENDING_3D: 'Fletëthirrje e shkallës tjetër pas 3 ditësh',
       PARTITION_ALERT: 'Alarm për particionet e bazës së të dhënave',
+      CASE_HANDED_OFF: 'Çështje e përcjellë te zyra juaj',
+      HANDOFF_WITHDRAWN: 'Përcjellja e çështjes u anulua',
     } as Record<string, string>,
   },
   /** relative times in feeds ("2 orë më parë"), the exact time in a tooltip (lib/dates formatRelative) */
@@ -1083,6 +1095,9 @@ export const sq = {
         titleRecord: 'Regjistro vendimin dhe mbyll çështjen',
         titleUpdate: 'Plotëso / Ndrysho vendimin',
         steps: ['Rezultati', 'Vlerat', 'Statusi', 'Vendimi i arsyetuar'],
+        /** task 053c: the extra step when the decision is not final */
+        handoffStep: 'Përcjellja',
+        handoffMissing: 'Zgjidhni shkallën dhe gjykatën ku përcillet çështja.',
         back: 'Mbrapa',
         next: 'Vazhdo',
         confirmRecord: 'Mbyll çështjen',
@@ -1173,6 +1188,9 @@ export const sq = {
           DECISION_UPDATED: 'Vendimi u ndryshua',
           CASE_CLOSED: 'Çështja u mbyll',
           DOSSIER_ARCHIVED: 'Dosja u arkivua',
+          CASE_HANDED_OFF: 'Çështja u përcoll',
+          HANDOFF_CHANGED: 'Përcjellja u ndryshua',
+          HANDOFF_CANCELLED: 'Përcjellja u anulua',
         } as Record<string, string>,
         fields: {
           uniqueCode: 'Kodi unik',
@@ -1228,7 +1246,9 @@ export const sq = {
     list: {
       tabs: {
         mine: 'Çështjet e mia',
-        registered: 'Të regjistruara nga unë',
+        // task 053c: the Protokoll's own registrations, beside the cases handed off to the office
+        registered: 'Çështjet e mia',
+        incoming: 'Çështjet e ardhura',
         unassigned: 'Pa avokat',
         office: 'Të zyrës',
         institution: 'Të institucionit',
@@ -1428,6 +1448,44 @@ export const sq = {
     },
   },
   /** Texts of the MUI X date/time pickers (there is no Albanian locale in MUI X). */
+  /** Task 053c: "Përcjellja e çështjes" — the closing step, the case page card, the receiving office's tab. */
+  handoff: {
+    level: 'Shkalla e radhës',
+    court: 'Gjykata',
+    chooseLevelFirst: 'Zgjidhni shkallën e radhës.',
+    lowerAllowed: 'Edhe një shkallë më e ulët (rigjykim).',
+    resolvedOffice: (office: string) => `Do t'i përcillet: ${office}`,
+    resolving: 'Po gjendet zyra…',
+    unmapped: 'Kjo gjykatë nuk i është caktuar asnjë zyre. Zgjidhni zyrën që e merr dhe shkruani arsyen.',
+    office: 'Zyra që e merr',
+    reason: 'Arsyeja',
+    reasonHint: (min: number) => `Të paktën ${min} karaktere.`,
+    intro:
+      'Vendimi nuk është i formës së prerë: çështja i përcillet zyrës së shkallës së radhës. Protokolli i saj njoftohet menjëherë.',
+    cardTitle: 'Përcjellja e çështjes',
+    cardText: (level: string, court: string, office: string) => `${level} — ${court}. Do t'i përcillet: ${office}.`,
+    cardReason: (reason: string) => `Arsyeja e zgjedhjes së zyrës: ${reason}`,
+    change: 'Ndrysho përcjelljen',
+    changeTitle: 'Ndrysho përcjelljen',
+    changeIntro: 'Zyra e mëparshme nuk e sheh më çështjen dhe njoftohet; zyra e re njoftohet.',
+    save: 'Ruaj',
+    saved: 'Përcjellja u ndryshua.',
+    incoming: {
+      intro:
+        'Çështje që zyrat e tjera ia kanë përcjellë zyrës suaj për shkallën e radhës. Kur t\'ju vijë fletëthirrja, hapni "Vazhdo" për të regjistruar shkallën e re.',
+      empty: 'Nuk ka çështje të ardhura.',
+      destination: (level: string, court: string) => `Shkalla e radhës: ${level} — ${court}`,
+      fromCourt: 'Gjykata e mëparshme',
+      result: 'Rezultati',
+      decisionDate: 'Data e vendimit',
+      handedOffAt: 'Përcjellë më',
+      parties: 'Palët',
+      object: 'Objekti',
+      continue: 'Vazhdo',
+      continueFor: (code: string) => `Vazhdo ${code} në shkallën e radhës`,
+      more: (count: number) => `Shfaqen ${count} më të fundit.`,
+    },
+  },
   pickers: {
     previousMonth: 'Muaji i kaluar',
     nextMonth: 'Muaji tjetër',

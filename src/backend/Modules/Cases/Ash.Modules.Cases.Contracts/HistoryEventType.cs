@@ -52,4 +52,10 @@ public enum HistoryEventType
     DecisionUpdated,
     CaseClosed,
     DossierArchived,
+    /// <summary>CASE_HANDED_OFF (task 053c): the closed, non-final level was handed to the next court and its office.</summary>
+    CaseHandedOff,
+    /// <summary>HANDOFF_CHANGED (task 053c): the destination was corrected before the next level was registered.</summary>
+    HandoffChanged,
+    /// <summary>HANDOFF_CANCELLED (task 053c): the decision became final before the next level was registered.</summary>
+    HandoffCancelled,
 }

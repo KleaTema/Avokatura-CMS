@@ -34,9 +34,50 @@ public sealed class NotificationsDbContext(IUnitOfWork unitOfWork) : ModuleDbCon
             b.Property(x => x.NotificationType).HasColumnName("notification_type");
             b.Property(x => x.Enabled).HasColumnName("enabled");
         });
+
+        ConfigureEmail(modelBuilder);
     }
 
     public DbSet<NotificationPrefRow> Prefs => Set<NotificationPrefRow>();
+
+    public DbSet<EmailOutboxRow> EmailOutbox => Set<EmailOutboxRow>();
+
+    /// <summary>Script 021 (task 053c).</summary>
+    private static void ConfigureEmail(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<EmailOutboxRow>(b =>
+        {
+            b.ToTable("email_outbox");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.ToAddress).HasColumnName("to_address");
+            b.Property(x => x.Subject).HasColumnName("subject");
+            b.Property(x => x.BodyText).HasColumnName("body_text");
+            b.Property(x => x.Status).HasColumnName("status");
+            b.Property(x => x.Attempts).HasColumnName("attempts");
+            b.Property(x => x.NextAttemptAt).HasColumnName("next_attempt_at");
+            b.Property(x => x.LastError).HasColumnName("last_error");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.SentAt).HasColumnName("sent_at");
+        });
+}
+
+/// <summary>An e-mail waiting to be sent, sent, or given up on (script 021).</summary>
+public sealed class EmailOutboxRow
+{
+    public const string Pending = "PENDING";
+    public const string Sent = "SENT";
+    public const string Failed = "FAILED";
+
+    public ulong Id { get; set; }
+    public string ToAddress { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string BodyText { get; set; } = string.Empty;
+    public string Status { get; set; } = Pending;
+    public byte Attempts { get; set; }
+    public DateTime NextAttemptAt { get; set; }
+    public string? LastError { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? SentAt { get; set; }
 }
 
 /// <summary>A choice the user made on the profile (script 017); no row = on.</summary>

@@ -7,7 +7,7 @@ docker compose up -d
 dotnet run --project src/backend/Database/Ash.Database -- --local
 ```
 
-- `docker compose up -d` starts MySQL 8.0 (empty) and MinIO. MySQL no longer runs any init scripts.
+- `docker compose up -d` starts MySQL 8.0 (empty), MinIO and Mailpit. MySQL no longer runs any init scripts.
 - The DbUp project creates/upgrades the schemas and applies only scripts not yet recorded in `ash_ops.schema_versions`. Run it again after pulling new scripts.
 - `--local` also applies `LocalScripts/` (the `ash_dev` account). Without it, only `Scripts/` run.
 - Connection string: `ConnectionStrings:Migrator` (env var `ConnectionStrings__Migrator` or user-secrets). With `--local` it defaults to `root` on `localhost:3306`. Use a DBA account (`ash_migrator` in prod).
@@ -17,6 +17,7 @@ dotnet run --project src/backend/Database/Ash.Database -- --local
 Local endpoints:
 - MySQL: `localhost:3306`, user `ash_dev` / `ash_dev_local`
 - MinIO S3 API: `http://localhost:9000`, console `http://localhost:9001`, `ash_minio` / `ash_minio_local_pw`
+- Mailpit (task 053c), a test inbox that catches every e-mail the API sends, so nothing leaves the PC. Open `http://localhost:8025` in a browser; there is no login. The API sends to SMTP `localhost:1025` by default (`Email:*` settings). Started with the rest, or alone with `docker compose up -d mailpit`.
 
 ## Backend tests
 

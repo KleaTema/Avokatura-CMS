@@ -59,8 +59,12 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
             services.AddScoped<IEventHandler<CaseClosed>, ClosedHandler>();
         });
         var id = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM cases WHERE id = {seed.ActiveCaseId}"))!);
+        _appealCourt = await HandoffTestData.MapAppealCourtAsync(Db.AppConnectionString);
         return new Ctx(seed, factory, id, recorder);
     }
+
+    /// <summary>The mapped appeal court: a non-final closing is handed off there (task 053c).</summary>
+    private int _appealCourt;
 
     // ---------------------------------------------------------------- helpers
 
@@ -77,9 +81,18 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
     private static async Task<uint> CaseRowVersion(HttpClient client, Guid id) =>
         (await CaseOf(client, id)).GetProperty("header").GetProperty("rowVersion").GetUInt32();
 
-    /// <summary>A decision body: HUMBUR, not received, nothing else — with the given fields replaced.</summary>
-    private static Dictionary<string, object?> Body(uint rowVersion, params (string Key, object? Value)[] overrides)
+    /// <summary>
+    /// A decision body: HUMBUR, not received, nothing else — with the given fields replaced. Not final → handed off to
+    /// the mapped appeal court (task 053c) unless the overrides set the handoff fields themselves.
+    /// </summary>
+    private Dictionary<string, object?> Body(uint rowVersion, params (string Key, object? Value)[] overrides)
     {
+        var final = overrides.Any(o => o.Key == "isFinal" && o.Value is true);
+        if (!final && overrides.All(o => o.Key is not ("nextCourtLevelCode" or "nextCourtId")))
+        {
+            overrides = [.. HandoffTestData.Fields(_appealCourt), .. overrides];
+        }
+
         var body = new Dictionary<string, object?>
         {
             ["resultCode"] = "HUMBUR",
@@ -110,7 +123,7 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     /// <summary>Closes the case through the API (HUMBUR, not received); returns the decision's rowVersion.</summary>
-    private static async Task<uint> CloseAsync(HttpClient client, Guid id, params (string Key, object? Value)[] overrides)
+    private async Task<uint> CloseAsync(HttpClient client, Guid id, params (string Key, object? Value)[] overrides)
     {
         var response = await Record(client, id, Body(await CaseRowVersion(client, id), overrides));
         var text = await response.Content.ReadAsStringAsync(Ct);
@@ -191,7 +204,7 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
         // the team stays: the lawyers still see the closed case
         (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {s.Id} AND ended_at IS NULL")).ShouldBe(teamBefore);
         (await Scalar($"SELECT GROUP_CONCAT(event_type ORDER BY id) FROM case_history_events WHERE case_id = {s.Id}"))
-            .ShouldBe("DECISION_RECORDED,CASE_CLOSED");
+            .ShouldBe("DECISION_RECORDED,CASE_CLOSED,CASE_HANDED_OFF"); // not final: handed off to the next court (053c)
         var closed = s.Recorder.Events.ShouldHaveSingleItem();
         closed.CasePublicId.ShouldBe(s.Case);
         closed.ResultCode.ShouldBe("HUMBUR");

@@ -3,6 +3,7 @@
 #   mysql      MySQL 8.0 (schema is applied by the DbUp project, see README)
 #   minio      S3-compatible object storage for files (stands in for AKSHI's)
 #   minio-init creates the buckets once, then exits
+#   mailpit    test inbox for the app's e-mails (http://localhost:8025)
 #   clamav     antivirus for uploads — only with "--profile av" (see below)
 #
 # Start:            docker compose up -d
@@ -37,6 +38,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+
+  # Task 053c: a test inbox for the app's e-mails. Every mail the API sends lands here, nothing leaves your PC.
+  # Open http://localhost:8025 to read them. LOCAL only — production uses AKSHI's SMTP relay.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ash-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP -> Email:SmtpHost localhost, Email:SmtpPort 1025 (the API's defaults)
+      - "8025:8025"   # web UI -> http://localhost:8025
 
   minio:
     # Docker Hub deleted minio/minio and minio/mc in Sept 2026. Chainguard

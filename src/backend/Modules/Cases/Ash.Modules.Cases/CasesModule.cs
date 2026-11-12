@@ -27,6 +27,7 @@ using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Application.UpdateDecision;
 using Ash.Modules.Cases.Application.RegisterNextLevel;
 using Ash.Modules.Cases.Application.RegistrationSearch;
+using Ash.Modules.Cases.Application.Handoff;
 using Ash.Modules.Cases.Application.TransferLawyer;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Endpoints;
@@ -102,6 +103,10 @@ public static class CasesModule
 		services.AddScoped<DecisionSupport>();
 		services.AddScoped<RecordDecisionHandler>();
 		services.AddScoped<UpdateDecisionHandler>();
+		// task 053c: the handoff to the next court and its office
+		services.AddScoped<HandoffService>();
+		services.AddScoped<HandoffQueries>();
+		services.AddScoped<ChangeHandoffHandler>();
 		services.AddScoped<ArchiveDossierHandler>();
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();
@@ -120,6 +125,7 @@ public static class CasesModule
 	public static IEndpointRouteBuilder MapCasesEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
-			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision().MapDossiers().MapDashboard().MapSearch();
+			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision().MapDossiers().MapDashboard().MapSearch()
+			.MapCaseHandoffs();
 	}
 }

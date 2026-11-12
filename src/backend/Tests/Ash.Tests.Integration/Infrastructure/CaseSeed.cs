@@ -110,6 +110,19 @@ public sealed class CaseSeed : IAsyncDisposable
             "VALUES (@d, 1, @c, @o, 'FL-TEST', 'AKT-TEST', CURDATE(), @l, @ct, 'Test', @s, @u)",
             ("@d", dossierId), ("@c", code), ("@o", officeId), ("@l", levelId), ("@ct", courtId), ("@s", status), ("@u", registeredBy));
 
+    /// <summary>An extra user of an office with one role (removed with the seed); returns the e-mail to log in with.</summary>
+    public async Task<string> AddOfficeUserAsync(string name, long officeId, string role, bool active = true)
+    {
+        var subject = $"{name}-{Guid.NewGuid():N}"[..30];
+        var id = await InsertUserAsync(subject, name, "Test", officeId, null, role);
+        if (!active)
+        {
+            await ExecuteAsync("UPDATE users SET is_active = 0 WHERE id = @id", ("@id", id));
+        }
+
+        return $"{subject}@ash.test";
+    }
+
     private async Task<long> InsertUserAsync(string subject, string first, string last, long? officeId, long? institutionId, string role)
     {
         var id = await InsertAsync("users",

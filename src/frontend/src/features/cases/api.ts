@@ -412,7 +412,11 @@ export const useRecordDecision = (caseId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: DecisionRequest) => api.POST('/api/cases/{id}/decision', { ...path(caseId), body }).then(unwrap),
-    onSuccess: (result) => afterCaseChange(qc, caseId, result.caseRowVersion),
+    onSuccess: (result) =>
+      Promise.all([
+        afterCaseChange(qc, caseId, result.caseRowVersion),
+        qc.invalidateQueries({ queryKey: ['case-handoff', caseId] }),
+      ]),
   })
 }
 
@@ -421,7 +425,8 @@ export const useUpdateDecision = (caseId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: DecisionRequest) => api.PUT('/api/cases/{id}/decision', { ...path(caseId), body }).then(unwrap),
-    onSuccess: () => afterCaseChange(qc, caseId),
+    // becoming final cancels the open handoff (task 053c)
+    onSuccess: () => Promise.all([afterCaseChange(qc, caseId), qc.invalidateQueries({ queryKey: ['case-handoff', caseId] })]),
   })
 }
 
@@ -665,6 +670,83 @@ export const useRegistrationSearch = (
   })
 }
 
+// ---------------------------------------------------------------- handoff (task 053c)
+
+export type CaseHandoff = components['schemas']['CaseHandoffView']
+export type IncomingHandoff = components['schemas']['IncomingHandoffItem']
+export type OfficeRef = components['schemas']['OfficeRef']
+
+/** The fields of a handoff, as the closing step and the correction send them. '' = not chosen. */
+export interface HandoffValues {
+  levelCode: string
+  courtId: string
+  officePublicId: string
+  reason: string
+}
+
+export const emptyHandoff: HandoffValues = { levelCode: '', courtId: '', officePublicId: '', reason: '' }
+
+/** The office the chosen court resolves to; null office = unmapped (choose one of `offices`, with a reason). */
+export const useHandoffDestination = (courtId: string) =>
+  useQuery({
+    queryKey: ['handoff-destination', courtId] as const,
+    enabled: courtId !== '',
+    staleTime: 60_000,
+    queryFn: () =>
+      api.GET('/api/cases/handoff-destination', { params: { query: { courtId: Number(courtId) } } }).then(unwrap),
+  })
+
+/** The open handoff of a closed level; null when none (204). */
+export const useCaseHandoff = (caseId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['case-handoff', caseId] as const,
+    enabled,
+    queryFn: async (): Promise<CaseHandoff | null> => {
+      const { data, error, response } = await api.GET('/api/cases/{id}/handoff', { params: { path: { id: caseId } } })
+      if (response.status === 204) return null
+      if (error !== undefined) return unwrap({ data, error, response })
+      return data ?? null
+    },
+  })
+
+export const useChangeHandoff = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (values: HandoffValues) =>
+      api
+        .PUT('/api/cases/{id}/handoff', { params: { path: { id: caseId } }, body: handoffBody(values) })
+        .then(unwrap),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['case-handoff', caseId] }), qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) })]),
+  })
+}
+
+/** The request fields of a handoff ('' → not sent). */
+export const handoffBody = (h: HandoffValues) => ({
+  nextCourtLevelCode: h.levelCode || null,
+  nextCourtId: h.courtId ? Number(h.courtId) : null,
+  receivingOfficePublicId: h.officePublicId || null,
+  reason: h.reason.trim() || null,
+})
+
+/** The same fields as POST /decision names them (a final decision sends none). */
+export const decisionHandoffFields = (h: HandoffValues | null) =>
+  h === null
+    ? {}
+    : {
+        nextCourtLevelCode: h.levelCode || null,
+        nextCourtId: h.courtId ? Number(h.courtId) : null,
+        receivingOfficePublicId: h.officePublicId || null,
+        handoffReason: h.reason.trim() || null,
+      }
+
+/** "Çështjet e ardhura": the open handoffs to the user's office (Protokoll). */
+export const useIncomingHandoffs = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['incoming-handoffs'] as const,
+    enabled,
+    queryFn: () => api.GET('/api/cases/handoffs/incoming').then(unwrap),
+  })
+
 /** Who "Njofto…" reaches (GET …/notify-not-closed/recipients): the primary lawyer if any, and the Kryetar. */
 export const useNotifyRecipients = (caseId: string) =>
   useQuery({
@@ -704,7 +786,12 @@ export const useRegisterNextLevel = (previousCasePublicId: string) => {
         .then(unwrap),
     // the continued dossier now shows its new level in the search, and the new level in the case lists
     onSuccess: () =>
-      Promise.all([qc.invalidateQueries({ queryKey: ['registration-search'] }), invalidateCaseLists(qc)]),
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ['registration-search'] }),
+        // task 053c: the accepted handoff leaves "Çështjet e ardhura"
+        qc.invalidateQueries({ queryKey: ['incoming-handoffs'] }),
+        invalidateCaseLists(qc),
+      ]),
   })
 }
 

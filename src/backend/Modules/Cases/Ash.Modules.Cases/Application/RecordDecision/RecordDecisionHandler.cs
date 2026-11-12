@@ -1,6 +1,7 @@
 using Ash.Modules.Audit.Contracts;
 using Ash.Modules.Cases.Application.ArchiveDossier;
 using Ash.Modules.Cases.Application.AssignLawyers;
+using Ash.Modules.Cases.Application.Handoff;
 using Ash.Modules.Cases.Application.Hearings;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Contracts.Events;
@@ -21,7 +22,9 @@ namespace Ash.Modules.Cases.Application.RecordDecision;
 /// 400; stale case rowVersion → 409; SCHEDULED hearings without cancelOpenHearings → 409 case.open_hearings (listed).
 /// Then: the hearings CANCELLED (one history row each), the decision row, the case CLOSED (closed_at, closed_by,
 /// next_hearing_at NULL, row_version + 1). The assignments are KEPT: the team still sees the closed case.
-/// History DECISION_RECORDED and CASE_CLOSED; audit; CaseClosed published. Closing without the reasoned decision
+/// History DECISION_RECORDED and CASE_CLOSED; audit; CaseClosed published. Not final → the handoff (task 053c) to
+/// the chosen next court and its office in the same transaction (CASE_HANDED_OFF); its fields are checked with the
+/// others (400 "Zgjidhni shkallën dhe gjykatën…" when missing, 400 when sent with a final decision). Closing without the reasoned decision
 /// (decisionReceived false) leaves decision_received = 0 — the case still counts as closed.
 /// </summary>
 internal sealed class RecordDecisionHandler(
@@ -33,6 +36,7 @@ internal sealed class RecordDecisionHandler(
     IAuditLog audit,
     IEventPublisher events,
     IDocumentService documents,
+    HandoffService handoffs,
     ICurrentUser user,
     IClock clock)
 {
@@ -73,6 +77,13 @@ internal sealed class RecordDecisionHandler(
         }
 
         var values = parsed.Value;
+        // task 053c: a level that is not final is handed off to the next court and its office
+        var destination = await handoffs.ForClosingAsync(req.Handoff, values.IsFinal, ct);
+        if (destination.IsFailure)
+        {
+            return destination.Error!;
+        }
+
         long? documentId = null;
         if (values.DecisionDocumentPublicId is { } documentPublicId)
         {
@@ -148,6 +159,10 @@ internal sealed class RecordDecisionHandler(
         history.Add((long)c.DossierId, (long)c.Id, HistoryEventType.CaseClosed, "Çështja u mbyll.",
             old: new { Status = Case.Active }, @new: new { Status = Case.Closed });
         await db.SaveChangesAsync(ct);
+        if (destination.Value is { } to)
+        {
+            await handoffs.CreateAsync(c, to, ct);
+        }
 
         audit.Record(AuditActions.CaseUpdate, "CASE", (long)c.Id, (long)c.Id,
             details: new { Action = "RECORD_DECISION", Result = values.Result.Code, values.DecisionReceived, CancelledHearings = open.Count });

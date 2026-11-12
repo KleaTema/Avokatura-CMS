@@ -38,6 +38,7 @@ public static class IdentityModule
 		services.AddScoped<UpdateOfficeHandler>();
 		services.AddScoped<SetOfficeActiveHandler>();
 		services.AddScoped<SetOfficeHeadHandler>();
+		services.AddScoped<OfficeCourtsHandler>();
 		services.AddScoped<ListInstitutionsAdminHandler>();
 		services.AddScoped<CreateInstitutionHandler>();
 		services.AddScoped<UpdateInstitutionHandler>();

@@ -56,8 +56,15 @@ public static class NotificationTypes
     /// <summary>To the administrators: a partitioned table's p_max holds rows, or next month's partition is missing.</summary>
     public const string PartitionAlert = "PARTITION_ALERT";
 
+    /// <summary>Task 053c: a case was handed off to the user's office (the Protokoll): it waits in "Çështjet e ardhura".</summary>
+    public const string CaseHandedOff = "CASE_HANDED_OFF";
+
+    /// <summary>Task 053c: a case handed off to the user's office goes elsewhere now, or the decision became final.</summary>
+    public const string HandoffWithdrawn = "HANDOFF_WITHDRAWN";
+
     public static readonly IReadOnlyList<string> All =
     [
+        CaseHandedOff, HandoffWithdrawn,
         CaseRegistered, LawyerAssigned, LawyerRemoved, InstitutionCaseAssigned, AssistantAssigned, AssistantRemoved,
         JuristAssigned, JuristReplaced, InstitutionLinked, CaseDelegated, CaseUndelegated, PreviousLevelNotClosed,
         CaseClosed, DocumentInfected, DocumentScanFailed, DataMissing30D, DataMissing6M, HearingTomorrow,
@@ -92,6 +99,8 @@ public static class NotificationTypes
         new(HearingTomorrow, Mandatory: false),
         new(NextLevelPending3D, Mandatory: true),
         new(PartitionAlert, Mandatory: true),
+        new(CaseHandedOff, Mandatory: true),
+        new(HandoffWithdrawn, Mandatory: true),
     ];
 
     /// <summary>Null for an unknown code.</summary>

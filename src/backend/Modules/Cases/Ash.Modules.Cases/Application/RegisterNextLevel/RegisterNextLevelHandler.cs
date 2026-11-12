@@ -29,6 +29,7 @@ internal sealed class RegisterNextLevelHandler(
     IReferenceData reference,
     IInstitutionDirectory institutions,
     PartyWriter parties,
+    Handoff.HandoffService handoffs,
     IHistoryWriter history,
     IAuditLog audit,
     IEventPublisher events,
@@ -110,6 +111,9 @@ internal sealed class RegisterNextLevelHandler(
         {
             return conflict;
         }
+
+        // task 053c: the open handoff of X/n is accepted (it leaves "Çështjet e ardhura")
+        await handoffs.AcceptAsync(previous.Id, next.Id, ct);
 
         support.AddFirstHearing(next, lookups, form.FirstHearing!, hearingUtc!.Value);
         var caseId = (long)next.Id;

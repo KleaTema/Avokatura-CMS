@@ -79,6 +79,26 @@ public static class AdminOrgEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("SetAdminOfficeHead");
 
+        // task 053c: "Gjykatat që mbulon" — the court → office mapping the handoff resolves the receiving office from
+        endpoints.MapGet("/api/identity/admin/office-courts", async (OfficeCourtsHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.ListAsync(ct)))
+            .RequirePermission(Permission)
+            .Produces<IReadOnlyList<OfficeCourtResponse>>()
+            .WithName("ListAdminOfficeCourts");
+
+        offices.MapPut("/{publicId:guid}/courts",
+                async (Guid publicId, SetOfficeCourtsRequest req, OfficeCourtsHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.SetAsync(publicId, req, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission(Permission)
+            .Produces<IReadOnlyList<OfficeCourtResponse>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("SetAdminOfficeCourts");
+
         var institutions = endpoints.MapGroup("/api/identity/admin/institutions");
 
         institutions.MapGet("", async (string? q, string? after, int? limit, string? type, bool? active, Guid? parentId,

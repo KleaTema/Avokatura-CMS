@@ -65,6 +65,21 @@ is a MySQL named lock here.
 ## Case life cycle
 `REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set by "Arkivo" only when the latest level is closed, final, and its reasoned decision has arrived with a clean document (task 053a, `ArchiveRule`). A closed case can continue as X/n+1 at any court level, a lower one too (appeal, recourse, retrial). X/n+1 copies only the parties and the object; each institution party gets a MONITORING link. Category, subcategory and delegation are not copied (client decision B.1).
 
+## Handoff to the next level — "Përcjellja e çështjes" (task 053c)
+- **Court → office.** `office_courts` (Identity; admin: Administrimi → Zyrat → "Gjykatat që mbulon") says which office handles a court. A court has at most one active office (unique index on a generated column).
+- **Closing.** `POST /api/cases/{id}/decision` with `isFinal = false` requires the destination, `nextCourtLevelCode` + `nextCourtId` (a court of that level; any level, a lower one too). The office comes from the court. When no office covers the court, `receivingOfficePublicId` + `handoffReason` (at least 10 characters) are required. With `isFinal = true` the fields are refused.
+- **What it writes.** A `case_handoffs` row and history `CASE_HANDED_OFF`, in the closing's transaction (`HandoffService`). The `CaseHandedOff` event makes the Notifications module tell every active Protokoll of the office: a mandatory notification `CASE_HANDED_OFF` and an e-mail.
+- **Receiving office.** It sees the case under "Çështjet e ardhura" (`GET /api/cases/handoffs/incoming`, an extra tab in `/api/cases/tabs`). It gets registration-level data only, never `case.view`: no documents, no chat. "Vazhdo" opens the next-level form with level and court filled in. Registering X/n+1 sets `accepted_case_id`.
+- **Correction.** `PUT /api/cases/{id}/handoff` is open to whoever has `decision.record` on the closed level, until the handoff is accepted. The open row is cancelled and a new one written (`HANDOFF_CHANGED`). The old office gets `HANDOFF_WITHDRAWN`; the new one gets `CASE_HANDED_OFF`.
+- **Final later.** `PUT /decision` that makes the decision final cancels the open handoff ("Vendimi mori formë të prerë", `HANDOFF_CANCELLED`), and the office gets `HANDOFF_WITHDRAWN`.
+
+## E-mail (task 053c)
+- **Queuing.** `IEmailOutbox.EnqueueAsync` writes `email_outbox` rows in the caller's transaction. Nothing is sent for an action that rolls back.
+- **Sending.** `EmailDispatcher` (a `BackgroundService` in Notifications) sends them through `IEmailSender` (`SmtpEmailSender`, MailKit). It runs every `Email:IntervalSeconds` and is woken after each commit that queued mail. Each mail is claimed with `FOR UPDATE SKIP LOCKED`, one transaction per mail.
+- **Retries.** A failed mail waits 1, 2, 4 … minutes (at most an hour) and is `FAILED` after `Email:MaxAttempts`, with its last error kept. A mail failure never fails the action.
+- **Configuration** (section `Email`): `Enabled`, `SmtpHost`, `SmtpPort`, `SmtpSecurity` (None | StartTls | SslOnConnect), `SmtpUser`, `SmtpPassword`, `FromAddress`, `FromName`. Defaults: `localhost:1025`, no TLS, which is Mailpit from docker-compose. Production uses AKSHI's relay (`TODO(akshi-q-smtp)`).
+- **Tests.** The integration tests set `Email:Enabled=false` and run `EmailDispatcher.RunOnceAsync` with a fake `IEmailSender`.
+
 ## Registration search filters (task 053b)
 The "Vazhdo çështje ekzistuese" search (`GET /api/cases/registration-search`) is built from a registry of filters in `Modules/Cases/.../Application/RegistrationSearch/Filters`:
 

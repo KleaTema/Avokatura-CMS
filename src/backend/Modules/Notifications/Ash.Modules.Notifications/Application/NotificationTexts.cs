@@ -94,6 +94,31 @@ public static class NotificationTexts
                 ? $"Çështja {Case(c)} u mbyll me regjistrimin e vendimit."
                 : $"{closedBy} mbylli çështjen {Case(c)} me regjistrimin e vendimit.", Tabs.Decision);
 
+    /// <summary>Task 053c: where the receiving Protokoll find a handed-off case (the case list's tab).</summary>
+    public const string IncomingLink = "/cases?tab=incoming";
+
+    public const string HandedOffTitle = "Ju është dhënë akses në një çështje ekzistuese";
+
+    public static string HandedOffBody(CaseSummary c, string level, string court) =>
+        $"Çështja {Case(c)} iu përcoll zyrës suaj për shkallën e radhës: {level} — {court}. " +
+        "Mund të mos e keni marrë ende fletëthirrjen; kur t'ju vijë, e gjeni çështjen te \"Çështjet e ardhura\".";
+
+    public static NotificationMessage CaseHandedOff(CaseSummary c, string level, string court) =>
+        new(NotificationTypes.CaseHandedOff, c.Id, HandedOffTitle, HandedOffBody(c, level, court), IncomingLink);
+
+    public const string WithdrawnTitle = "Përcjellja e çështjes u anulua";
+
+    public static string WithdrawnBody(CaseSummary c, string reason) =>
+        $"Çështja {Case(c)} nuk i përcillet më zyrës suaj ({reason}). Ajo nuk shfaqet më te \"Çështjet e ardhura\".";
+
+    public static NotificationMessage HandoffWithdrawn(CaseSummary c, string reason) =>
+        new(NotificationTypes.HandoffWithdrawn, c.Id, WithdrawnTitle, WithdrawnBody(c, reason), IncomingLink);
+
+    /// <summary>The e-mail adds where to look, since the mail has no link into the app.</summary>
+    public static EmailMessage Email(string to, string title, string body) =>
+        new(to, $"Avokatura e Shtetit — {title}", body + "\n\nHyni në sistem: Çështjet → \"Çështjet e ardhura\".\n\n" +
+                                                  "Ky është një mesazh automatik; mos u përgjigjni.");
+
     public static NotificationMessage DocumentInfected(CaseSummary c) =>
         Message(NotificationTypes.DocumentInfected, c, "Dokumenti u refuzua",
             $"Një dokument i ngarkuar në çështjen {Case(c)} u refuzua nga kontrolli i sigurisë.", Tabs.Documents);

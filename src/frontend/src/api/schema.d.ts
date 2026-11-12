@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/registration-search/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListRegistrationSearchFilters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{previousCasePublicId}/next-level": {
         parameters: {
             query?: never;
@@ -3183,6 +3199,11 @@ export interface components {
             /** @default false */
             confirmPossibleDuplicate: boolean;
         };
+        RegistrationFilterResponse: {
+            name: string;
+            input: string;
+            dependsOn: null | string;
+        };
         RegistrationSearchItem: {
             /** Format: uuid */
             casePublicId: string;
@@ -3190,6 +3211,7 @@ export interface components {
             status: string;
             actNumber: string;
             courtName: string;
+            objectSnippet: string;
             partyNames: string[];
             /** Format: int32 */
             partyCount: number | string;
@@ -3747,11 +3769,19 @@ export interface operations {
     SearchCasesForRegistration: {
         parameters: {
             query?: {
-                q?: string;
-                courtId?: number | string;
                 after?: string;
                 limit?: number | string;
                 status?: string;
+                code?: string;
+                actNumber?: string;
+                courtId?: number;
+                judgeId?: number;
+                plaintiff?: string;
+                defendant?: string;
+                object?: string;
+                category?: string;
+                subcategory?: string;
+                result?: string;
             };
             header?: never;
             path?: never;
@@ -3775,6 +3805,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    ListRegistrationSearchFilters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationFilterResponse"][];
                 };
             };
         };

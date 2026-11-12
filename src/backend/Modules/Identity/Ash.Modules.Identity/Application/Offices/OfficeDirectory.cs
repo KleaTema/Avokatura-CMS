@@ -30,4 +30,27 @@ public sealed class OfficeDirectory(IdentityDbContext db) : IOfficeDirectory
 
     public async Task<long?> GetIdAsync(Guid officePublicId, CancellationToken ct = default) =>
         await db.Offices.AsNoTracking().Where(o => o.PublicId == officePublicId).Select(o => (long?)o.Id).SingleOrDefaultAsync(ct);
+
+    public async Task<OfficeInfo?> GetAsync(Guid officePublicId, CancellationToken ct = default) =>
+        await db.Offices.AsNoTracking().Where(o => o.PublicId == officePublicId)
+            .Select(o => new OfficeInfo(o.Id, o.PublicId, o.Name, o.IsActive))
+            .SingleOrDefaultAsync(ct);
+
+    public async Task<OfficeInfo?> GetByIdAsync(long officeId, CancellationToken ct = default)
+    {
+        var id = (ushort)officeId;
+        return await db.Offices.AsNoTracking().Where(o => o.Id == id)
+            .Select(o => new OfficeInfo(o.Id, o.PublicId, o.Name, o.IsActive))
+            .SingleOrDefaultAsync(ct);
+    }
+
+    public async Task<OfficeInfo?> GetByCourtAsync(int courtId, CancellationToken ct = default)
+    {
+        var court = (ushort)courtId;
+        return await (from oc in db.OfficeCourts.AsNoTracking()
+                      join o in db.Offices.AsNoTracking() on oc.OfficeId equals o.Id
+                      where oc.CourtId == court && oc.IsActive && o.IsActive
+                      select new OfficeInfo(o.Id, o.PublicId, o.Name, o.IsActive))
+            .SingleOrDefaultAsync(ct);
+    }
 }

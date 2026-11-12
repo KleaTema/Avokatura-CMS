@@ -46,7 +46,7 @@ public class ProfileTests(MySqlFixture db) : IntegrationTest(db)
         p.GetProperty("headOf").ValueKind.ShouldBe(JsonValueKind.Null);
         p.GetProperty("phone").ValueKind.ShouldBe(JsonValueKind.Null);
         var types = p.GetProperty("notifications").EnumerateArray().ToList();
-        types.Count.ShouldBe(20);
+        types.Count.ShouldBe(22); // + CASE_HANDED_OFF, HANDOFF_WITHDRAWN (task 053c)
         types.ShouldAllBe(t => t.GetProperty("enabled").GetBoolean());
         types.Single(t => t.GetProperty("type").GetString() == "HEARING_TOMORROW").GetProperty("mandatory").GetBoolean().ShouldBeFalse();
         types.Single(t => t.GetProperty("type").GetString() == "LAWYER_ASSIGNED").GetProperty("mandatory").GetBoolean().ShouldBeTrue();

@@ -16,6 +16,7 @@ import { ForbiddenPage } from '../ErrorPages'
 import { StatusChip } from './lists/common'
 import { rowSx, useForbiddenRedirect } from './lists/helpers'
 import { OfficeDialog } from './OfficeDialog'
+import { OfficeCourtsDialog } from './OfficeCourtsDialog'
 import { OfficeHeadDialog } from './OfficeHeadDialog'
 
 const t = sq.adminOffices
@@ -27,6 +28,7 @@ export function OfficesPage() {
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ office: AdminOffice | null } | null>(null)
   const [headFor, setHeadFor] = useState<AdminOffice | null>(null)
+  const [courtsFor, setCourtsFor] = useState<AdminOffice | null>(null)
   const [q, setQ] = useUrlSearch()
   const [type, setType] = useUrlSearch('type')
   const [parent, setParent] = useUrlSearch('parent')
@@ -148,6 +150,9 @@ export function OfficesPage() {
                     <Button size="small" onClick={() => setHeadFor(office)} aria-label={`${t.setHead}: ${office.name}`}>
                       {t.setHead}
                     </Button>
+                    <Button size="small" onClick={() => setCourtsFor(office)} aria-label={`${t.courts}: ${office.name}`}>
+                      {t.courts}
+                    </Button>
                     <Button
                       size="small"
                       color={office.isActive ? 'error' : 'primary'}
@@ -169,6 +174,7 @@ export function OfficesPage() {
         <OfficeDialog office={editing.office} offices={offices.data ?? []} onClose={() => setEditing(null)} />
       )}
       {headFor && <OfficeHeadDialog office={headFor} onClose={() => setHeadFor(null)} />}
+      {courtsFor && <OfficeCourtsDialog office={courtsFor} onClose={() => setCourtsFor(null)} />}
     </Box>
   )
 }

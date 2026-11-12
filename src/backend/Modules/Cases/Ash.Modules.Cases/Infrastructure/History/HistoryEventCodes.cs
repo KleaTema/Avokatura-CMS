@@ -43,6 +43,9 @@ public static class HistoryEventCodes
         HistoryEventType.DecisionUpdated => "DECISION_UPDATED",
         HistoryEventType.CaseClosed => "CASE_CLOSED",
         HistoryEventType.DossierArchived => "DOSSIER_ARCHIVED",
+        HistoryEventType.CaseHandedOff => "CASE_HANDED_OFF",
+        HistoryEventType.HandoffChanged => "HANDOFF_CHANGED",
+        HistoryEventType.HandoffCancelled => "HANDOFF_CANCELLED",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unmapped history event type."),
     };
 }

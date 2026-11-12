@@ -84,6 +84,7 @@ export function RegistrationForm({
   send: post,
   anotherLabel,
   onAnother,
+  initialCourt,
 }: {
   mode: RegistrationMode
   title: string
@@ -92,6 +93,8 @@ export function RegistrationForm({
   anotherLabel: string
   /** after success; default: an empty form keeping court level, court and received date */
   onAnother?: () => void
+  /** task 053c: the next level opened from "Çështjet e ardhura" starts with the handoff's level and court */
+  initialCourt?: { courtLevelCode: string; courtId: string }
 }) {
   const me = useMe(true)
   const canContinue = mode === 'new' && (me.data?.permissions.includes('case.link_previous') ?? false)
@@ -123,7 +126,7 @@ export function RegistrationForm({
     formState: { errors, isDirty },
   } = useForm<RegistrationValues>({
     resolver: zodResolver(schema) as Resolver<RegistrationValues>,
-    defaultValues: emptyRegistrationValues(),
+    defaultValues: emptyRegistrationValues(initialCourt && { ...initialCourt, receivedDate: todayValue() }),
   })
 
   const [courtLevelCode, courtId, showAllJudges, hearingTypeCode, receivedDate] = useWatch({

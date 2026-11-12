@@ -3,6 +3,7 @@ using Ash.Modules.Cases.Contracts.Events;
 using Ash.Modules.Notifications.Application.Jobs;
 using Ash.Modules.Documents.Contracts.Events;
 using Ash.Modules.Notifications.Application;
+using Ash.Modules.Notifications.Application.Email;
 using Ash.Modules.Notifications.Contracts;
 using Ash.Modules.Notifications.Endpoints;
 using Ash.Modules.Notifications.Infrastructure;
@@ -29,6 +30,14 @@ public static class NotificationsModule
 		services.AddScoped<NotificationQueries>();
 		services.AddScoped<INotificationPreferences, NotificationPreferences>();
 
+		// task 053c: e-mail through an outbox, sent after the commit (Mailpit locally)
+		var email = configuration.GetSection(EmailOptions.Section).Get<EmailOptions>() ?? new EmailOptions();
+		services.AddSingleton(email);
+		services.AddSingleton<IEmailSender, SmtpEmailSender>();
+		services.AddSingleton<EmailDispatcher>();
+		services.AddHostedService(sp => sp.GetRequiredService<EmailDispatcher>());
+		services.AddScoped<IEmailOutbox, EmailOutbox>();
+
 		services.AddScoped<CaseEventNotifications>();
 		services.AddScoped<IEventHandler<CaseRegistered>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<LawyerAssigned>>(sp => sp.GetRequiredService<CaseEventNotifications>());
@@ -41,6 +50,10 @@ public static class NotificationsModule
 		services.AddScoped<IEventHandler<CaseUndelegated>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<PreviousLevelNotClosed>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<CaseClosed>>(sp => sp.GetRequiredService<CaseEventNotifications>());
+
+		services.AddScoped<HandoffNotifications>();
+		services.AddScoped<IEventHandler<CaseHandedOff>>(sp => sp.GetRequiredService<HandoffNotifications>());
+		services.AddScoped<IEventHandler<CaseHandoffWithdrawn>>(sp => sp.GetRequiredService<HandoffNotifications>());
 
 		services.AddScoped<DocumentEventNotifications>();
 		services.AddScoped<IEventHandler<DocumentInfected>>(sp => sp.GetRequiredService<DocumentEventNotifications>());

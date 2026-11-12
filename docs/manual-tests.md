@@ -765,3 +765,41 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 5. Retrial: close X/2 and X/3 (Gjykata e Lartë), then continue X/3 at a first-instance court → X/4 is created.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
+
+## 053c — "Përcjellja e çështjes" (B.3, D5) and e-mail
+**Setup:**
+- `docker compose up -d` (adds Mailpit: open http://localhost:8025).
+- Run the migrator (script 021) and restart the API, then `npm run dev`.
+- An ACTIVE first-instance case: avokat1 primary, with a scheduled hearing.
+
+**Steps:**
+1. **Admin** (*Administrimi → Zyrat → Gjykatat që mbulon*): give "Gjykata e Apelit Tiranë" to Zyra Qendrore Tiranë and
+   save. Open another office's dialog: that court is greyed out with "Mbulohet nga Zyra Qendrore Tiranë". Saving it
+   there anyway (API) → 409.
+2. **Closing not final** (avokat1, *Vendimi → Regjistro vendimin*):
+   - With "Formë e prerë" unchecked a fifth step "Përcjellja" appears. "Mbyll çështjen" stays disabled until the
+     level and the court are chosen.
+   - The court list follows the level, and a lower level is allowed.
+   - After choosing the court: "Do t'i përcillet: Zyra Qendrore Tiranë".
+   - Check "Formë e prerë" instead: the step disappears.
+3. **Unmapped court** (e.g. Gjykata e Lartë): a warning, then "Zyra që e merr" and "Arsyeja" (at least 10
+   characters) are required.
+4. **After closing:**
+   - The tab shows the "Përcjellja e çështjes" card, and the history shows "Çështja u përcoll".
+   - Mailpit shows one mail per active Protokoll of the receiving office: "Ju është dhënë akses në një çështje
+     ekzistuese".
+   - The Protokoll's bell shows the same.
+5. **Protokoll** (*Çështjet*): tabs "Çështjet e mia (n)" | "Çështjet e ardhura (n)".
+   - The incoming card shows code, parties, object, previous court, result and decision date. There are no
+     documents, no chat, and no link into the case.
+   - "Vazhdo" opens the next-level form with level and court filled in.
+   - Register: the card is gone, and the count drops.
+6. **Correction** (avokat1 or avokat2, card "Ndrysho përcjelljen"): choose another court or office. The old office's
+   Protokoll get "Përcjellja e çështjes u anulua" (and a mail); the new office gets the handoff. After X/2 is
+   registered, the button is gone (the API gives 409).
+7. **Final later** (*Plotëso / Ndrysho vendimin*, "Formë e prerë"): the card disappears; the receiving Protokoll are
+   told "Vendimi mori formë të prerë"; the case leaves "Çështjet e ardhura".
+8. **Mail failure:** stop Mailpit (`docker compose stop mailpit`) and close another case.
+   - The closing succeeds.
+   - `email_outbox` keeps the mail PENDING with `attempts` and `last_error`.
+   - Start Mailpit again: the mail arrives at its next attempt (within minutes).

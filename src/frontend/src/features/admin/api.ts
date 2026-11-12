@@ -527,6 +527,27 @@ export const useSetOfficeHead = () => {
   })
 }
 
+export type OfficeCourt = components['schemas']['OfficeCourtResponse']
+
+/** Task 053c: every active court → office mapping ("Gjykatat që mbulon"). */
+export const useOfficeCourts = () =>
+  useQuery({
+    queryKey: ['admin', 'office-courts'] as const,
+    queryFn: () => api.GET('/api/identity/admin/office-courts').then(unwrap),
+  })
+
+/** Replaces the courts of an office (409 office.court_taken when another office holds one). */
+export const useSetOfficeCourts = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ publicId, courtIds }: { publicId: string; courtIds: number[] }) =>
+      api
+        .PUT('/api/identity/admin/offices/{publicId}/courts', { params: { path: { publicId } }, body: { courtIds } })
+        .then(unwrap),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'office-courts'] }),
+  })
+}
+
 /** Active users of the office with role OFFICE_HEAD — the only valid heads. */
 export const useOfficeHeadCandidates = (officePublicId: string) =>
   useQuery({

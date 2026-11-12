@@ -28,7 +28,18 @@ public sealed record DecisionRequest(
     bool? IsRecursed,
     bool? IsFinal,
     bool? CancelOpenHearings,
-    uint? RowVersion);
+    uint? RowVersion,
+    string? NextCourtLevelCode = null,
+    int? NextCourtId = null,
+    Guid? ReceivingOfficePublicId = null,
+    string? HandoffReason = null)
+{
+    /// <summary>
+    /// POST only (task 053c): where a NOT final level is handed off — level and court required; the office and a
+    /// reason only when no office covers the court. A final decision sends none of them.
+    /// </summary>
+    public Handoff.HandoffInput Handoff => new(NextCourtLevelCode, NextCourtId, ReceivingOfficePublicId, HandoffReason);
+}
 
 /// <summary>The linked decision document (a VENDIM of the dossier), shown by its title.</summary>
 public sealed record DecisionDocumentView(Guid PublicId, string Title);
