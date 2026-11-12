@@ -4,6 +4,7 @@ using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Contracts.Events;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
+using Ash.Modules.Documents.Contracts;
 using Ash.SharedKernel.Events;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
@@ -20,8 +21,8 @@ public sealed record ArchiveDossierResponse(DateTime ArchivedAt, uint CaseRowVer
 
 /// <summary>
 /// POST /api/dossiers/{id}/archive (task 038). Checks, in order: the dossier or its latest level not viewable → 404;
-/// already archived → 409 "Dosja është e arkivuar."; the latest level not CLOSED, or its decision not final → 409 with
-/// the reason; no decision.close_final on the latest level (effective permissions) → 403; stale rowVersion → 409.
+/// already archived → 409 "Dosja është e arkivuar."; the latest level not archivable (ArchiveRule: not CLOSED, not final,
+/// reasoned decision not arrived, no clean decision document) → 409 with the reason; no decision.close_final on the latest level (effective permissions) → 403; stale rowVersion → 409.
 /// Sets archived_at / archived_by; the latest case's row_version + 1; history DOSSIER_ARCHIVED on the latest case;
 /// audit; DossierArchived published. From then on every level is read-only (CaseAccessService).
 /// TODO(client-q-unarchive): undoing an archiving — not possible now; later admin-only with a reason and audit.
@@ -32,6 +33,7 @@ internal sealed class ArchiveDossierHandler(
     IHistoryWriter history,
     IAuditLog audit,
     IEventPublisher events,
+    IDocumentService documents,
     ICurrentUser user,
     IClock clock)
 {
@@ -58,16 +60,11 @@ internal sealed class ArchiveDossierHandler(
             return DossierErrors.Archived;
         }
 
-        if (latest.LifecycleStatus != Case.Closed)
+        // closed, final, reasoned decision arrived, its document linked and clean (client decision 12.11.2026, A)
+        var decision = await db.CaseDecisions.AsNoTracking().SingleOrDefaultAsync(d => d.CaseId == latest.Id, ct);
+        if (await ArchiveRule.CheckAsync(db, documents, latest, decision, ct) is { } notYet)
         {
-            return Error.Conflict("dossier.latest_not_closed",
-                $"Shkalla e fundit e dosjes ({latest.CaseCode}) nuk është mbyllur ende; dosja arkivohet pas vendimit të formës së prerë.");
-        }
-
-        if (!await db.CaseDecisions.AnyAsync(d => d.CaseId == latest.Id && d.IsFinal, ct))
-        {
-            return Error.Conflict("dossier.not_final",
-                $"Vendimi i shkallës {latest.CaseCode} nuk ka marrë formë të prerë; shënojeni më parë si të formës së prerë.");
+            return notYet;
         }
 
         if (!(await access.GetEffectivePermissionsAsync((long)latest.Id, ct)).Contains(CaseAccessService.CloseFinalPermission))

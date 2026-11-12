@@ -731,3 +731,20 @@ avokat2 secondary and ndihmes as assistant. Two browsers (or a normal and a priv
 10. A query stopped by the time limit: "Raporti zgjati shumë. Ngushtoni filtrat."; an export: "Eksporti zgjati
     shumë. Ngushtoni filtrat."
 11. 390 px: filters in the *Filtra* panel, tables scroll sideways, no page-wide side scrolling.
+
+## 053a — Client decisions 12.11.2026: closing, archiving, who records the decision
+**Setup:** run the migrator (script 020), restart the API, `npm run dev`. An ACTIVE case: avokat1 primary, avokat2
+secondary, ndihmes assistant, the ministry linked MONITORING.
+1. Who records (tab *Vendimi*, "Regjistro vendimin dhe mbyll çështjen"): avokat1, avokat2, ndihmes and kryetar see the
+   button; protokoll does not see the case; jurist (monitoring) does not see the button. Link the ministry as DELEGATED
+   (delegation): now jurist sees it too. On a REGISTERED case nobody sees it (no lawyer yet).
+2. Record a decision WITHOUT "Ka ardhur vendimi i arsyetuar": the case is CLOSED, the warning "pa vendimin e arsyetuar"
+   shows, no "Arkivo çështjen?" — even with "Formë e prerë".
+3. *Plotëso / Ndrysho vendimin* (avokat2 or kryetar): "Ka ardhur vendimi i arsyetuar" + upload the PDF; once it is
+   checked ("Gati") and saved, with "Formë e prerë": "Arkivo çështjen?" appears; the *Arkivo* button too.
+4. Archiving refused with the reason (Scalar, `POST /api/dossiers/{id}/archive`): not final → "nuk ka marrë formë të
+   prerë"; reasoned decision not arrived → "Vendimi i arsyetuar … nuk ka ardhur ende"; no document → "Dokumenti i
+   vendimit … nuk është ngarkuar"; document not yet clean / infected → "… nuk ka kaluar kontrollin e sigurisë".
+5. Statistics (*Raporte → Statistikat*): next year, a level closed without the reasoned decision is NOT in "Mbartur
+   aktive" (it is in "Mbartur në pritje të vendimit të arsyetuar"); a level without a decision is. Hover the column
+   names: the client's wording.

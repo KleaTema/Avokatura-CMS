@@ -385,12 +385,14 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task A_retrial_result_suggests_continuing_as_retrial_and_a_final_one_archiving()
+    public async Task A_retrial_result_suggests_continuing_as_retrial_and_a_final_one_with_its_document_archiving()
     {
         await using var s = await SetupAsync();
         using var client = s.As(Primary);
+        var document = await DocumentAsync(s.Id);
 
-        var response = await Record(client, s.Case, Body(await CaseRowVersion(client, s.Case), ("resultCode", "KTHIM_RIGJYKIM"), ("isFinal", true)));
+        var response = await Record(client, s.Case, Body(await CaseRowVersion(client, s.Case), ("resultCode", "KTHIM_RIGJYKIM"),
+            ("isFinal", true), ("decisionReceived", true), ("decisionDocumentPublicId", document)));
 
         var result = await Json(response);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, result.ToString());
@@ -399,15 +401,46 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Access_secondary_lawyer_403_registered_case_409_outsider_404_stale_case_row_version_409()
+    public async Task A_final_decision_without_its_document_is_not_offered_for_archiving_until_the_document_is_added()
+    {
+        await using var s = await SetupAsync();
+        using var client = s.As(Primary);
+
+        // client decision 12.11.2026 (A): final, but the reasoned decision has not arrived — closed, no archive offer
+        var recorded = await Json(await Record(client, s.Case, Body(await CaseRowVersion(client, s.Case), ("isFinal", true))));
+        recorded.GetProperty("suggestions").EnumerateArray().ShouldBeEmpty();
+        (await Scalar($"SELECT lifecycle_status FROM cases WHERE id = {s.Id}")).ShouldBe("CLOSED");
+        (await CaseOf(client, s.Case)).GetProperty("permissions").EnumerateArray().Select(p => p.GetString())
+            .ShouldNotContain("decision.close_final");
+
+        // task 037: the reasoned decision arrives later with its (clean) document — now "Arkivo çështjen?"
+        var version = recorded.GetProperty("decision").GetProperty("rowVersion").GetUInt32();
+        var document = await DocumentAsync(s.Id);
+        var completed = await Json(await Update(client, s.Case, Body(version, ("isFinal", true), ("decisionReceived", true), ("decisionDocumentPublicId", document))));
+        completed.GetProperty("suggestions").EnumerateArray().Select(x => x.GetString()).ShouldBe(["ARCHIVE_SUGGESTED"]);
+        (await CaseOf(client, s.Case)).GetProperty("permissions").EnumerateArray().Select(p => p.GetString())
+            .ShouldContain("decision.close_final");
+    }
+
+    [Fact]
+    public async Task Access_D1_roles_record_protokoll_cannot_registered_case_409_outsider_404_stale_case_row_version_409()
     {
         await using var s = await SetupAsync();
         using var primary = s.As(Primary);
         var rowVersion = await CaseRowVersion(primary, s.Case);
 
-        using (var secondary = s.As("avokat2@ash.local"))
+        // client decision D1 (12.11.2026): primary, secondary, assistant and the Kryetar of the office record the decision
+        foreach (var email in new[] { "avokat2@ash.local", "ndihmes@ash.local", "kryetar@ash.local" })
         {
-            await Problem(await Record(secondary, s.Case, Body(rowVersion)), HttpStatusCode.Forbidden);
+            using var other = s.As(email);
+            (await CaseOf(other, s.Case)).GetProperty("permissions").EnumerateArray().Select(p => p.GetString())
+                .ShouldContain("decision.record", email);
+        }
+
+        // the institution's jurist only where the institution is DELEGATED (here it monitors)
+        using (var jurist = s.As("jurist@ash.local"))
+        {
+            await Problem(await Record(jurist, s.Case, Body(rowVersion)), HttpStatusCode.Forbidden);
         }
 
         var registered = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM cases WHERE id = {s.Seed.RegisteredCaseId}"))!);
@@ -424,6 +457,25 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
 
         (await Problem(await Record(primary, s.Case, Body(rowVersion + 7)), HttpStatusCode.Conflict)).ShouldContain("case.changed");
         (await Scalar($"SELECT lifecycle_status FROM cases WHERE id = {s.Id}")).ShouldBe("ACTIVE");
+
+        // the assistant records it; the Kryetar completes it later (also on a CLOSED level)
+        using (var assistant = s.As("ndihmes@ash.local"))
+        {
+            (await Record(assistant, s.Case, Body(rowVersion))).StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        (await Scalar($"SELECT closed_by FROM cases WHERE id = {s.Id}")).ShouldBe((uint)s.Seed.User("ndihmes").Id);
+        using (var kryetar = s.As("kryetar@ash.local"))
+        {
+            var version = (await CaseOf(kryetar, s.Case)).GetProperty("decision").GetProperty("rowVersion").GetUInt32();
+            (await Update(kryetar, s.Case, Body(version, ("decisionNumber", "V-77")))).StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        // the Protokoll does not see the case once it is assigned
+        using (var protokoll = s.As("protokoll@ash.local"))
+        {
+            await Problem(await Update(protokoll, s.Case, Body(0, ("decisionNumber", "V-78"))), HttpStatusCode.NotFound);
+        }
     }
 
     [Fact]
@@ -497,8 +549,9 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
             await Execute($"DELETE FROM cases WHERE case_code = '{code2}'");
         }
 
-        // without the newer level: the appeal deadline passed — final, and the dossier may be archived
-        var response = await Update(client, s.Case, Body(decisionVersion, ("isFinal", true)));
+        // without the newer level: the appeal deadline passed — final, with the reasoned decision and its document: archivable
+        var document = await DocumentAsync(s.Id);
+        var response = await Update(client, s.Case, Body(decisionVersion, ("isFinal", true), ("decisionReceived", true), ("decisionDocumentPublicId", document)));
         var result = await Json(response);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, result.ToString());
         result.GetProperty("suggestions").EnumerateArray().Select(x => x.GetString()).ShouldBe(["ARCHIVE_SUGGESTED"]);
@@ -513,9 +566,11 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
         (await Problem(await Update(client, s.Case, Body(0)), HttpStatusCode.Conflict)).ShouldContain("decision.not_recorded");
 
         var decisionVersion = await CloseAsync(client, s.Case);
-        using (var secondary = s.As("avokat2@ash.local"))
+        // a Kryetar of another office: not theirs (404, they do not see it)
+        var outsider = (string)(await Scalar($"SELECT email FROM users WHERE id = {s.Seed.User("drlawyer").Id}"))!;
+        using (var other = s.As(outsider))
         {
-            await Problem(await Update(secondary, s.Case, Body(decisionVersion, ("decisionNumber", "V-9"))), HttpStatusCode.Forbidden);
+            await Problem(await Update(other, s.Case, Body(decisionVersion, ("decisionNumber", "V-9"))), HttpStatusCode.NotFound);
         }
 
         (await Problem(await Update(client, s.Case, Body(decisionVersion + 3, ("decisionNumber", "V-9"))), HttpStatusCode.Conflict))

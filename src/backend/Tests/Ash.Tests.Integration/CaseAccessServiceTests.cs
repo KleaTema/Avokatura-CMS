@@ -3,6 +3,7 @@ using Ash.Modules.Cases;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Cases.Infrastructure.Access;
+using Ash.Modules.Documents.Contracts;
 using Ash.Modules.Reference;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
@@ -29,7 +30,19 @@ public sealed class CaseAccessFixture(string connectionString) : IAsyncLifetime
         services.AddCasesModule(new ConfigurationBuilder().Build());
         services.AddScoped<TestCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<TestCurrentUser>());
+        // the archive rule asks for the decision document (no case here is archivable: no documents)
+        services.AddScoped<IDocumentService, NoDocuments>();
         Provider = services.BuildServiceProvider();
+    }
+
+    private sealed class NoDocuments : IDocumentService
+    {
+        public Task<DocumentInfo?> GetAsync(Guid publicId, CancellationToken ct = default) => Task.FromResult<DocumentInfo?>(null);
+        public Task<DocumentInfo?> GetByIdAsync(long id, CancellationToken ct = default) => Task.FromResult<DocumentInfo?>(null);
+        public Task<IReadOnlyDictionary<long, int>> CountsByCaseAsync(IReadOnlyCollection<long> caseIds, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<long, int>>(new Dictionary<long, int>());
+        public Task<bool> IsCleanAsync(Guid publicId, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<int> CountFailedScansAsync(CancellationToken ct = default) => Task.FromResult(0);
     }
 
     public async ValueTask DisposeAsync()
@@ -114,11 +127,15 @@ public class CaseAccessServiceTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Secondary_lawyer_cannot_record_decision_but_can_delete_party()
+    public async Task D1_secondary_lawyer_assistant_and_Kryetar_record_the_decision_monitoring_jurist_does_not()
     {
-        (await Has("avokat2", "decision.record")).ShouldBeFalse();
-        await ShouldRequireFail("avokat2", "decision.record", ErrorType.Forbidden);
+        // client decision D1 (12.11.2026)
+        await ShouldRequirePass("avokat2", "decision.record");
         await ShouldRequirePass("avokat2", "party.delete");
+        await ShouldRequirePass("ndihmes", "decision.record");
+        await ShouldRequirePass("kryetar", "decision.record");
+        // the jurist of a MONITORING institution: not (only where the institution is DELEGATED)
+        await ShouldRequireFail("jurist", "decision.record", ErrorType.Forbidden);
     }
 
     [Fact]
@@ -150,10 +167,13 @@ public class CaseAccessServiceTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Office_head_can_view_but_not_record_decision()
+    public async Task Office_head_views_and_records_the_decision_of_the_own_office_D1()
     {
         (await CanView("kryetar", Active)).ShouldBeTrue();
-        await ShouldRequireFail("kryetar", "decision.record", ErrorType.Forbidden);
+        // client decision D1 (12.11.2026): decision.record_office → decision.record on the office's cases
+        await ShouldRequirePass("kryetar", "decision.record");
+        // not archiving an open level (the archive rule: closed, final, reasoned decision with its clean document)
+        await ShouldRequireFail("kryetar", "decision.close_final", ErrorType.Forbidden);
     }
 
     [Theory]

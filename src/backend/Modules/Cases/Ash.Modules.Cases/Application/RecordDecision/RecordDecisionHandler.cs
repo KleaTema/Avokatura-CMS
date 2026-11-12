@@ -1,9 +1,11 @@
 using Ash.Modules.Audit.Contracts;
+using Ash.Modules.Cases.Application.ArchiveDossier;
 using Ash.Modules.Cases.Application.AssignLawyers;
 using Ash.Modules.Cases.Application.Hearings;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Contracts.Events;
 using Ash.Modules.Cases.Infrastructure;
+using Ash.Modules.Documents.Contracts;
 using Ash.Modules.Reference.Contracts;
 using Ash.SharedKernel.Events;
 using Ash.SharedKernel.Identity;
@@ -30,6 +32,7 @@ internal sealed class RecordDecisionHandler(
     IHistoryWriter history,
     IAuditLog audit,
     IEventPublisher events,
+    IDocumentService documents,
     ICurrentUser user,
     IClock clock)
 {
@@ -154,8 +157,10 @@ internal sealed class RecordDecisionHandler(
         }
 
         await events.PublishAsync(new CaseClosed(c.PublicId, c.CaseCode, values.Result.Code, values.DecisionReceived, values.IsFinal, now), ct);
+        // "Arkivo çështjen?" only when the level can close the dossier now (final + reasoned decision + its clean document)
+        var archivable = await ArchiveRule.CheckAsync(db, documents, c, decision, ct) is null;
         return new RecordDecisionResponse(c.RowVersion, now, open.Count, await support.ViewAsync(decision, ct),
-            DecisionSupport.Suggestions(values.Result, values.IsFinal));
+            DecisionSupport.Suggestions(values.Result, archivable));
     }
 
     /// <summary>409 case.open_hearings with the hearings (time, type) in the ProblemDetails' "hearings".</summary>

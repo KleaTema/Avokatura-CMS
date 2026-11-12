@@ -226,6 +226,31 @@ public class StatisticsTests(MySqlFixture db) : IntegrationTest(db)
         Value(mine2, null, "perfunduar_ash").ShouldBe(1);                   // B closed under avokat2
     }
 
+    /// <summary>
+    /// Client decision 12.11.2026, section A: a level without a decision stays ACTIVE and is "mbartur aktive" on
+    /// 1 January; a level closed with a decision but without the reasoned decision is CLOSED — not "mbartur aktive",
+    /// it is "mbartur në pritje të vendimit të arsyetuar".
+    /// </summary>
+    [Fact]
+    public async Task Section_A_no_decision_is_carried_active_closed_without_the_reasoned_decision_is_not()
+    {
+        var s = await ScenarioAsync();
+        await using var factory = Factory();
+        using var admin = factory.CreateClient().AsUser("admin@ash.local");
+        async Task<List<string>> Codes(string measure) =>
+            (await admin.GetFromJsonAsync<JsonElement>($"{Stats}/cases?year=2027&measure={measure}&limit=100", Ct))
+                .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("caseCode").GetString()!).ToList();
+        async Task<string> Code(long id) => (string)(await Scalar("SELECT case_code FROM cases WHERE id = @id", ("@id", id)))!;
+
+        // A/1: decision recorded 10.12.2026, reasoned decision not arrived
+        (await Scalar("SELECT lifecycle_status FROM cases WHERE id = @id", ("@id", s.A1))).ShouldBe("CLOSED");
+        var carried = await Codes("mbartur_aktive");
+        carried.ShouldNotContain(await Code(s.A1));
+        (await Codes("mbartur_pritje_vendimi")).ShouldBe([await Code(s.A1)]);
+        // A/2 and C: no decision by 1.1.2027 — ACTIVE, carried; B too (its decision came on 1.3.2027)
+        carried.ShouldBe([await Code(s.A2), await Code(s.B), await Code(s.C)], ignoreOrder: true);
+    }
+
     [Fact]
     public async Task The_drill_down_lists_exactly_as_many_cases_as_every_number_shows()
     {

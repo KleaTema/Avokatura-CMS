@@ -419,6 +419,18 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         close.StatusCode.ShouldBe(HttpStatusCode.OK, await close.Content.ReadAsStringAsync(Ct));
         await SendOk(avokat1, conversation, "Pas mbylljes.");
 
+        // … the reasoned decision with its clean document (archiving needs it), then archived: read-only
+        await Execute($"""
+            INSERT INTO documents (dossier_id, case_id, document_type_id, title, original_file_name, content_type, size_bytes,
+                                   sha256, storage_bucket, storage_key, scan_status, uploaded_by)
+            SELECT c.dossier_id, c.id, t.id, 'Vendimi', 'vendim.pdf', 'application/pdf', 1000, UNHEX(SHA2(UUID(), 256)), 'b', UUID(),
+                   'CLEAN', {s.User("avokat1").Id}
+              FROM cases c JOIN document_types t ON t.code = 'VENDIM' WHERE c.id = {s.ActiveCaseId};
+            UPDATE case_decisions SET decision_received = 1, decision_received_at = UTC_TIMESTAMP(3),
+                   decision_document_id = (SELECT MAX(id) FROM documents WHERE case_id = {s.ActiveCaseId})
+             WHERE case_id = {s.ActiveCaseId};
+            """);
+
         // … archived: read-only
         header = (await avokat1.GetFromJsonAsync<JsonElement>($"/api/cases/{casePublicId}", Ct)).GetProperty("header");
         var archive = await avokat1.PostAsJsonAsync($"/api/dossiers/{header.GetProperty("dossierPublicId").GetGuid()}/archive",

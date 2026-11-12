@@ -124,7 +124,7 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
     // ---------------------------------------------------------------- permissions
 
     [Fact]
-    public async Task Secondary_lawyer_has_no_decision_record_primary_has_it()
+    public async Task Primary_and_secondary_lawyer_both_record_the_decision_D1()
     {
         var s = await SeedAsync();
         await using var factory = new AshApiFactory(Db);
@@ -132,8 +132,9 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
         var primary = await Permissions(factory, "avokat1@ash.local", s.Level2);
         primary.ShouldContain("decision.record");
         primary.ShouldContain("case.view");
+        // client decision D1 (12.11.2026): the secondary lawyer records it too
         var secondary = await Permissions(factory, "avokat2@ash.local", s.Level2);
-        secondary.ShouldNotContain("decision.record");
+        secondary.ShouldContain("decision.record");
         secondary.ShouldContain("party.add");
         secondary.ShouldContain("case.view");
     }
@@ -162,7 +163,8 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
     [Theory]
     // primary lawyer of /1: may still discuss the appeal and complete the decision (its document: VENDIM only, task 036)
     [InlineData("avokat2@ash.local", new[] { "case.view", "chat.case", "decision.record", "document.upload" })]
-    [InlineData("kryetar@ash.local", new[] { "case.view" })] // office actions are off once closed
+    // office actions are off once closed — except completing the decision (D1, decision.record_office)
+    [InlineData("kryetar@ash.local", new[] { "case.view", "decision.record" })]
     [InlineData("admin@ash.local", new[] { "case.view" })]
     public async Task Closed_case_keeps_only_view_chat_and_the_decision(string user, string[] expected)
     {

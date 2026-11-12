@@ -19,9 +19,12 @@ public static class StatisticsMeasures
 {
     public static readonly IReadOnlyList<StatisticsMeasure> Counts =
     [
+        // wording: the client's decision of 12.11.2026, section A
         new("mbartur_aktive", "Mbartur aktive",
-            "Çështjet e regjistruara para 1 janarit dhe të pambyllura deri më 1 janar.",
-            "E regjistruar 15.12.2026, ende e hapur më 1.1.2027 → mbartur në 2027."),
+            "Shkallët pa vendim (seancat s'janë zhvilluar, s'ka përfundim) që janë AKTIVE (\"në pritje\") më 1 janar: " +
+            "të regjistruara para 1 janarit dhe pa vendim të regjistruar deri atëherë. Një shkallë e mbyllur me vendim, " +
+            "edhe pa vendimin e arsyetuar, NUK është \"mbartur aktive\".",
+            "E regjistruar 15.12.2026, pa vendim më 1.1.2027 → mbartur në 2027."),
         new("ardhur_gjate_vitit", "Ardhur gjatë vitit",
             "Çështjet e regjistruara gjatë vitit.",
             "E regjistruar 05.04.2027 → ardhur në 2027."),
@@ -52,7 +55,8 @@ public static class StatisticsMeasures
         new("ankimuar_rekursuar", "Ankimuar / rekursuar",
             "Të mbyllura gjatë vitit, me vendim të ankimuar ose të rekursuar."),
         new("mbartur_pritje_vendimi", "Mbartur në pritje të vendimit të arsyetuar",
-            "Të mbyllura para 1 janarit, për të cilat vendimi i arsyetuar nuk kishte ardhur deri më 1 janar.",
+            "Shkallët e mbyllura me vendim pa vendim të arsyetuar para 1 janarit: regjistrohet vendimi (rezultati) dhe " +
+            "shkalla mbyllet; vendimi i arsyetuar nuk kishte ardhur deri më 1 janar dhe plotësohet më vonë.",
             "Mbyllur 10.12.2026, vendimi i arsyetuar ende pa ardhur → 1 në 2027."),
         new("mbartur_ardhur_vendim", "Mbartur, ardhur vendimi i arsyetuar",
             "Të mbyllura para 1 janarit, për të cilat vendimi i arsyetuar erdhi gjatë vitit.",

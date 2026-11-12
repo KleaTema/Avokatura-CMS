@@ -31,7 +31,7 @@ emrat dhe përkufizimet). Mos e ndryshoni me dorë: ndryshoni kodin dhe rigjener
 <!-- measures:start -->
 | Shifra | Përkufizimi | Shembull |
 |---|---|---|
-| **Mbartur aktive** | Çështjet e regjistruara para 1 janarit dhe të pambyllura deri më 1 janar. | E regjistruar 15.12.2026, ende e hapur më 1.1.2027 → mbartur në 2027. |
+| **Mbartur aktive** | Shkallët pa vendim (seancat s'janë zhvilluar, s'ka përfundim) që janë AKTIVE ("në pritje") më 1 janar: të regjistruara para 1 janarit dhe pa vendim të regjistruar deri atëherë. Një shkallë e mbyllur me vendim, edhe pa vendimin e arsyetuar, NUK është "mbartur aktive". | E regjistruar 15.12.2026, pa vendim më 1.1.2027 → mbartur në 2027. |
 | **Ardhur gjatë vitit** | Çështjet e regjistruara gjatë vitit. | E regjistruar 05.04.2027 → ardhur në 2027. |
 | **Total** | Mbartur aktive + ardhur gjatë vitit. | 3 të mbartura + 1 e ardhur = 4. |
 | **Aktive** | Çështjet e hapura në fund të vitit (sot për vitin në vazhdim). | E mbyllur 01.03.2027 → aktive në fund të 2026, jo në 2027. |
@@ -44,7 +44,7 @@ emrat dhe përkufizimet). Mos e ndryshoni me dorë: ndryshoni kodin dhe rigjener
 | **Pezulluar (ASH)** | Aktive, të pezulluara, jo të deleguara / relatuara. |  |
 | **Pezulluar (deleguar / relatuar)** | Aktive, të pezulluara, të deleguara ose të relatuara. |  |
 | **Ankimuar / rekursuar** | Të mbyllura gjatë vitit, me vendim të ankimuar ose të rekursuar. |  |
-| **Mbartur në pritje të vendimit të arsyetuar** | Të mbyllura para 1 janarit, për të cilat vendimi i arsyetuar nuk kishte ardhur deri më 1 janar. | Mbyllur 10.12.2026, vendimi i arsyetuar ende pa ardhur → 1 në 2027. |
+| **Mbartur në pritje të vendimit të arsyetuar** | Shkallët e mbyllura me vendim pa vendim të arsyetuar para 1 janarit: regjistrohet vendimi (rezultati) dhe shkalla mbyllet; vendimi i arsyetuar nuk kishte ardhur deri më 1 janar dhe plotësohet më vonë. | Mbyllur 10.12.2026, vendimi i arsyetuar ende pa ardhur → 1 në 2027. |
 | **Mbartur, ardhur vendimi i arsyetuar** | Të mbyllura para 1 janarit, për të cilat vendimi i arsyetuar erdhi gjatë vitit. | Mbyllur në 2026, vendimi erdhi 20.01.2027 → 1 në 2027. |
 | **Dëmi i parandaluar / i shkaktuar (për çdo monedhë, dhe m²)** | Shuma e vlerave të vendimeve të çështjeve të mbyllura gjatë vitit, veçmas për çdo monedhë. | 2.500.000 ALL dhe 1.000 EUR shfaqen në dy kolona, jo si një shumë. |
 | **Në dorë** | Për çdo avokat: çështjet aktive në ndjekje (jo të deleguara / relatuara) ku ishte avokat primar në fund të vitit (sot për vitin në vazhdim). |  |

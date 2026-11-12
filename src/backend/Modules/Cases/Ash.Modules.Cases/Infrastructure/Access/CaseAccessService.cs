@@ -1,4 +1,6 @@
+using Ash.Modules.Cases.Application.ArchiveDossier;
 using Ash.Modules.Cases.Contracts;
+using Ash.Modules.Documents.Contracts;
 using Ash.Modules.Reference.Contracts;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
@@ -7,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Ash.Modules.Cases.Infrastructure.Access;
 
 /// <summary>Scoped: one query per (user, case) per request, then answered from memory.</summary>
-public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IReferenceData reference) : ICaseAccessService
+public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IReferenceData reference, IDocumentService documents) : ICaseAccessService
 {
     private readonly Dictionary<(long UserId, long CaseId), Task<CaseAccess>> _cache = [];
 
@@ -99,6 +101,16 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// <summary>The Kryetar of the case's office (system permissions held for their own office only).</summary>
     private static readonly string[] OfficeHeadActions = ["case.assign_lawyer", "case.transfer", "case.set_priority_any"];
 
+    /// <summary>
+    /// Client decision D1 (12.11.2026): the Kryetar records and completes the decision and archives on the cases of
+    /// their office — the system permission decision.record_office (script 020) grants decision.record and
+    /// decision.close_final there, also on a CLOSED level (completing the decision later, archiving). The cases they
+    /// will supervise (Monitor's assignment, a later task) join here. Never decided by the role name.
+    /// </summary>
+    public const string RecordDecisionOfficePermission = "decision.record_office";
+
+    private static readonly string[] OfficeDecisionActions = [DecisionRecordPermission, CloseFinalPermission];
+
     public RegistrationLookupScope GetRegistrationLookupScope() =>
         // All offices: confirmed by the client (Q1a) — a next-level summons may arrive at another office.
         user.HasPermission(LinkPreviousPermission) ? RegistrationLookupScope.AllOffices : RegistrationLookupScope.None;
@@ -131,9 +143,6 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
                 c.RegisteredBy,
                 c.CategoryId,
                 Archived = db.Dossiers.Any(d => d.Id == c.DossierId && d.ArchivedAt != null),
-                // archiving (task 038) is possible on the dossier's LATEST level once its decision is final
-                ArchivableLevel = db.CaseDecisions.Any(d => d.CaseId == c.Id && d.IsFinal)
-                    && !db.Cases.Any(n => n.DossierId == c.DossierId && n.LevelSeq > c.LevelSeq),
                 HasProfile = db.CaseAccess.Any(a => a.UserId == userId && a.CaseId == c.Id),
                 Permission = p == null ? null : p.PermissionCode
             }).ToListAsync(cancellationToken);
@@ -171,7 +180,10 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             && (await reference.ListCaseCategoriesAsync(cancellationToken)).Any(x => x.Id == categoryId && x.IsDelegation);
 
         var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked);
-        ApplyStateRules(effective, first.LifecycleStatus, delegatedCategory, first.ArchivableLevel);
+        // archiving (task 038, client decision A): ArchiveRule — asked only of a user who would hold it
+        var archivable = effective.Contains(CloseFinalPermission) && first.LifecycleStatus == Case.Closed
+            && await ArchiveRule.IsArchivableAsync(db, documents, await db.Cases.AsNoTracking().SingleAsync(c => c.Id == id, cancellationToken), cancellationToken);
+        ApplyStateRules(effective, first.LifecycleStatus, delegatedCategory, archivable);
         return new CaseAccess(true, effective);
     }
 
@@ -203,6 +215,11 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
         {
             effective.Remove(AssignLawyerPermission);
         }
+        else
+        {
+            // no lawyer yet: there is no decision to record (the handler answers 409 case.not_active) — e.g. the Kryetar
+            effective.Remove(DecisionRecordPermission);
+        }
 
         if (status != Case.Active)
         {
@@ -230,13 +247,18 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             effective.Add(AssignJuristPermission);
         }
 
+        var ownOffice = user.OfficeId == officeId;
+        if (ownOffice && user.HasPermission(RecordDecisionOfficePermission))
+        {
+            effective.UnionWith(OfficeDecisionActions);
+        }
+
         if (status == Case.Closed)
         {
             effective.IntersectWith(ActionsAllowedWhenClosed);
             return effective;
         }
 
-        var ownOffice = user.OfficeId == officeId;
         if (ownOffice && status == Case.Registered && user.HasPermission(EditRegistrationPermission))
         {
             effective.UnionWith(RegistrationDeskActions);

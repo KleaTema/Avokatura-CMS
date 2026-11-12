@@ -1,9 +1,11 @@
 using Ash.Modules.Audit.Contracts;
+using Ash.Modules.Cases.Application.ArchiveDossier;
 using Ash.Modules.Cases.Application.AssignLawyers;
 using Ash.Modules.Cases.Application.RecordDecision;
 using Ash.Modules.Cases.Application.UpdateCaseData;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Infrastructure;
+using Ash.Modules.Documents.Contracts;
 using Ash.SharedKernel.Identity;
 using Ash.SharedKernel.Results;
 using Ash.SharedKernel.Time;
@@ -26,6 +28,7 @@ internal sealed class UpdateDecisionHandler(
     DecisionSupport support,
     IHistoryWriter history,
     IAuditLog audit,
+    IDocumentService documents,
     ICurrentUser user,
     IClock clock)
 {
@@ -101,7 +104,7 @@ internal sealed class UpdateDecisionHandler(
         }
 
         var before = await support.SnapshotAsync(decision, ct);
-        var wasFinal = decision.IsFinal;
+        var wasArchivable = await ArchiveRule.CheckAsync(db, documents, c, decision, ct) is null;
         DecisionSupport.Apply(decision, values);
         decision.DecisionDocumentId = documentId;
         if (values.DecisionReceived && !decision.DecisionReceived)
@@ -133,8 +136,10 @@ internal sealed class UpdateDecisionHandler(
 
         audit.Record(AuditActions.CaseUpdate, "CASE", (long)c.Id, (long)c.Id,
             details: new { Action = "UPDATE_DECISION", Fields = changed });
-        // the result changed to a retrial, or the decision became final (the appeal deadline passed): offer the next step
-        var suggestions = DecisionSupport.Suggestions(values.Result, decision.IsFinal && !wasFinal)
+        // the result changed to a retrial: the note; the level BECAME archivable (final + reasoned decision + its clean
+        // document — e.g. the document added now, task 037): "Arkivo çështjen?"
+        var becameArchivable = !wasArchivable && await ArchiveRule.CheckAsync(db, documents, c, decision, ct) is null;
+        var suggestions = DecisionSupport.Suggestions(values.Result, becameArchivable)
             .Where(s => s != DecisionSuggestions.RetrialExpected || changed.Contains("result"))
             .ToList();
         return new UpdateDecisionResponse(await support.ViewAsync(decision, ct), suggestions);

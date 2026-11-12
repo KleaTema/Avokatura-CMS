@@ -93,6 +93,30 @@ public class ArchiveTests(MySqlFixture db) : IntegrationTest(db)
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync(Ct));
     }
 
+    /// <summary>
+    /// The reasoned decision arrived with its document (client decision 12.11.2026, A): a VENDIM document of the level,
+    /// with the given scan status, linked to the decision; decision_received set. Null status = received, no document.
+    /// </summary>
+    private async Task ReasonedDecisionAsync(long caseId, string? scanStatus = "CLEAN")
+    {
+        if (scanStatus is not null)
+        {
+            await Scalar($"""
+                INSERT INTO documents (dossier_id, case_id, document_type_id, title, original_file_name, content_type, size_bytes,
+                                       sha256, storage_bucket, storage_key, scan_status, uploaded_by)
+                SELECT c.dossier_id, c.id, t.id, 'Vendimi', 'vendim.pdf', 'application/pdf', 1000, UNHEX(SHA2(UUID(), 256)), 'b', UUID(),
+                       '{scanStatus}', (SELECT id FROM users WHERE email = 'avokat1@ash.local')
+                  FROM cases c JOIN document_types t ON t.code = 'VENDIM' WHERE c.id = {caseId}
+                """);
+        }
+
+        await Scalar($"""
+            UPDATE case_decisions SET decision_received = 1, decision_received_at = UTC_TIMESTAMP(3),
+                   decision_document_id = {(scanStatus is null ? "NULL" : "(SELECT MAX(id) FROM documents WHERE case_id = " + caseId + ")")}
+             WHERE case_id = {caseId}
+            """);
+    }
+
     private static async Task<HttpResponseMessage> Archive(HttpClient client, Guid dossier, uint rowVersion) =>
         await client.PostAsJsonAsync($"/api/dossiers/{dossier}/archive", new { rowVersion }, Ct);
 
@@ -119,6 +143,7 @@ public class ArchiveTests(MySqlFixture db) : IntegrationTest(db)
         await using var s = await SetupAsync();
         using var client = s.As(Primary);
         await CloseAsync(client, s.Case, final: true);
+        await ReasonedDecisionAsync(s.Id);
         (await PermissionsOf(client, s.Case)).ShouldContain("decision.close_final");
         var (dossier, rowVersion) = await HeaderOf(client, s.Case);
 
@@ -159,16 +184,59 @@ public class ArchiveTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task The_secondary_lawyer_gets_403_a_stale_row_version_409_an_outsider_404()
+    public async Task A_final_decision_archives_only_with_the_reasoned_decision_and_its_clean_document()
     {
         await using var s = await SetupAsync();
         using var client = s.As(Primary);
         await CloseAsync(client, s.Case, final: true);
         var (dossier, rowVersion) = await HeaderOf(client, s.Case);
 
-        using (var secondary = s.As("avokat2@ash.local"))
+        // final, the reasoned decision not arrived
+        (await PermissionsOf(client, s.Case)).ShouldNotContain("decision.close_final");
+        (await Problem(await Archive(client, dossier, rowVersion), HttpStatusCode.Conflict)).ShouldContain("dossier.reasoned_missing");
+
+        // arrived, but no document linked
+        await ReasonedDecisionAsync(s.Id, scanStatus: null);
+        (await Problem(await Archive(client, dossier, rowVersion), HttpStatusCode.Conflict)).ShouldContain("dossier.document_missing");
+
+        // the document is still being scanned, then infected
+        await ReasonedDecisionAsync(s.Id, scanStatus: "PENDING");
+        (await PermissionsOf(client, s.Case)).ShouldNotContain("decision.close_final");
+        (await Problem(await Archive(client, dossier, rowVersion), HttpStatusCode.Conflict)).ShouldContain("dossier.document_not_clean");
+        await ReasonedDecisionAsync(s.Id, scanStatus: "INFECTED");
+        (await Problem(await Archive(client, dossier, rowVersion), HttpStatusCode.Conflict)).ShouldContain("dossier.document_not_clean");
+
+        // a removed document counts as none
+        await ReasonedDecisionAsync(s.Id);
+        await Scalar($"UPDATE documents SET deleted_at = UTC_TIMESTAMP(3), deleted_by = uploaded_by WHERE id = (SELECT decision_document_id FROM case_decisions WHERE case_id = {s.Id})");
+        (await Problem(await Archive(client, dossier, rowVersion), HttpStatusCode.Conflict)).ShouldContain("dossier.document_missing");
+
+        // clean and linked: offered and allowed
+        await ReasonedDecisionAsync(s.Id);
+        (await PermissionsOf(client, s.Case)).ShouldContain("decision.close_final");
+        (await Archive(client, dossier, rowVersion)).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task D1_the_secondary_the_assistant_and_the_Kryetar_may_archive_a_stale_row_version_409_an_outsider_404()
+    {
+        await using var s = await SetupAsync();
+        using var client = s.As(Primary);
+        await CloseAsync(client, s.Case, final: true);
+        await ReasonedDecisionAsync(s.Id);
+        var (dossier, rowVersion) = await HeaderOf(client, s.Case);
+
+        // client decision D1: primary, secondary, assistant, Kryetar (own office) — not the Protokoll
+        foreach (var email in new[] { "avokat2@ash.local", "ndihmes@ash.local", "kryetar@ash.local" })
         {
-            await Problem(await Archive(secondary, dossier, rowVersion), HttpStatusCode.Forbidden);
+            using var other = s.As(email);
+            (await PermissionsOf(other, s.Case)).ShouldContain("decision.close_final", email);
+        }
+
+        using (var protokoll = s.As("protokoll@ash.local"))
+        {
+            // the Protokoll does not see an ACTIVE / CLOSED case of the office at all
+            await Problem(await Archive(protokoll, dossier, rowVersion), HttpStatusCode.NotFound);
         }
 
         var outsider = (string)(await Scalar($"SELECT email FROM users WHERE id = {s.Seed.User("drlawyer").Id}"))!;
@@ -205,6 +273,7 @@ public class ArchiveTests(MySqlFixture db) : IntegrationTest(db)
         try
         {
             await CloseAsync(client, level2Public, final: true);
+            await ReasonedDecisionAsync(level2);
             // only the latest level offers archiving
             (await PermissionsOf(client, s.Case)).ShouldNotContain("decision.close_final");
             var (dossier, rowVersion) = await HeaderOf(client, level2Public);
