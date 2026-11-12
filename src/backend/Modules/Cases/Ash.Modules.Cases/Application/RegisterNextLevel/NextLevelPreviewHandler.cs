@@ -9,7 +9,7 @@ namespace Ash.Modules.Cases.Application.RegisterNextLevel;
 
 public sealed record NextLevelPreviewParty(string Role, string Kind, string DisplayName, string? Identifier);
 
-/// <summary>An active institution link that will be copied, with its CURRENT mode (the new level may turn DELEGATED into MONITORING).</summary>
+/// <summary>An institution link the new level will get: always MONITORING (client decision B.1; no delegation is copied).</summary>
 public sealed record NextLevelPreviewLink(string Institution, string Mode);
 
 /// <summary>What continuing this level will copy: the object and the parties, plus the institution links.</summary>
@@ -48,12 +48,9 @@ internal sealed class NextLevelPreviewHandler(
             .Where(p => p.CaseId == previous.Id && p.DeletedAt == null)
             .OrderBy(p => p.Id)
             .ToListAsync(ct);
-        var links = await db.CaseInstitutions.AsNoTracking()
-            .Where(l => l.CaseId == previous.Id && l.EndedAt == null)
-            .OrderBy(l => l.Id)
-            .ToListAsync(ct);
-        var linked = (await institutions.GetByIdsAsync(links.Select(l => (long)l.InstitutionId).ToList(), ct))
-            .ToDictionary(i => i.Id);
+        // the links the new level gets: MONITORING for each institution party (client decision B.1)
+        var institutionIds = RegisterNextLevelHandler.InstitutionIds(parties);
+        var linked = (await institutions.GetByIdsAsync(institutionIds, ct)).ToDictionary(i => i.Id);
 
         var response = new NextLevelPreviewResponse(
             previous.CaseCode,
@@ -63,8 +60,8 @@ internal sealed class NextLevelPreviewHandler(
             parties.Select(p => new NextLevelPreviewParty(
                     roles.GetValueOrDefault(p.PartyRoleId)?.Name ?? string.Empty, p.PartyKind, p.DisplayName, p.Identifier))
                 .ToList(),
-            links.Select(l => new NextLevelPreviewLink(
-                    linked.TryGetValue(l.InstitutionId, out var i) ? i.Name : string.Empty, l.LinkMode))
+            institutionIds.Select(id => new NextLevelPreviewLink(
+                    linked.TryGetValue(id, out var i) ? i.Name : string.Empty, CaseInstitution.Monitoring))
                 .ToList());
 
         var caseId = (long)previous.Id;

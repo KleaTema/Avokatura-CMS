@@ -566,7 +566,7 @@ export function RegistrationForm({
           onRegisterAnyway={() => void send(duplicate.values, true)}
           onContinueNext={() => {
             leaveAllowed.current = true // the user chose to leave this form
-            navigate(`/cases/continue?q=${encodeURIComponent(duplicate.values.actNumber.trim())}`)
+            navigate(`/cases/continue?actNumber=${encodeURIComponent(duplicate.values.actNumber.trim())}`)
           }}
         />
       )}

@@ -390,47 +390,50 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         (await Json(response)).GetProperty("code").GetString().ShouldBe("case.dossier_archived");
     }
 
-    [Fact]
-    public async Task Delegated_link_becomes_monitoring_at_a_level_without_delegation()
+    [Theory]
+    [InlineData("Gjykata e Apelit Tiranë", "APPEAL", "Genc", "Muçaj")] // a level that allows delegation
+    [InlineData("Gjykata e Lartë", "HIGH_COURT", "Fatmir", "Hysëni")] // one that does not
+    public async Task B1_next_level_copies_only_parties_and_object_institution_parties_are_linked_as_monitoring(
+        string court, string level, string judgeFirst, string judgeLast)
     {
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser(Protokoll);
         var first = await RegisterFirstLevel(client);
-        await DelegateWithSql(first.Id, "RELATIM");
+        // X/1 delegated to the ministry (party) with its category, plus a link to an institution that is NOT a party
+        await DelegateWithSql(first.Id, "DELEGIM");
+        await Scalar($"""
+            INSERT INTO case_institutions (case_id, institution_id, link_mode, started_at, started_by)
+            SELECT {first.Id}, i.id, 'MONITORING', UTC_TIMESTAMP(3), u.id
+              FROM institutions i JOIN users u ON u.email = 'kryetar@ash.local'
+             WHERE i.name <> '{Ministry}' ORDER BY i.id LIMIT 1;
+            """);
+
+        // the preview says what the new level gets: the ministry, as MONITORING
+        var preview = await Json(await client.GetAsync(PreviewPath(first.PublicId), Ct));
+        preview.GetProperty("institutionLinks").EnumerateArray()
+            .Select(l => $"{l.GetProperty("institution").GetString()}|{l.GetProperty("mode").GetString()}")
+            .ShouldBe([$"{Ministry}|MONITORING"]);
 
         var response = await client.PostAsJsonAsync(NextLevelPath(first.PublicId),
-            await NextLevelBody("Gjykata e Lartë", "HIGH_COURT", "Fatmir", "Hysëni"), Ct); // HIGH_COURT: allows_delegation = 0
+            await NextLevelBody(court, level, judgeFirst, judgeLast), Ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         var created = await Json(response);
         created.GetProperty("warnings").EnumerateArray()
-            .ShouldContain(w => w.GetProperty("code").GetString() == "institution.delegation_not_allowed");
+            .ShouldNotContain(w => w.GetProperty("code").GetString()!.StartsWith("institution."));
         var nextId = Convert.ToInt64(await Scalar($"SELECT id FROM cases WHERE case_code = '{created.GetProperty("caseCode").GetString()}'"));
-        (await Scalar($"SELECT link_mode FROM case_institutions WHERE case_id = {nextId}")).ShouldBe("MONITORING");
-        // monitoring again: no delegation category (task 027) — the lawyer sets the category
-        (await Scalar($"SELECT category_id FROM cases WHERE id = {nextId}")).ShouldBe(DBNull.Value);
-        (await Scalar($"SELECT link_mode FROM case_institutions WHERE case_id = {first.Id}")).ShouldBe("DELEGATED"); // X/1 unchanged
-        (await Scalar($"SELECT c.code FROM cases x JOIN case_categories c ON c.id = x.category_id WHERE x.id = {first.Id}")).ShouldBe("RELATIM");
-    }
-
-    [Fact]
-    public async Task Delegated_link_and_its_category_continue_at_a_level_with_delegation()
-    {
-        await using var factory = new AshApiFactory(Db);
-        using var client = factory.CreateClient().AsUser(Protokoll);
-        var first = await RegisterFirstLevel(client);
-        await DelegateWithSql(first.Id, "DELEGIM");
-
-        var response = await client.PostAsJsonAsync(NextLevelPath(first.PublicId), await NextLevelBody(), Ct); // APPEAL allows it
-
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var created = await Json(response);
-        created.GetProperty("warnings").EnumerateArray()
-            .ShouldNotContain(w => w.GetProperty("code").GetString() == "institution.delegation_not_allowed");
-        var nextId = Convert.ToInt64(await Scalar($"SELECT id FROM cases WHERE case_code = '{created.GetProperty("caseCode").GetString()}'"));
-        (await Scalar($"SELECT link_mode FROM case_institutions WHERE case_id = {nextId}")).ShouldBe("DELEGATED");
-        (await Scalar($"SELECT c.code FROM cases x JOIN case_categories c ON c.id = x.category_id WHERE x.id = {nextId}")).ShouldBe("DELEGIM");
-        (await Scalar($"SELECT subcategory_id FROM cases WHERE id = {nextId}")).ShouldBe(DBNull.Value);
+        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {nextId} AND deleted_at IS NULL")).ShouldBe(3L);
+        (await Scalar($"SELECT object_text FROM cases WHERE id = {nextId}")).ShouldBe("Kërkesë për shpërblim dëmi — objekti i shkallës së parë");
+        (await Scalar($"""
+            SELECT GROUP_CONCAT(CONCAT(i.name, '|', l.link_mode)) FROM case_institutions l JOIN institutions i ON i.id = l.institution_id
+            WHERE l.case_id = {nextId} AND l.ended_at IS NULL
+            """)).ShouldBe($"{Ministry}|MONITORING");
+        // no category, subcategory or delegation: the new lawyer sets them
+        (await Scalar($"SELECT CONCAT_WS('|', IFNULL(category_id, '-'), IFNULL(subcategory_id, '-')) FROM cases WHERE id = {nextId}")).ShouldBe("-|-");
+        // X/1 unchanged
+        (await Scalar($"SELECT link_mode FROM case_institutions l JOIN institutions i ON i.id = l.institution_id WHERE l.case_id = {first.Id} AND i.name = '{Ministry}'"))
+            .ShouldBe("DELEGATED");
+        (await Scalar($"SELECT c.code FROM cases x JOIN case_categories c ON c.id = x.category_id WHERE x.id = {first.Id}")).ShouldBe("DELEGIM");
     }
 
     /// <summary>A delegation as task 027 writes it: the link DELEGATED and the category DELEGIM / RELATIM.</summary>
@@ -439,74 +442,217 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         UPDATE cases SET category_id = (SELECT id FROM case_categories WHERE code = '{category}'), subcategory_id = NULL WHERE id = {caseId};
         """);
 
-    private static async Task<JsonElement> Search(HttpClient client, string q)
+    private Task<object?> CloseWithSql(string caseCode) => Scalar($"""
+        UPDATE cases SET lifecycle_status = 'CLOSED', closed_at = UTC_TIMESTAMP(3),
+               closed_by = (SELECT id FROM users WHERE email = 'kryetar@ash.local')
+        WHERE case_code = '{caseCode}'
+        """);
+
+    [Fact]
+    public async Task B4_a_retrial_may_continue_at_any_court_level_also_a_lower_one()
     {
-        var response = await client.GetAsync($"/api/cases/registration-search?q={Uri.EscapeDataString(q)}", Ct);
-        response.StatusCode.ShouldBe(HttpStatusCode.OK, q);
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        var first = await RegisterFirstLevel(client);
+        // a category with its subcategory on /1: neither is copied (B.1)
+        await Scalar($"""
+            UPDATE cases x JOIN case_subcategories s ON s.category_id = (SELECT id FROM case_categories WHERE code = 'NDJEKJE')
+               SET x.category_id = s.category_id, x.subcategory_id = s.id
+             WHERE x.id = {first.Id}
+            """);
+
+        // /1 Shkalla I → /2 Apel → /3 Gjykata e Lartë → /4 Shkalla I again (sent back for retrial)
+        var steps = new[]
+        {
+            await NextLevelBody(),
+            await NextLevelBody("Gjykata e Lartë", "HIGH_COURT", "Fatmir", "Hysëni"),
+            await NextLevelBody("Gjykata e Shkallës së Parë Tiranë", "FIRST_INSTANCE", "Ilir", "Gjyqtari"),
+        };
+        var previous = first.PublicId;
+        var codes = new List<string>();
+        foreach (var body in steps)
+        {
+            var response = await client.PostAsJsonAsync(NextLevelPath(previous), body, Ct);
+            response.StatusCode.ShouldBe(HttpStatusCode.Created, string.Join(",", codes));
+            var created = await Json(response);
+            codes.Add(created.GetProperty("caseCode").GetString()!);
+            previous = created.GetProperty("casePublicId").GetGuid();
+            await CloseWithSql(codes[^1]);
+        }
+
+        codes.ShouldBe([$"{first.UniqueCode}/2", $"{first.UniqueCode}/3", $"{first.UniqueCode}/4"]);
+        (await Scalar($"""
+            SELECT GROUP_CONCAT(l.code ORDER BY c.level_seq) FROM cases c JOIN court_levels l ON l.id = c.court_level_id
+            WHERE c.dossier_id = (SELECT dossier_id FROM cases WHERE id = {first.Id})
+            """)).ShouldBe("FIRST_INSTANCE,APPEAL,HIGH_COURT,FIRST_INSTANCE");
+        (await Scalar($"SELECT COUNT(*) FROM cases WHERE case_code = '{codes[0]}' AND category_id IS NULL AND subcategory_id IS NULL")).ShouldBe(1L);
+        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = (SELECT id FROM cases WHERE case_code = '{codes[^1]}') AND deleted_at IS NULL"))
+            .ShouldBe(3L);
+    }
+
+    private const string SearchPath = "/api/cases/registration-search";
+
+    /// <summary>GET the search with the given filters ("name=value&amp;…", values escaped here).</summary>
+    private static async Task<JsonElement> Search(HttpClient client, params (string Name, object Value)[] filters)
+    {
+        var response = await client.GetAsync(SearchUrl(filters), Ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, SearchUrl(filters));
         return await Json(response);
     }
+
+    private static string SearchUrl(params (string Name, object Value)[] filters) =>
+        SearchPath + "?" + string.Join('&', filters.Select(f => $"{f.Name}={Uri.EscapeDataString(f.Value.ToString()!)}"));
 
     private static JsonElement? Find(JsonElement page, string caseCode) =>
         page.GetProperty("items").EnumerateArray().Cast<JsonElement?>()
             .FirstOrDefault(i => i!.Value.GetProperty("caseCode").GetString() == caseCode);
 
     [Fact]
-    public async Task Registration_search_finds_the_latest_level_by_code_act_number_party_name_and_nipt()
+    public async Task B2_each_search_field_finds_the_dossier_on_any_level_and_shows_its_latest_level()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+        await using var seed = await Seed.CreateAsync(Db.AppConnectionString);
+        var first = await RegisterFirstLevel(client);
+        var next = await client.PostAsJsonAsync(NextLevelPath(first.PublicId), await NextLevelBody(), Ct);
+        var latest = (await Json(next)).GetProperty("caseCode").GetString()!;
+        await CloseWithSql(latest);
+        // on /1 only: a category with its subcategory and a decision result
+        await Scalar($"""
+            UPDATE cases x JOIN case_subcategories s ON s.category_id = (SELECT id FROM case_categories WHERE code = 'NDJEKJE')
+               SET x.category_id = s.category_id, x.subcategory_id = s.id
+             WHERE x.id = {first.Id};
+            INSERT INTO case_decisions (case_id, result_id, recorded_by)
+            SELECT {first.Id}, (SELECT id FROM decision_results ORDER BY id LIMIT 1), id FROM users WHERE email = 'avokat1@ash.local';
+            """);
+        var subcategory = (string)(await Scalar($"SELECT s.code FROM cases x JOIN case_subcategories s ON s.id = x.subcategory_id WHERE x.id = {first.Id}"))!;
+        var result = (string)(await Scalar("SELECT code FROM decision_results ORDER BY id LIMIT 1"))!;
+        var otherResult = (string)(await Scalar("SELECT code FROM decision_results ORDER BY id DESC LIMIT 1"))!;
+        var firstCourt = await seed.CourtAsync("Gjykata e Shkallës së Parë Tiranë");
+        var appealCourt = await seed.CourtAsync("Gjykata e Apelit Tiranë");
+        var firstJudge = await seed.JudgeAsync("Ilir", "Gjyqtari");
+
+        var hits = new (string, object)[][]
+        {
+            [("code", first.UniqueCode)], [("code", first.CaseCode)], [("code", first.UniqueCode[^4..])],
+            [("actNumber", first.ActNumber)], [("actNumber", first.ActNumber[2..10])],
+            [("courtId", firstCourt)], [("courtId", appealCourt)], [("judgeId", firstJudge)],
+            [("plaintiff", "agim hox")], [("plaintiff", "oxha")],
+            [("defendant", "financ")], [("defendant", "k12345678a")], [("defendant", "SHOQERIA")],
+            [("object", "shperblim demi")],
+            [("category", "NDJEKJE")], [("subcategory", subcategory)], [("result", result)],
+            // combined: every filter must match (each on any level of the dossier)
+            [("plaintiff", "agim"), ("courtId", appealCourt), ("result", result)],
+            [("CODE", first.UniqueCode)], // parameter names are case-insensitive
+        };
+        foreach (var filters in hits)
+        {
+            var page = await Search(client, filters);
+            var item = Find(page, latest);
+            item.ShouldNotBeNull(SearchUrl(filters)); // the dossier is shown by its latest level, whatever level matched
+            Find(page, first.CaseCode).ShouldBeNull(SearchUrl(filters));
+            item.Value.GetProperty("canContinue").GetBoolean().ShouldBeTrue();
+            item.Value.GetProperty("partyCount").GetInt32().ShouldBe(3);
+            item.Value.GetProperty("courtName").GetString().ShouldBe("Gjykata e Apelit Tiranë");
+            item.Value.GetProperty("objectSnippet").GetString().ShouldBe("Kërkesë për shpërblim dëmi — objekti i shkallës së parë");
+            item.Value.TryGetProperty("objectText", out _).ShouldBeFalse();
+        }
+
+        var misses = new (string, object)[][]
+        {
+            [("code", first.ActNumber)], // the code filter looks in the case code only
+            [("actNumber", first.UniqueCode)],
+            [("defendant", "agim hox")], // Agim is a plaintiff
+            [("plaintiff", "financ")],
+            [("plaintiff", "agim"), ("result", otherResult)],
+            [("object", "pronesi")],
+            [("category", "DELEGIM")],
+            [("code", "%%")], // '%' is literal text, not a wildcard
+        };
+        foreach (var filters in misses)
+        {
+            Find(await Search(client, filters), latest).ShouldBeNull(SearchUrl(filters));
+        }
+    }
+
+    [Fact]
+    public async Task B2_invalid_or_missing_filters_are_a_400_per_field()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+
+        async Task<JsonElement> Errors(string query)
+        {
+            var response = await client.GetAsync($"{SearchPath}{query}", Ct);
+            response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, query);
+            return (await Json(response)).GetProperty("errors");
+        }
+
+        (await Errors("")).TryGetProperty("filters", out _).ShouldBeTrue();
+        (await Errors("?q=agim")).TryGetProperty("filters", out _).ShouldBeTrue(); // the old free text is no filter
+        var many = await Errors("?plaintiff=a&courtId=abc&category=NOPE&result=NOPE&status=NOPE");
+        foreach (var field in new[] { "plaintiff", "courtId", "category", "result", "status" })
+        {
+            many.TryGetProperty(field, out _).ShouldBeTrue(field);
+        }
+    }
+
+    [Fact]
+    public async Task B2_the_filter_list_names_each_field_with_its_control()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(Protokoll);
+
+        var filters = await Json(await client.GetAsync($"{SearchPath}/filters", Ct));
+
+        filters.EnumerateArray()
+            .Select(f => $"{f.GetProperty("name").GetString()}|{f.GetProperty("input").GetString()}|" +
+                         (f.TryGetProperty("dependsOn", out var on) ? on.GetString() : null))
+            .ShouldBe([
+                "code|Text|", "actNumber|Text|", "courtId|Court|", "judgeId|Judge|courtId", "plaintiff|Text|", "defendant|Text|",
+                "object|Text|", "category|Category|", "subcategory|Subcategory|category", "result|DecisionResult|"
+            ]);
+        using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
+        (await lawyer.GetAsync($"{SearchPath}/filters", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task B3_the_result_shows_a_short_snippet_of_a_long_object()
     {
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser(Protokoll);
         var first = await RegisterFirstLevel(client);
-        var next = await client.PostAsJsonAsync(NextLevelPath(first.PublicId), await NextLevelBody(), Ct);
-        var latest = (await Json(next)).GetProperty("caseCode").GetString()!;
-        await Scalar($"UPDATE cases SET lifecycle_status = 'CLOSED', closed_at = UTC_TIMESTAMP(3), closed_by = (SELECT id FROM users WHERE email = 'kryetar@ash.local') WHERE case_code = '{latest}'");
+        var words = string.Join("  \n ", Enumerable.Range(1, 60).Select(i => $"fjala{i}"));
+        await Scalar($"UPDATE cases SET object_text = '{words}' WHERE id = {first.Id}");
 
-        foreach (var q in new[] { first.UniqueCode, first.CaseCode, first.ActNumber, "financ", "agim hox", "k12345678a" })
-        {
-            var page = await Search(client, q);
-            var item = Find(page, latest);
-            item.ShouldNotBeNull(q); // the dossier is shown by its latest level, whatever level matched
-            Find(page, first.CaseCode).ShouldBeNull(q);
-            item.Value.GetProperty("canContinue").GetBoolean().ShouldBeTrue();
-            item.Value.GetProperty("partyCount").GetInt32().ShouldBe(3);
-            item.Value.GetProperty("courtName").GetString().ShouldBe("Gjykata e Apelit Tiranë");
-            item.Value.TryGetProperty("objectText", out _).ShouldBeFalse();
-        }
+        var snippet = Find(await Search(client, ("code", first.CaseCode)), first.CaseCode)!.Value
+            .GetProperty("objectSnippet").GetString()!;
 
-        // '%' is literal text, not a wildcard; one character is too short
-        (await Search(client, "%%")).GetProperty("items").GetArrayLength().ShouldBe(0);
-        (await client.GetAsync("/api/cases/registration-search?q=a", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        snippet.ShouldEndWith("…");
+        snippet.Length.ShouldBeLessThanOrEqualTo(121);
+        snippet.ShouldStartWith("fjala1 fjala2 fjala3"); // on one line
+        words.Replace("  \n ", " ").ShouldStartWith(snippet[..^1]); // cut at a word
     }
 
     [Fact]
-    public async Task Registration_search_matches_inside_codes_names_and_nipt_and_filters_by_status()
+    public async Task Registration_search_filters_by_status()
     {
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser(Protokoll);
         var closed = await RegisterFirstLevel(client);
         var open = await RegisterFirstLevel(client, close: false);
 
-        // substring (ngram, script 014): the end of the dossier number, inside a name, inside the NIPT, accents folded
-        foreach (var q in new[] { closed.UniqueCode[^4..], "gim ho", "oxha", "2345678", "inan", "SHOQERIA" })
-        {
-            var page = await Search(client, q);
-            Find(page, closed.CaseCode).ShouldNotBeNull(q);
-            page.GetProperty("total").GetInt32().ShouldBe(page.GetProperty("items").GetArrayLength(), q);
-        }
+        var page = await Search(client, ("plaintiff", "oxha"));
+        Find(page, closed.CaseCode).ShouldNotBeNull();
+        Find(page, open.CaseCode).ShouldNotBeNull();
+        page.GetProperty("total").GetInt32().ShouldBe(page.GetProperty("items").GetArrayLength());
 
-        async Task<JsonElement> WithStatus(string status)
-        {
-            var response = await client.GetAsync($"/api/cases/registration-search?q=oxha&status={status}", Ct);
-            response.StatusCode.ShouldBe(HttpStatusCode.OK, status);
-            return await Json(response);
-        }
-
-        var closedOnly = await WithStatus("CLOSED");
+        var closedOnly = await Search(client, ("plaintiff", "oxha"), ("status", "CLOSED"));
         Find(closedOnly, closed.CaseCode).ShouldNotBeNull();
         Find(closedOnly, open.CaseCode).ShouldBeNull();
-        var openOnly = await WithStatus("OPEN");
+        var openOnly = await Search(client, ("plaintiff", "oxha"), ("status", "OPEN"));
         Find(openOnly, open.CaseCode).ShouldNotBeNull();
         Find(openOnly, closed.CaseCode).ShouldBeNull();
-        (await client.GetAsync("/api/cases/registration-search?q=oxha&status=NOPE", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -516,7 +662,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         using var client = factory.CreateClient().AsUser(Protokoll);
         var open = await RegisterFirstLevel(client, close: false);
 
-        var item = Find(await Search(client, open.ActNumber), open.CaseCode);
+        var item = Find(await Search(client, ("actNumber", open.ActNumber)), open.CaseCode);
 
         item.ShouldNotBeNull();
         item.Value.GetProperty("canContinue").GetBoolean().ShouldBeFalse();
@@ -532,7 +678,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         var first = await RegisterFirstLevel(protokoll);
         using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
 
-        (await lawyer.GetAsync("/api/cases/registration-search?q=financ", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await lawyer.GetAsync($"{SearchPath}?defendant=financ", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await lawyer.PostAsJsonAsync(NextLevelPath(first.PublicId), await NextLevelBody(), Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 

@@ -63,4 +63,24 @@ is a MySQL named lock here.
 - `ICaseAccessService.CanView(caseId)` = case profile exists OR `case.view_all` OR (`case.view_office` AND case.office_id = user.office_id) OR the user is the Protokoll who registered it and it is still `REGISTERED`.
 
 ## Case life cycle
-`REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set when a level closes with `is_final = 1`. A closed case can continue as X/n+1 (appeal, recourse, retrial).
+`REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set by "Arkivo" only when the latest level is closed, final, and its reasoned decision has arrived with a clean document (task 053a, `ArchiveRule`). A closed case can continue as X/n+1 at any court level, a lower one too (appeal, recourse, retrial). X/n+1 copies only the parties and the object; each institution party gets a MONITORING link. Category, subcategory and delegation are not copied (client decision B.1).
+
+## Registration search filters (task 053b)
+The "Vazhdo çështje ekzistuese" search (`GET /api/cases/registration-search`) is built from a registry of filters in `Modules/Cases/.../Application/RegistrationSearch/Filters`:
+
+- **One class per filter.** Each derives from `RegistrationSearchFilter` (directly or through `TextFilter`, `PartyFilter`, `IdFilter`, `CodeFilter`) and gives:
+  - `Name`: the query parameter, also the field key of a 400 error;
+  - `Order`;
+  - the UI metadata: `Input` (which control) and `DependsOn` (the filter that narrows its choices);
+  - the SQL predicate over one level `a` of the dossier. Values always go in parameters named after the filter.
+- **Registry.** `RegistrationSearchFilters` finds every subclass by reflection. The endpoint reads them from the query string, the OpenAPI document lists them as typed query parameters (so `gen:api` types them), and `GET …/registration-search/filters` returns `{ name, input, dependsOn }` for the page.
+- **Semantics:**
+  - every given filter must match, each on any level of the dossier, and the dossier is shown by its latest level;
+  - unknown parameters are ignored;
+  - no filter at all is a 400.
+
+**To add a filter:**
+1. Add one class (e.g. `internal sealed class SummonsNumberSearchFilter : TextFilter` with `Name`, `Order` and `Predicate`). Nothing to register.
+2. Restart the API and run `npm run gen:api`.
+3. Add one UI entry: its label in `sq.cases.continue.filters` (src/frontend/src/i18n/sq.ts). Only if it needs a new `Input` kind, add a renderer for that kind in `pages/cases/ContinueCase.tsx`.
+4. Add a test case in `NextLevelTests.B2_each_search_field…`, and update `B2_the_filter_list…`.

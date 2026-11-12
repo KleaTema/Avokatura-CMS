@@ -3,6 +3,7 @@ using Ash.AspNetCore.Http;
 using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Application.RegisterNextLevel;
 using Ash.Modules.Cases.Application.RegistrationSearch;
+using Ash.Modules.Cases.Application.RegistrationSearch.Filters;
 using Ash.SharedKernel.Paging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -28,17 +29,28 @@ public static class RegistrationEndpoints
             .WithName("RegisterCase");
 
         // Find the existing dispute a new summons belongs to (task 018): a registration lookup, not case.view.
+        // The filter parameters come from the registry (task 053b), read from the query string and added to OpenAPI.
         endpoints.MapGet("/api/cases/registration-search",
-                async (string? q, int? courtId, string? after, int? limit, string? status, RegistrationSearchHandler handler,
+                async (HttpRequest request, string? after, int? limit, string? status, RegistrationSearchHandler handler,
                     CancellationToken ct) =>
                 {
-                    var result = await handler.Handle(new RegistrationSearchQuery(q, courtId, after, limit, status), ct);
+                    var filters = RegistrationSearchFilters.FromQuery(request.Query)
+                        .Select(x => KeyValuePair.Create(x.Filter.Name, x.Value))
+                        .ToList();
+                    var result = await handler.Handle(new RegistrationSearchQuery(filters, after, limit, status), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequirePermission("case.link_previous")
+            .AddOpenApiOperationTransformer(RegistrationSearchFilters.AddToOpenApi)
             .Produces<KeysetPage<RegistrationSearchItem>>()
             .ProducesValidationProblem()
             .WithName("SearchCasesForRegistration");
+
+        // The fields of the search form, in order, with the control each one needs (the page renders them).
+        endpoints.MapGet("/api/cases/registration-search/filters", () => Results.Ok(RegistrationSearchFilters.Describe()))
+            .RequirePermission("case.link_previous")
+            .Produces<IReadOnlyList<RegistrationFilterResponse>>()
+            .WithName("ListRegistrationSearchFilters");
 
         endpoints.MapPost("/api/cases/{previousCasePublicId:guid}/next-level",
                 async (Guid previousCasePublicId, RegisterNextLevelRequest req, RegisterNextLevelHandler handler, CancellationToken ct) =>

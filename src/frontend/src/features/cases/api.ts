@@ -1,8 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { api, ApiError, unwrap } from '../../api/client'
-import type { components } from '../../api/schema'
-import { MIN_SERVER_QUERY, normalize } from '../../lib/search'
+import type { components, paths } from '../../api/schema'
+import { normalize } from '../../lib/search'
 
 export type RegisterCaseRequest = components['schemas']['RegisterCaseRequest']
 export type RegisterCaseResponse = components['schemas']['RegisterCaseResponse']
@@ -619,30 +619,51 @@ export const toNextLevelRequest = (r: RegisterCaseRequest): RegisterNextLevelReq
   confirmPossibleDuplicate: r.confirmPossibleDuplicate,
 })
 
-/**
- * Dossiers by any part of the code, act number, party name or NIPT — Protokoll's registration lookup, one page with
- * the total. status '' = every status, 'OPEN' | 'CLOSED'.
- */
-export const useRegistrationSearch = (q: string, courtId: string, status: string, p: PageRequest) =>
+export type RegistrationFilter = components['schemas']['RegistrationFilterResponse']
+type RegistrationSearchQuery = NonNullable<paths['/api/cases/registration-search']['get']['parameters']['query']>
+/** The filter parameters (code, actNumber, courtId, …) — generated from the server's filter registry (task 053b). */
+export type RegistrationFilterName = Exclude<keyof RegistrationSearchQuery, 'after' | 'limit' | 'status'>
+export type RegistrationFilterValues = Partial<Record<RegistrationFilterName, string>>
+
+/** The fields of the search form, in order, with their control (GET …/registration-search/filters). */
+export const useRegistrationFilters = () =>
   useQuery({
-    queryKey: ['registration-search', q, courtId, status, p.cursor ?? null, p.size] as const,
-    enabled: q.length >= MIN_SERVER_QUERY,
+    queryKey: ['registration-search', 'filters'] as const,
+    staleTime: Infinity,
+    queryFn: () => api.GET('/api/cases/registration-search/filters').then(unwrap),
+  })
+
+/** Court and judge are ids; every other filter is text or a code. */
+const NUMERIC_INPUTS = new Set(['Court', 'Judge'])
+
+/**
+ * Dossiers matching every given filter (each on any level of the dossier) — Protokoll's registration lookup, one page
+ * with the total. Values '' are not sent; status '' = every status, 'OPEN' | 'CLOSED'. Disabled without a filter.
+ */
+export const useRegistrationSearch = (
+  filters: RegistrationFilter[],
+  values: RegistrationFilterValues,
+  status: string,
+  p: PageRequest,
+) => {
+  const entries = filters
+    .map((f) => [f.name, values[f.name as RegistrationFilterName] ?? '', f.input] as const)
+    .filter(([, value]) => value !== '')
+  const query = Object.fromEntries(
+    entries.map(([name, value, input]) => [name, NUMERIC_INPUTS.has(input) ? Number(value) : value]),
+  ) as Partial<RegistrationSearchQuery>
+  return useQuery({
+    queryKey: ['registration-search', query, status, p.cursor ?? null, p.size] as const,
+    enabled: entries.length > 0,
     placeholderData: keepPreviousData,
     queryFn: () =>
       api
         .GET('/api/cases/registration-search', {
-          params: {
-            query: {
-              q,
-              courtId: courtId ? Number(courtId) : undefined,
-              status: status || undefined,
-              after: p.cursor,
-              limit: p.size,
-            },
-          },
+          params: { query: { ...query, status: status || undefined, after: p.cursor, limit: p.size } },
         })
         .then(unwrap),
   })
+}
 
 /** Who "Njofto…" reaches (GET …/notify-not-closed/recipients): the primary lawyer if any, and the Kryetar. */
 export const useNotifyRecipients = (caseId: string) =>
@@ -719,7 +740,7 @@ export async function hasCaseWithActNumber(actNumber: string): Promise<boolean> 
   const wanted = normalize(actNumber.trim())
   try {
     const page = await api
-      .GET('/api/cases/registration-search', { params: { query: { q: actNumber.trim(), limit: 50 } } })
+      .GET('/api/cases/registration-search', { params: { query: { actNumber: actNumber.trim(), limit: 50 } } })
       .then(unwrap)
     return page.items.some((item) => normalize(item.actNumber) === wanted)
   } catch {

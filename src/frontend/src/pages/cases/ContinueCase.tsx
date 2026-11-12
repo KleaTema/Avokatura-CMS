@@ -11,6 +11,7 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { JudgePicker, type PickedJudge } from '../../components/JudgePicker'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
 import { CaseCode } from '../../components/ui/CaseCode'
@@ -23,17 +24,21 @@ import {
   useNextLevelPreview,
   useNotifyRecipients,
   useRegisterNextLevel,
+  useRegistrationFilters,
   useRegistrationSearch,
   type NextLevelPreview,
+  type RegistrationFilter,
+  type RegistrationFilterName,
+  type RegistrationFilterValues,
   type RegistrationSearchItem,
 } from '../../features/cases/api'
 import { useMe } from '../../features/identity/api'
-import { useCourts } from '../../features/reference/api'
+import { useCaseCategories, useCaseSubcategories, useCourts, useDecisionResults } from '../../features/reference/api'
 import { sq } from '../../i18n/sq'
 import { formatTiraneDate } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
-import { MIN_SERVER_QUERY, serverQuery } from '../../lib/search'
+import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
 import { useUrlSearch } from '../../lib/useUrlSearch'
 
@@ -63,52 +68,96 @@ export function ContinueCasePage() {
 
 // ---------------------------------------------------------------- search
 
+/** URL parameters that only label a chosen value (not sent to the API). */
+const JUDGE_NAME = 'judgeName'
+
 function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const me = useMe(true)
   const canCreate = me.data?.permissions.includes('case.create') ?? false
-  const [search, setSearch] = useUrlSearch()
-  const [courtId, setCourtId] = useUrlSearch('court')
+  const [params, setParams] = useSearchParams()
   const [status, setStatus] = useUrlSearch('status')
-  const q = useDebounced(serverQuery(search), 300)
-  const courts = useCourts()
+  const filters = useRegistrationFilters()
+  const fields = filters.data ?? []
+
+  // every filter lives in the URL under its own name (?actNumber=… opens from the duplicate dialog)
+  const raw: RegistrationFilterValues = Object.fromEntries(fields.map((f) => [f.name, params.get(f.name) ?? '']))
+  const set = (changes: Record<string, string>) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, value] of Object.entries(changes)) {
+          if (value) next.set(key, value)
+          else next.delete(key)
+        }
+        return next
+      },
+      { replace: true },
+    )
+  // a filter's value goes, and so do the values that depend on it (court → judge, category → subcategory)
+  const change = (name: string, value: string) => {
+    const changes: Record<string, string> = { [name]: value }
+    for (const f of fields) {
+      if (f.dependsOn !== name) continue
+      changes[f.name] = ''
+      if (f.input === 'Judge') changes[JUDGE_NAME] = ''
+    }
+    set(changes)
+  }
+  const clear = () => set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, '']]))
+
+  // texts count from 2 characters, after a pause; chosen values at once
+  // (debounced as a string: `raw` is a new object on every render)
+  const typed = JSON.parse(useDebounced(JSON.stringify(raw), 300)) as RegistrationFilterValues
+  const values: RegistrationFilterValues = Object.fromEntries(
+    fields.map((f) => {
+      const key = f.name as RegistrationFilterName
+      return [f.name, f.input === 'Text' ? serverQuery(typed[key] ?? '') : (raw[key] ?? '')]
+    }),
+  )
+  const searched = Object.values(values).some((v) => v)
   const paging = useKeysetPaging()
   // every status unless one is chosen: the closed level is the one to continue
-  const results = useRegistrationSearch(q, courtId, status, { cursor: paging.cursor, size: paging.size })
+  const results = useRegistrationSearch(fields, values, status, { cursor: paging.cursor, size: paging.size })
   const [notifyFor, setNotifyFor] = useState<RegistrationSearchItem | null>(null)
 
   const items = results.data?.items ?? []
-  const searched = q.length >= MIN_SERVER_QUERY
 
   return (
     <Stack spacing={3}>
       <PageHeader title={t.title} />
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-        <TextField
-          label={t.search}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          autoFocus
-          sx={{ flex: 2 }}
-          slotProps={{ htmlInput: { maxLength: 100 } }}
-        />
-        <Box sx={{ flex: 1 }}>
-          <OptionPicker
-            filter
-            options={(courts.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
-            value={courtId}
-            onChange={setCourtId}
-            label={t.court}
+      {filters.isPending && <CircularProgress aria-label={sq.errors.loading} />}
+      {filters.isError && <Alert severity="error">{problemMessage(filters.error)}</Alert>}
+      <Box
+        sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' } }}
+        role="search"
+      >
+        {fields.map((f, i) => (
+          <FilterField
+            key={f.name}
+            filter={f}
+            value={raw[f.name as RegistrationFilterName] ?? ''}
+            parentValue={f.dependsOn ? (raw[f.dependsOn as RegistrationFilterName] ?? '') : ''}
+            judgeName={params.get(JUDGE_NAME) ?? ''}
+            onChange={(value) => change(f.name, value)}
+            onJudge={(judge) => set({ judgeId: judge?.id ?? '', [JUDGE_NAME]: judge?.name ?? '' })}
+            autoFocus={i === 0}
           />
-        </Box>
+        ))}
         <AppSelect
           filter
           label={t.status}
           value={status}
           onChange={setStatus}
           options={Object.entries(t.statuses).map(([value, label]) => ({ value, label }))}
-          sx={{ width: { xs: '100%', md: 200 } }}
         />
-      </Stack>
+      </Box>
+      {searched && (
+        <Box>
+          <Button size="small" onClick={clear}>
+            {t.clearFilters}
+          </Button>
+        </Box>
+      )}
 
       {!searched && <Typography color="text.secondary">{t.typeToSearch}</Typography>}
       {searched && results.isPending && <CircularProgress aria-label={sq.errors.loading} />}
@@ -116,10 +165,10 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
 
       {searched && results.isSuccess && items.length === 0 && (
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography>{sq.search.noResults(search.trim())}</Typography>
+          <Typography>{t.noResults}</Typography>
           <Stack direction="row" spacing={2} sx={{ mt: 1, alignItems: 'center' }}>
-            <Button size="small" onClick={() => setSearch('')}>
-              {sq.search.clear}
+            <Button size="small" onClick={clear}>
+              {t.clearFilters}
             </Button>
             {canCreate && (
               <MuiLink component={Link} to="/cases/register">
@@ -165,6 +214,104 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   )
 }
 
+/**
+ * One search field, by the control the server names for it (filter.input). A new filter of an existing input needs
+ * only its label in sq.cases.continue.filters; a new input needs a case here (docs/architecture.md).
+ */
+function FilterField({
+  filter,
+  value,
+  parentValue,
+  judgeName,
+  onChange,
+  onJudge,
+  autoFocus,
+}: {
+  filter: RegistrationFilter
+  value: string
+  /** the value of filter.dependsOn (the court of a judge, the category of a subcategory) */
+  parentValue: string
+  judgeName: string
+  onChange: (value: string) => void
+  onJudge: (judge: PickedJudge | null) => void
+  autoFocus: boolean
+}) {
+  const label = t.filters[filter.name] ?? filter.name
+  const courts = useCourts()
+  const categories = useCaseCategories()
+  const subcategories = useCaseSubcategories()
+  const results = useDecisionResults()
+  const courtName = (id: string | null) => courts.data?.find((c) => String(c.id) === id)?.name
+
+  switch (filter.input) {
+    case 'Court':
+      return (
+        <OptionPicker
+          filter
+          options={(courts.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
+          value={value}
+          onChange={onChange}
+          label={label}
+        />
+      )
+    case 'Judge':
+      return (
+        <JudgePicker
+          filter
+          courtId={parentValue ? Number(parentValue) : null}
+          showAll={!parentValue}
+          courtName={courtName}
+          value={value ? { id: value, name: judgeName, courtId: parentValue || null } : null}
+          onChange={onJudge}
+          label={label}
+        />
+      )
+    case 'Category':
+      return (
+        <AppSelect
+          filter
+          label={label}
+          value={value}
+          onChange={onChange}
+          options={(categories.data ?? []).map((c) => ({ value: c.code, label: c.name }))}
+        />
+      )
+    case 'Subcategory': {
+      const own = (subcategories.data ?? []).filter((s) => s.categoryCode === parentValue)
+      return (
+        <AppSelect
+          filter
+          label={label}
+          value={value}
+          onChange={onChange}
+          disabled={own.length === 0}
+          options={own.map((s) => ({ value: s.code, label: s.name }))}
+        />
+      )
+    }
+    case 'DecisionResult':
+      return (
+        <AppSelect
+          filter
+          label={label}
+          value={value}
+          onChange={onChange}
+          options={(results.data ?? []).map((r) => ({ value: r.code, label: r.name }))}
+        />
+      )
+    default:
+      return (
+        <TextField
+          label={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoFocus={autoFocus}
+          slotProps={{ htmlInput: { maxLength: 100 } }}
+        />
+      )
+  }
+}
+
 function ResultCard({
   item,
   onContinue,
@@ -192,6 +339,11 @@ function ResultCard({
         <Typography>
           {t.actNumber}: {item.actNumber} · {item.courtName}
         </Typography>
+        {item.objectSnippet && (
+          <Typography color="text.secondary">
+            {t.object}: {item.objectSnippet}
+          </Typography>
+        )}
         <Typography>
           {t.parties}: {item.partyNames.join(', ')}
           {hiddenParties > 0 && ` ${t.moreParties(hiddenParties)}`}
@@ -301,13 +453,11 @@ function PreviewPanel({ preview }: { preview: NextLevelPreview }) {
               </li>
             ))}
           </Box>
-          {preview.institutionLinks.some((l) => l.mode === 'DELEGATED') && (
-            <Typography variant="body2" color="text.secondary">
-              {t.delegationNote}
-            </Typography>
-          )}
         </Box>
       )}
+      <Typography variant="body2" color="text.secondary">
+        {t.linksNote}
+      </Typography>
     </FormSection>
   )
 }

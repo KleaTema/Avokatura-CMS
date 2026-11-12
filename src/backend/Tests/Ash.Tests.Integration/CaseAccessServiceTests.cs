@@ -31,18 +31,8 @@ public sealed class CaseAccessFixture(string connectionString) : IAsyncLifetime
         services.AddScoped<TestCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<TestCurrentUser>());
         // the archive rule asks for the decision document (no case here is archivable: no documents)
-        services.AddScoped<IDocumentService, NoDocuments>();
+        services.AddScoped<IDocumentService, NoDocumentService>();
         Provider = services.BuildServiceProvider();
-    }
-
-    private sealed class NoDocuments : IDocumentService
-    {
-        public Task<DocumentInfo?> GetAsync(Guid publicId, CancellationToken ct = default) => Task.FromResult<DocumentInfo?>(null);
-        public Task<DocumentInfo?> GetByIdAsync(long id, CancellationToken ct = default) => Task.FromResult<DocumentInfo?>(null);
-        public Task<IReadOnlyDictionary<long, int>> CountsByCaseAsync(IReadOnlyCollection<long> caseIds, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyDictionary<long, int>>(new Dictionary<long, int>());
-        public Task<bool> IsCleanAsync(Guid publicId, CancellationToken ct = default) => Task.FromResult(false);
-        public Task<int> CountFailedScansAsync(CancellationToken ct = default) => Task.FromResult(0);
     }
 
     public async ValueTask DisposeAsync()

@@ -587,6 +587,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         // CaseSearch asks Identity for the institutions matching the text (task 047)
         services.AddIdentityModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         var currentUser = await LoadUser("monitor@ash.local");
         services.AddScoped<ICurrentUser>(_ => currentUser);
         await using var provider = services.BuildServiceProvider();
@@ -651,6 +652,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         // CaseAccessService reads is_delegation through IReferenceData (state rules, task 029)
         services.AddReferenceModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         var currentUser = await LoadUser(user);
         services.AddScoped<ICurrentUser>(_ => currentUser);
         await using var provider = services.BuildServiceProvider();
@@ -702,6 +704,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         services.AddAshInfrastructure(Db.AppConnectionString);
         services.AddReferenceModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         var currentUser = await LoadUser(user);
         services.AddScoped<ICurrentUser>(_ => currentUser);
         await using var provider = services.BuildServiceProvider();
@@ -760,6 +763,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         services.AddAshInfrastructure(Db.AppConnectionString);
         services.AddReferenceModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         var currentUser = await LoadUser(email);
         services.AddScoped<ICurrentUser>(_ => currentUser);
         await using var provider = services.BuildServiceProvider();

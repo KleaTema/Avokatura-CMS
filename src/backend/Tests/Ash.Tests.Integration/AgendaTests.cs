@@ -292,6 +292,7 @@ public class AgendaTests(MySqlFixture db) : IntegrationTest(db)
         services.AddAshInfrastructure(Db.AppConnectionString);
         services.AddReferenceModule(new ConfigurationBuilder().Build());
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         var currentUser = await LoadUser(email);
         services.AddScoped<ICurrentUser>(_ => currentUser);
         await using var provider = services.BuildServiceProvider();

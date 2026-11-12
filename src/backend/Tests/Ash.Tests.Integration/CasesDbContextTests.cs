@@ -19,6 +19,7 @@ public class CasesDbContextTests(MySqlFixture db) : IntegrationTest(db)
         var services = new ServiceCollection();
         services.AddAshInfrastructure(Db.AppConnectionString);
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         await using var provider = services.BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
         var cases = scope.ServiceProvider.GetRequiredService<CasesDbContext>();

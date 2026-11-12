@@ -32,6 +32,7 @@ public sealed class HistoryWriterFixture(string connectionString) : IAsyncLifeti
         services.AddAshInfrastructure(ConnectionString);
         services.AddSingleton<IClock, SystemClock>();
         services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
         services.AddScoped<CaseAccessFixture.TestCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CaseAccessFixture.TestCurrentUser>());
         Provider = services.BuildServiceProvider();

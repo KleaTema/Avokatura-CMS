@@ -748,3 +748,20 @@ secondary, ndihmes assistant, the ministry linked MONITORING.
 5. Statistics (*Raporte → Statistikat*): next year, a level closed without the reasoned decision is NOT in "Mbartur
    aktive" (it is in "Mbartur në pritje të vendimit të arsyetuar"); a level without a decision is. Hover the column
    names: the client's wording.
+
+## 053b — Client decisions 12.11.2026: next level and the registration search
+**Setup:** restart the API, `npm run dev`, log in as protokoll. A closed X/1 with: a plaintiff, the ministry as
+defendant, category, a recorded decision, and the ministry DELEGATED.
+1. *Vazhdo çështje ekzistuese*: ten fields plus Statusi. Each one alone finds the dossier: kodi (also the end of the
+   number), nr. i aktit, gjykata, gjyqtari (lists the chosen court's judges; changing the court clears it), paditësi,
+   i padituri, objekti (a word of it), kategoria → nënkategoria (only after a category; changing it clears it),
+   rezultati. Two fields together narrow the results (plaintiff + a different result → nothing).
+2. The URL keeps every field (copy it into a new tab: same results). "Pastro fushat" empties them.
+3. Each result shows "Objekti: …" (at most ~120 characters, cut at a word). *Vazhdo* still shows the whole object in
+   the preview (audited).
+4. Preview of X/2: the ministry is listed as "monitorim" (not delegim), with the note that category and delegation
+   are not copied. Register X/2 at Gjykata e Apelit: no warning; the new case has no category, and the ministry is
+   linked as MONITORING; X/1 keeps its DELEGATED link and category.
+5. Retrial: close X/2 and X/3 (Gjykata e Lartë), then continue X/3 at a first-instance court → X/4 is created.
+6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
+   act number filled.

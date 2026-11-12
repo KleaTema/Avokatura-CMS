@@ -17,8 +17,10 @@ namespace Ash.Modules.Cases.Application.RegisterNextLevel;
 
 /// <summary>
 /// Continues a closed case at the next level: X/n stays unchanged; X/n+1 is created in the same dossier with the
-/// copied object text, parties and active institution links, the first hearing, and goes to the Kryetar of the
-/// Protokoll's office. Assignments, category and decision are NOT copied. All in the request transaction.
+/// copied object text and parties, a MONITORING link for each institution party, the first hearing, and goes to the
+/// Kryetar of the Protokoll's office. Assignments, category, subcategory, delegation and decision are NOT copied
+/// (client decision B.1, 12.11.2026). Any court level may follow, a lower one too (a retrial). All in the request
+/// transaction.
 /// </summary>
 internal sealed class RegisterNextLevelHandler(
     CasesDbContext db,
@@ -125,8 +127,8 @@ internal sealed class RegisterNextLevelHandler(
             });
         await db.SaveChangesAsync(ct);
 
-        // 4. The non-deleted parties, then the active institution links (same mode, unless the new level does not
-        //    allow delegation)
+        // 4. The non-deleted parties, then a MONITORING link per institution among them (client decision B.1: no
+        //    delegation, no category — the new level gets a new lawyer, who sets them)
         var roles = (await reference.ListPartyRolesAsync(ct)).ToDictionary(r => r.Id);
         var sourceParties = await db.CaseParties.AsNoTracking()
             .Where(p => p.CaseId == previous.Id && p.DeletedAt == null)
@@ -137,7 +139,7 @@ internal sealed class RegisterNextLevelHandler(
             await parties.CopyAsync(next, party, roles[party.PartyRoleId], ct);
         }
 
-        await CopyLinksAsync(previous, next, lookups.CourtLevel, warnings, ct);
+        await LinkInstitutionPartiesAsync(next, sourceParties, ct);
 
         history.Add((long)dossier.Id, caseId, HistoryEventType.SentToHead,
             $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { Name = head.FullName, UserPublicId = head.PublicId });
@@ -150,42 +152,25 @@ internal sealed class RegisterNextLevelHandler(
         return new RegisterCaseResponse(next.PublicId, next.CaseCode, warnings);
     }
 
-    private async Task CopyLinksAsync(
-        Case previous, Case next, CourtLevelDto newLevel, List<RegistrationWarning> warnings, CancellationToken ct)
+    /// <summary>One MONITORING link per distinct institution among the copied parties, in party order.</summary>
+    private async Task LinkInstitutionPartiesAsync(Case next, IReadOnlyList<CaseParty> copied, CancellationToken ct)
     {
-        var links = await db.CaseInstitutions.AsNoTracking()
-            .Where(l => l.CaseId == previous.Id && l.EndedAt == null)
-            .OrderBy(l => l.Id)
-            .ToListAsync(ct);
-        if (links.Count == 0)
+        var ids = InstitutionIds(copied);
+        if (ids.Count == 0)
         {
             return;
         }
 
-        var known = (await institutions.GetByIdsAsync(links.Select(l => (long)l.InstitutionId).ToList(), ct))
-            .ToDictionary(i => i.Id);
-        foreach (var link in links)
+        var known = (await institutions.GetByIdsAsync(ids, ct)).ToDictionary(i => i.Id);
+        foreach (var id in ids)
         {
-            var institution = known[link.InstitutionId];
-            var mode = link.LinkMode;
-            if (mode == CaseInstitution.Delegated && !newLevel.AllowsDelegation)
-            {
-                // converted to MONITORING: the new level's category stays NULL (the lawyer sets it)
-                mode = CaseInstitution.Monitoring;
-                warnings.Add(new RegistrationWarning("institution.delegation_not_allowed",
-                    $"Institucioni {institution.Name} kishte delegim; në shkallën {newLevel.Name} delegimi nuk lejohet, " +
-                    "prandaj u lidh si monitorues."));
-            }
-            else if (mode == CaseInstitution.Delegated)
-            {
-                // the delegation continues: so does its category (DELEGIM / RELATIM), as task 027 sets them together
-                next.CategoryId = previous.CategoryId;
-                next.SubcategoryId = null;
-            }
-
-            await parties.LinkAsync(next, institution, mode, ct);
+            await parties.LinkAsync(next, known[id], CaseInstitution.Monitoring, ct);
         }
     }
+
+    /// <summary>The institutions of the parties, first occurrence first (shared with the preview).</summary>
+    internal static List<long> InstitutionIds(IEnumerable<CaseParty> parties) =>
+        parties.Where(p => p.InstitutionId is not null).Select(p => (long)p.InstitutionId!.Value).Distinct().ToList();
 
     internal static Error AlreadyContinued(string caseCode) => NextLevelGate.AlreadyContinued(caseCode);
 }
