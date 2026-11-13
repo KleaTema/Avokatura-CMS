@@ -333,6 +333,8 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             CaseListTab.Office => cases.Where(c => c.OfficeId == officeId),
             // ix_ci_institution (institution_id, ended_at, case_id)
             CaseListTab.Institution => cases.Where(c => db.CaseInstitutions.Any(i => i.InstitutionId == institutionId && i.EndedAt == null && i.CaseId == c.Id)),
+            // task 053d: the same branch as the scope (CaseScopeQuery.Supervised)
+            CaseListTab.Supervised => cases.Where(CaseScopeQuery.Supervised(db, user.UserId)),
             _ => cases
         };
     }

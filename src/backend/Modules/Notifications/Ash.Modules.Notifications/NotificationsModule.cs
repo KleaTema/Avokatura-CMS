@@ -51,6 +51,10 @@ public static class NotificationsModule
 		services.AddScoped<IEventHandler<PreviousLevelNotClosed>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<CaseClosed>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 
+		services.AddScoped<SupervisionNotifications>();
+		services.AddScoped<IEventHandler<SupervisionStarted>>(sp => sp.GetRequiredService<SupervisionNotifications>());
+		services.AddScoped<IEventHandler<SupervisionEnded>>(sp => sp.GetRequiredService<SupervisionNotifications>());
+
 		services.AddScoped<HandoffNotifications>();
 		services.AddScoped<IEventHandler<CaseHandedOff>>(sp => sp.GetRequiredService<HandoffNotifications>());
 		services.AddScoped<IEventHandler<CaseHandoffWithdrawn>>(sp => sp.GetRequiredService<HandoffNotifications>());

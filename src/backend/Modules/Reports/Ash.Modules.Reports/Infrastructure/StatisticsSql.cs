@@ -1,3 +1,5 @@
+using Ash.Modules.Cases.Contracts;
+
 namespace Ash.Modules.Reports.Infrastructure;
 
 /// <summary>
@@ -8,7 +10,9 @@ namespace Ash.Modules.Reports.Infrastructure;
 public static class StatisticsSql
 {
     private static readonly string Live = Load("StatisticsLive.sql");
-    private static readonly string Flags = Load("StatisticsFlags.sql");
+    // task 053d: the supervision branch of the case scope, written once in Cases.Contracts (still a constant)
+    private static readonly string Flags = Load("StatisticsFlags.sql")
+        .Replace("/*SUPERVISED*/", CaseScopeSpec.SupervisedSql("b.case_id", "@scope_head"), StringComparison.Ordinal);
 
     /// <summary>The CTEs every statistics query starts with (live → base → scoped → f).</summary>
     private static readonly string With = string.Concat("WITH\n", Live, ",\n", Flags, "\n");

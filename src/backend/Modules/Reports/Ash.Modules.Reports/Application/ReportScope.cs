@@ -61,6 +61,13 @@ public sealed class ReportScope(ICaseScope scope, ICurrentUser user)
                 """);
         }
 
+        if (spec.SupervisorUserId is { } head)
+        {
+            // branch 4 (task 053d): under this Kryetar's supervision
+            p.Add("scope_head", head);
+            sql.Append(" OR ").Append(CaseScopeSpec.SupervisedSql("c.id", "@scope_head"));
+        }
+
         if (spec.OfficeId is { } office)
         {
             p.Add("scope_office", office);

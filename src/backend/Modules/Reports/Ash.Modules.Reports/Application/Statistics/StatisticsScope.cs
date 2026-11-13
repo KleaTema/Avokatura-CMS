@@ -16,17 +16,21 @@ public sealed record StatisticsFilter(
     DateTime YearStartUtc,
     DateTime YearEndUtc,
     DateTime PointUtc,
-    bool IsCurrentYear)
+    bool IsCurrentYear,
+    long? ScopeHeadId = null,
+    long? ScopeOfficeId = null)
 {
     /// <summary>The cache key of a current-year answer (scope already applied, so equal keys = equal answers).</summary>
-    public string CacheKey => string.Join('|', "statistics", Year, Table, OfficeId, LawyerId, InstitutionId, WithChildren);
+    public string CacheKey =>
+        string.Join('|', "statistics", Year, Table, OfficeId, LawyerId, InstitutionId, WithChildren, ScopeHeadId, ScopeOfficeId);
 }
 
 /// <summary>
 /// Who may see which statistics (task 044) and on which cases — the filters are FORCED, never trusted:
 /// <list type="bullet">
 /// <item>Monitor / Admin (report.view_all): everything, any filter.</item>
-/// <item>Kryetar (report.view_office): their own office only — another officeId → 403.</item>
+/// <item>Kryetar (report.view_office): their case scope — own office + supervised cases + own assignments (task 053d,
+/// client decision F "të vetat + zyra + në mbikëqyrje"); the office filter may only be their own office, another → 403.</item>
 /// <item>Lawyer / assistant (report.view_own, office user): their own cases — the lawyer filter is forced to them.</item>
 /// <item>Institution user: Tabela 6 of their own institution only (Tabela 5 or another institution → 403).</item>
 /// <item>Protokoll, institution jurists, anyone else → 403.</item>
@@ -53,7 +57,7 @@ public sealed class StatisticsScope(ICurrentUser user, IOfficeDirectory offices,
             return Error.Validation("statistics.table_invalid", "Tabela duhet të jetë 5 ose 6.");
         }
 
-        long? officeId = null, lawyerId = null, institutionId = null;
+        long? officeId = null, lawyerId = null, institutionId = null, scopeHead = null, scopeOffice = null;
         var withChildren = false;
         if (q.OfficeId is { } office)
         {
@@ -104,7 +108,10 @@ public sealed class StatisticsScope(ICurrentUser user, IOfficeDirectory offices,
                 return Forbidden;
             }
 
-            officeId = ownOffice;
+            // task 053d: the Kryetar's whole case scope — the own office, the supervised cases, the own assignments —
+            // as the case list (CaseScopeSpec); the office filter (own office only) narrows it to the office
+            scopeHead = user.UserId;
+            scopeOffice = ownOffice;
         }
         else if (user.HasPermission("report.view_own") && user.InstitutionId is { } ownInstitution)
         {
@@ -147,6 +154,6 @@ public sealed class StatisticsScope(ICurrentUser user, IOfficeDirectory offices,
         var end = TiraneTime.StartOfDayUtc(new DateOnly(year + 1, 1, 1));
         var current = year == thisYear;
         return new StatisticsFilter(year, table, officeId, lawyerId, institutionId, withChildren, start, end,
-            current ? clock.UtcNow : end, current);
+            current ? clock.UtcNow : end, current, scopeHead, scopeOffice);
     }
 }

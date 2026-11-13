@@ -45,7 +45,24 @@ public static class CaseScopeQuery
             user.UserId,
             user.HasPermission(ViewOfficePermission) ? user.OfficeId : null,
             linked,
-            jurist);
+            jurist,
+            user.HasPermission(ViewSupervisedPermission) ? user.UserId : null);
+    }
+
+    /// <summary>Task 053d: the Kryetar sees (and acts on) the cases under their supervision.</summary>
+    public const string ViewSupervisedPermission = "case.view_supervised";
+
+    /// <summary>
+    /// The case is under the active supervision of <paramref name="headUserId"/>: a supervised CASE, or a case whose
+    /// CURRENT primary is a supervised LAWYER (now and later). The SQL rendering is CaseScopeSpec.SupervisedSql.
+    /// </summary>
+    public static Expression<Func<Case, bool>> Supervised(CasesDbContext db, long headUserId)
+    {
+        var head = (uint)headUserId;
+        return c => db.Supervisions.Any(s => s.HeadUserId == head && s.EndedAt == null
+            && ((s.Kind == Supervision.CaseKind && s.CaseId == c.Id)
+                || (s.Kind == Supervision.LawyerKind && db.CaseAssignments.Any(a =>
+                    a.CaseId == c.Id && a.UserId == s.LawyerUserId && a.CaseRole == CaseAssignmentRow.PrimaryLawyer && a.EndedAt == null))));
     }
 
     public static IQueryable<Case> Apply(IQueryable<Case> cases, CasesDbContext db, ICurrentUser user) =>
@@ -82,6 +99,12 @@ public static class CaseScopeQuery
             scope = Or(scope, c => db.CaseAssignments.Any(a =>
                 a.CaseId == c.Id && a.UserId == userId && a.EndedAt == null && a.CaseRole == CaseAssignmentRow.InstitutionJurist
                 && db.CaseInstitutions.Any(i => i.CaseId == c.Id && i.InstitutionId == institutionId && i.EndedAt == null)));
+        }
+
+        if (spec.SupervisorUserId is { } head)
+        {
+            // branch 4 (task 053d): under this Kryetar's supervision
+            scope = Or(scope, Supervised(db, head));
         }
 
         if (spec.OfficeId is { } office)

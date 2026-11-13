@@ -62,9 +62,15 @@ public static class NotificationTypes
     /// <summary>Task 053c: a case handed off to the user's office goes elsewhere now, or the decision became final.</summary>
     public const string HandoffWithdrawn = "HANDOFF_WITHDRAWN";
 
+    /// <summary>Task 053d: the Monitor put a lawyer's cases or a case under the Kryetar's supervision.</summary>
+    public const string SupervisionAssigned = "SUPERVISION_ASSIGNED";
+
+    /// <summary>Task 053d: that supervision ended.</summary>
+    public const string SupervisionEnded = "SUPERVISION_ENDED";
+
     public static readonly IReadOnlyList<string> All =
     [
-        CaseHandedOff, HandoffWithdrawn,
+        CaseHandedOff, HandoffWithdrawn, SupervisionAssigned, SupervisionEnded,
         CaseRegistered, LawyerAssigned, LawyerRemoved, InstitutionCaseAssigned, AssistantAssigned, AssistantRemoved,
         JuristAssigned, JuristReplaced, InstitutionLinked, CaseDelegated, CaseUndelegated, PreviousLevelNotClosed,
         CaseClosed, DocumentInfected, DocumentScanFailed, DataMissing30D, DataMissing6M, HearingTomorrow,
@@ -101,6 +107,8 @@ public static class NotificationTypes
         new(PartitionAlert, Mandatory: true),
         new(CaseHandedOff, Mandatory: true),
         new(HandoffWithdrawn, Mandatory: true),
+        new(SupervisionAssigned, Mandatory: true),
+        new(SupervisionEnded, Mandatory: true),
     ];
 
     /// <summary>Null for an unknown code.</summary>

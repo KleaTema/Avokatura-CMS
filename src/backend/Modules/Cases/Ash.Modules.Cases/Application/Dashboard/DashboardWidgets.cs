@@ -216,6 +216,12 @@ internal sealed class DashboardWidgets(
         return new DashboardWidget("mineActivity", DashboardWidget.List, "Aktiviteti i fundit", Items: items, LinkPath: Link(CaseListTab.Mine));
     }
 
+    // ---------------------------------------------------------------- Kryetar: supervision (task 053d)
+
+    public async Task<DashboardWidget> SupervisedOpenAsync(DateTime now, CancellationToken ct) =>
+        new("supervisedOpen", DashboardWidget.Count, "Në mbikëqyrje",
+            await builder.Filtered(CaseListFilter.Open(CaseListTab.Supervised)).CountAsync(ct), LinkPath: Link(CaseListTab.Supervised));
+
     // ---------------------------------------------------------------- institution user
 
     public async Task<DashboardWidget> InstitutionLinkedAsync(DateTime now, CancellationToken ct) =>

@@ -19,6 +19,7 @@ import { NotificationsPage } from '../pages/Notifications'
 import { ProfilePage } from '../pages/Profile'
 import { ChatPage } from '../pages/chat/ChatPage'
 import { ReportsPage } from '../pages/reports/ReportsPage'
+import { SupervisionPage } from '../pages/supervision/SupervisionPage'
 import { Layout } from './Layout'
 import { RequirePermission } from './RequirePermission'
 
@@ -60,6 +61,15 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission code="menu.agenda">
             <LazyAgendaPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        // task 053d: the Monitor's "Mbikëqyrja"
+        path: 'supervision',
+        element: (
+          <RequirePermission code="menu.supervision">
+            <SupervisionPage />
           </RequirePermission>
         ),
       },

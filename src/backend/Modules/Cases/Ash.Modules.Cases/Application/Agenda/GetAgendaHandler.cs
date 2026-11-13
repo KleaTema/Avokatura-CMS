@@ -13,7 +13,8 @@ namespace Ash.Modules.Cases.Application.Agenda;
 /// <summary>
 /// GET /api/agenda (task 031): the hearings of a date range, by role —
 /// - the user's own cases (lawyers, assistants, institution jurists, institution users);
-/// - case.view_office (Kryetar): the office's cases, optionally of one lawyer;
+/// - case.view_office (Kryetar): the case scope — the office's, the supervised (task 053d) and the own cases —
+///   optionally of one lawyer of the office or one supervised lawyer, or of the office only;
 /// - case.view_all (Monitor/Admin): all, optionally of one office and/or lawyer.
 /// A lawyerId or officeId outside the user's scope → 403. Not paged: the range is limited to 62 days and the result
 /// to 2,000 hearings.
@@ -67,8 +68,9 @@ internal sealed class GetAgendaHandler(
             : user.HasPermission(CaseScopeQuery.ViewOfficePermission) && user.OfficeId is not null ? AgendaScope.Office
             : AgendaScope.Own;
 
-        // the office: the Kryetar's own (another one → 403); any for view_all; none for the others (→ 403)
-        ushort? officeId = scope == AgendaScope.Office ? (ushort)user.OfficeId!.Value : null;
+        // the office: the Kryetar's own (another one → 403); any for view_all; none for the others (→ 403). Without the
+        // filter the Kryetar gets the whole case scope (ApplyScope): own office, supervised cases (task 053d), own cases.
+        ushort? officeId = null;
         if (query.OfficeId is { } officePublicId)
         {
             var id = await offices.GetIdAsync(officePublicId, ct);
@@ -98,7 +100,10 @@ internal sealed class GetAgendaHandler(
             var allowed = scope switch
             {
                 AgendaScope.All => true,
-                AgendaScope.Office => lawyer.OfficePublicId is { } lawyerOffice && await offices.GetIdAsync(lawyerOffice, ct) == user.OfficeId,
+                AgendaScope.Office => (lawyer.OfficePublicId is { } lawyerOffice && await offices.GetIdAsync(lawyerOffice, ct) == user.OfficeId)
+                                      // task 053d: a lawyer the Kryetar supervises
+                                      || await db.Supervisions.AnyAsync(s => s.HeadUserId == (uint)user.UserId && s.EndedAt == null
+                                          && s.Kind == Infrastructure.Supervision.LawyerKind && s.LawyerUserId == (uint)lawyerId, ct),
                 _ => lawyerId == user.UserId
             };
             if (!allowed)

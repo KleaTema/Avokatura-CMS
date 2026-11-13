@@ -60,7 +60,16 @@ is a MySQL named lock here.
 ## Access model (two layers)
 - **System permission** (from `user_roles` → `role_permissions`): menus and office-wide actions, e.g. `case.assign_lawyer`, `case.view_office`, `case.view_all`.
 - **Case permission** (from view `v_case_permissions`): what a user may do inside one case, decided by their case profile (`PRIMARY_LAWYER`, `SECONDARY_LAWYER`, `LEGAL_ASSISTANT`, `INSTITUTION_MONITORING`, `INSTITUTION_DELEGATED`).
-- `ICaseAccessService.CanView(caseId)` = case profile exists OR `case.view_all` OR (`case.view_office` AND case.office_id = user.office_id) OR the user is the Protokoll who registered it and it is still `REGISTERED`.
+- `ICaseAccessService.CanView(caseId)` = case profile exists OR `case.view_all` OR (`case.view_office` AND case.office_id = user.office_id) OR (`case.view_supervised` AND the case is under the user's supervision) OR the user is the Protokoll who registered it and it is still `REGISTERED`.
+- **Supervision, "Mbikëqyrja" (task 053d, client decision C, D3).**
+  - The Monitor (`supervision.manage`, menu `supervision`) gives a Kryetar either a LAWYER or one CASE (table `supervisions`). A LAWYER covers every case where that lawyer is the CURRENT primary. This is decided at read time, so the lawyer's later cases join and transferred ones leave.
+  - The Kryetar's scope is the own office + the supervised cases + the cases where they have a current assignment.
+  - On supervised cases they get the same office-head actions as on office cases: transfer, priority, assign, the decision rights. The registration-desk corrections stay with the own office. The lawyer pickers offer the case office's lawyers + the Kryetar.
+  - The rule is written once per rendering:
+    - EF: `CaseScopeQuery.Supervised`, used by `Apply`, by the "Në mbikëqyrje" tab and by `CaseAccessService`;
+    - SQL: `CaseScopeSpec.SupervisedSql`, used by `ReportScope` and by the statistics' `StatisticsFlags.sql` placeholder.
+  - So the case list, case page, agenda, dashboard, header search, reports and statistics all agree. `SupervisionTests` compares them.
+  - The Kryetar gets a mandatory `SUPERVISION_ASSIGNED` / `SUPERVISION_ENDED` notification. A CASE supervision also writes `SUPERVISION_STARTED` / `SUPERVISION_ENDED` on the case.
 
 ## Case life cycle
 `REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set by "Arkivo" only when the latest level is closed, final, and its reasoned decision has arrived with a clean document (task 053a, `ArchiveRule`). A closed case can continue as X/n+1 at any court level, a lower one too (appeal, recourse, retrial). X/n+1 copies only the parties and the object; each institution party gets a MONITORING link. Category, subcategory and delegation are not copied (client decision B.1).

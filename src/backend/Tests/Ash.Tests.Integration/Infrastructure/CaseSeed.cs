@@ -93,6 +93,41 @@ public sealed class CaseSeed : IAsyncDisposable
             ("@c", ActiveCaseId), ("@i", ministryId), ("@u", protokollId));
     }
 
+    /// <summary>
+    /// Task 053d: one more ACTIVE first-instance case of <paramref name="officeId"/> in its own dossier (removed with
+    /// the seed), optionally with a current PRIMARY_LAWYER and a SCHEDULED hearing at <paramref name="hearingAtUtc"/>.
+    /// Returns its id and code.
+    /// </summary>
+    public async Task<(long Id, string Code)> AddOfficeCaseAsync(
+        long officeId, string label, long? primaryUserId = null, DateTime? hearingAtUtc = null)
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var code = $"S-{label}-{suffix}";
+        var courtId = await ScalarAsync("SELECT id FROM courts WHERE name = @n", ("@n", "Gjykata e Shkallës së Parë Tiranë"));
+        var levelId = await ScalarAsync("SELECT id FROM court_levels WHERE code = 'FIRST_INSTANCE'");
+        var formatId = await ScalarAsync("SELECT id FROM dossier_code_formats WHERE is_active = 1");
+        var protokollId = _users["protokoll"].Id;
+        var dossier = await InsertDossierAsync(code, formatId, officeId, protokollId);
+        var caseId = await InsertCaseAsync(dossier, $"{code}/1", officeId, levelId, courtId, protokollId, "ACTIVE");
+        if (primaryUserId is { } primary)
+        {
+            await InsertAsync("case_assignments",
+                "INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by) VALUES (@c, @u, 'PRIMARY_LAWYER', @a)",
+                ("@c", caseId), ("@u", primary), ("@a", _users["kryetar"].Id));
+        }
+
+        if (hearingAtUtc is { } at)
+        {
+            await InsertAsync("case_hearings",
+                "INSERT INTO case_hearings (case_id, hearing_type_id, scheduled_at, status, created_by) " +
+                "SELECT @c, id, @at, 'SCHEDULED', @u FROM hearing_types WHERE code = 'PERGATITORE'",
+                ("@c", caseId), ("@at", at), ("@u", protokollId));
+            await ExecuteAsync("UPDATE cases SET next_hearing_at = @at WHERE id = @c", ("@at", at), ("@c", caseId));
+        }
+
+        return (caseId, $"{code}/1");
+    }
+
     private Task<long> AssignAsync(string key, string role, long assignedBy) =>
         InsertAsync("case_assignments",
             "INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by) VALUES (@c, @u, @r, @a)",

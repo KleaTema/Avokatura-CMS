@@ -766,6 +766,36 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
 
+## 053d — "Mbikëqyrja" (C, D3)
+**Setup:**
+- Run the migrator (script 022), restart the API, `npm run dev`.
+- As admin, create a second office "Zyra Test" with a STATE_LAWYER and one case of it where that lawyer is primary.
+  The local seed has one office only.
+
+**Steps:**
+1. **Monitor** (*Mbikëqyrja* in the menu; the Kryetar and lawyers have no such menu):
+   - "Shto mbikëqyrje" → Kryetar Dev, "Një avokat", the Zyra Test lawyer → the row shows the number of their open
+     primary cases.
+   - Add a single case of Zyra Test by its code.
+   - A lawyer or case of the Kryetar's own office, an unknown code, or the same supervision twice → the error on the
+     field / 409.
+2. **Kryetar:**
+   - The bell shows "Ju u ngarkua një mbikëqyrje" (twice).
+   - *Çështjet* has a tab "Në mbikëqyrje (n)" with exactly those cases.
+   - The case page opens with "Transfero", priority and "Regjistro vendimin". The transfer picker lists Zyra Test's
+     lawyers + "(Unë)".
+   - The single case's history shows "Në mbikëqyrje të Kryetarit".
+3. **Same cases everywhere:**
+   - *Agjenda* (their hearings, also with the supervised lawyer as filter).
+   - *Dashboard* ("Në mbikëqyrje").
+   - The header search (by code).
+   - *Raporte* (Tabela 1) and *Statistikat* (Tabela 5, drill-down "Aktive").
+4. **Follows the primary:** give the supervised lawyer a new case → it appears at once. Transfer one of their cases to
+   another lawyer → it disappears.
+5. **Monitor "Përfundo":**
+   - The Kryetar is told, and the cases leave every surface (the case page → 404).
+   - "Shfaq edhe të përfunduarat" lists the ended row.
+
 ## 053c — "Përcjellja e çështjes" (B.3, D5) and e-mail
 **Setup:**
 - `docker compose up -d` (adds Mailpit: open http://localhost:8025).

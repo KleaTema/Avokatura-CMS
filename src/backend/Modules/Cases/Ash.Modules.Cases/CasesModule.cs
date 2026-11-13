@@ -107,6 +107,8 @@ public static class CasesModule
 		services.AddScoped<HandoffService>();
 		services.AddScoped<HandoffQueries>();
 		services.AddScoped<ChangeHandoffHandler>();
+		// task 053d: the Monitor's "Mbikëqyrja"
+		services.AddScoped<Application.Supervision.SupervisionHandlers>();
 		services.AddScoped<ArchiveDossierHandler>();
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();
@@ -126,6 +128,6 @@ public static class CasesModule
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
 			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision().MapDossiers().MapDashboard().MapSearch()
-			.MapCaseHandoffs();
+			.MapCaseHandoffs().MapSupervisions();
 	}
 }

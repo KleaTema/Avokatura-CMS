@@ -82,6 +82,13 @@ internal sealed class DashboardHandler(
             definitions.Add(new("mineActivity", DashboardWidget.List, "Aktiviteti i fundit", CacheScope.Personal, (w, n, t) => w.MineActivityAsync(n, t)));
         }
 
+        if (tabs.Contains(CaseListTab.Supervised))
+        {
+            // task 053d: the supervised cases, as the list's "Në mbikëqyrje" tab (personal: per Kryetar)
+            definitions.Add(new("supervisedOpen", DashboardWidget.Count, "Në mbikëqyrje", CacheScope.Personal, (w, n, t) => w.SupervisedOpenAsync(n, t)));
+            definitions.Add(Special("supervisedHearingOverdue", "Në mbikëqyrje: seanca të pa përditësuara", CacheScope.Personal, CaseListTab.Supervised, CaseListSpecial.HearingOverdue));
+        }
+
         if (tabs.Contains(CaseListTab.Institution))
         {
             definitions.Add(new("institutionLinked", DashboardWidget.Count, "Çështjet e institucionit", CacheScope.Personal, (w, n, t) => w.InstitutionLinkedAsync(n, t)));

@@ -19,6 +19,9 @@ public enum CaseListTab
     /// <summary>"Të institucionit": cases with an active link to the user's institution.</summary>
     Institution,
 
+    /// <summary>"Në mbikëqyrje" (task 053d): cases under the Kryetar's supervision (a lawyer's, or single cases).</summary>
+    Supervised,
+
     /// <summary>"Të gjitha": every case (Monitor, Admin).</summary>
     All
 }
@@ -41,6 +44,7 @@ public static class CaseListTabs
         CaseListTab.Unassigned => "unassigned",
         CaseListTab.Office => "office",
         CaseListTab.Institution => "institution",
+        CaseListTab.Supervised => "supervised",
         CaseListTab.All => "all",
         _ => throw new ArgumentOutOfRangeException(nameof(tab))
     };
@@ -78,6 +82,11 @@ public static class CaseListTabs
         {
             tabs.Add(CaseListTab.Unassigned);
             tabs.Add(CaseListTab.Office);
+        }
+
+        if (user.HasPermission(Infrastructure.Access.CaseScopeQuery.ViewSupervisedPermission))
+        {
+            tabs.Add(CaseListTab.Supervised);
         }
 
         if (user.Roles.Contains(InstitutionUserRole) && user.InstitutionId is not null)

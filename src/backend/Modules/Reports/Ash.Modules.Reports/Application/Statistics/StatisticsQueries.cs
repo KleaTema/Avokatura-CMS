@@ -156,6 +156,8 @@ public sealed class StatisticsQueries(
         p.Add("lawyer_id", f.LawyerId);
         p.Add("institution_id", f.InstitutionId);
         p.Add("with_children", f.WithChildren ? 1 : 0);
+        p.Add("scope_head", f.ScopeHeadId);
+        p.Add("scope_office", f.ScopeOfficeId);
         return p;
     }
 

@@ -18,6 +18,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CaseSecurityMeasure> CaseSecurityMeasures => Set<CaseSecurityMeasure>();
     public DbSet<CaseReminderRow> CaseReminders => Set<CaseReminderRow>();
     public DbSet<CaseHandoff> CaseHandoffs => Set<CaseHandoff>();
+    public DbSet<Supervision> Supervisions => Set<Supervision>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -125,6 +126,23 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.LinkMode).HasColumnName("link_mode");
             b.Property(x => x.StartedAt).HasColumnName("started_at");
             b.Property(x => x.StartedBy).HasColumnName("started_by");
+            b.Property(x => x.EndedAt).HasColumnName("ended_at");
+            b.Property(x => x.EndedBy).HasColumnName("ended_by");
+        });
+
+        // task 053d (script 022): a Kryetar supervises a lawyer's cases or one case
+        modelBuilder.Entity<Supervision>(b =>
+        {
+            b.ToTable("supervisions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
+            b.Property(x => x.HeadUserId).HasColumnName("head_user_id");
+            b.Property(x => x.Kind).HasColumnName("kind");
+            b.Property(x => x.LawyerUserId).HasColumnName("lawyer_user_id");
+            b.Property(x => x.CaseId).HasColumnName("case_id");
+            b.Property(x => x.CreatedBy).HasColumnName("created_by");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
             b.Property(x => x.EndedBy).HasColumnName("ended_by");
         });
@@ -378,6 +396,27 @@ public sealed class CaseParty
     /// <summary>Soft delete: a removed party stays for history.</summary>
     public DateTime? DeletedAt { get; set; }
     public uint? DeletedBy { get; set; }
+}
+
+/// <summary>
+/// "Mbikëqyrja" (task 053d): the Monitor puts a LAWYER (their current primary cases, now and later) or one CASE under
+/// a Kryetar's supervision. Active = EndedAt null.
+/// </summary>
+public sealed class Supervision
+{
+    public const string LawyerKind = "LAWYER";
+    public const string CaseKind = "CASE";
+
+    public ulong Id { get; set; }
+    public Guid PublicId { get; set; }
+    public uint HeadUserId { get; set; }
+    public string Kind { get; set; } = string.Empty;
+    public uint? LawyerUserId { get; set; }
+    public ulong? CaseId { get; set; }
+    public uint CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? EndedAt { get; set; }
+    public uint? EndedBy { get; set; }
 }
 
 /// <summary>

@@ -104,8 +104,8 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// <summary>
     /// Client decision D1 (12.11.2026): the Kryetar records and completes the decision and archives on the cases of
     /// their office — the system permission decision.record_office (script 020) grants decision.record and
-    /// decision.close_final there, also on a CLOSED level (completing the decision later, archiving). The cases they
-    /// will supervise (Monitor's assignment, a later task) join here. Never decided by the role name.
+    /// decision.close_final there, also on a CLOSED level (completing the decision later, archiving) — and on the
+    /// cases they supervise (task 053d). Never decided by the role name.
     /// </summary>
     public const string RecordDecisionOfficePermission = "decision.record_office";
 
@@ -154,9 +154,13 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
 
         // Same rule as CaseScopeQuery.Apply, evaluated on the one loaded row.
         var first = rows[0];
+        // task 053d: under the Kryetar's supervision — they act as on a case of their own office
+        var supervised = user.HasPermission(CaseScopeQuery.ViewSupervisedPermission)
+            && await db.Cases.Where(c => c.Id == id).AnyAsync(CaseScopeQuery.Supervised(db, user.UserId), cancellationToken);
         var canView = first.HasProfile
             || user.HasPermission(CaseScopeQuery.ViewAllPermission)
             || (user.HasPermission(CaseScopeQuery.ViewOfficePermission) && user.OfficeId == first.OfficeId)
+            || supervised
             || (first.RegisteredBy == userId && first.LifecycleStatus == CaseScopeQuery.RegisteredStatus);
 
         if (!canView)
@@ -179,7 +183,7 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
         var delegatedCategory = first.CategoryId is { } categoryId
             && (await reference.ListCaseCategoriesAsync(cancellationToken)).Any(x => x.Id == categoryId && x.IsDelegation);
 
-        var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked);
+        var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked, supervised);
         // archiving (task 038, client decision A): ArchiveRule — asked only of a user who would hold it
         var archivable = effective.Contains(CloseFinalPermission) && first.LifecycleStatus == Case.Closed
             && await ArchiveRule.IsArchivableAsync(db, documents, await db.Cases.AsNoTracking().SingleAsync(c => c.Id == id, cancellationToken), cancellationToken);
@@ -238,7 +242,8 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// the own office; institution.assign_jurist where the user's institution is linked). A CLOSED case keeps only
     /// what is in <see cref="ActionsAllowedWhenClosed"/>.
     /// </summary>
-    private HashSet<string> Effective(IEnumerable<string?> casePermissions, ushort officeId, string status, bool institutionLinked)
+    private HashSet<string> Effective(
+        IEnumerable<string?> casePermissions, ushort officeId, string status, bool institutionLinked, bool supervised)
     {
         var effective = casePermissions.Where(p => p is not null).Select(p => p!).ToHashSet();
         effective.Add(ViewPermission); // viewing through the office or view_all is still viewing
@@ -247,7 +252,10 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             effective.Add(AssignJuristPermission);
         }
 
-        var ownOffice = user.OfficeId == officeId;
+        // the Kryetar's actions apply on the own office's cases AND on the supervised ones (task 053d); the desk's
+        // registration corrections stay with the own office (registeredOffice below)
+        var registeredOffice = user.OfficeId == officeId;
+        var ownOffice = registeredOffice || supervised;
         if (ownOffice && user.HasPermission(RecordDecisionOfficePermission))
         {
             effective.UnionWith(OfficeDecisionActions);
@@ -259,7 +267,7 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             return effective;
         }
 
-        if (ownOffice && status == Case.Registered && user.HasPermission(EditRegistrationPermission))
+        if (registeredOffice && status == Case.Registered && user.HasPermission(EditRegistrationPermission))
         {
             effective.UnionWith(RegistrationDeskActions);
         }

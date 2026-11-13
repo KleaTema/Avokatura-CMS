@@ -114,6 +114,24 @@ public static class NotificationTexts
     public static NotificationMessage HandoffWithdrawn(CaseSummary c, string reason) =>
         new(NotificationTypes.HandoffWithdrawn, c.Id, WithdrawnTitle, WithdrawnBody(c, reason), IncomingLink);
 
+    /// <summary>Task 053d: the Kryetar's "Në mbikëqyrje" tab of the case list.</summary>
+    public const string SupervisedLink = "/cases?tab=supervised";
+
+    /// <summary>A lawyer's cases (<paramref name="lawyer"/>) or one case (<paramref name="c"/>) under the Kryetar's supervision.</summary>
+    public static NotificationMessage SupervisionAssigned(string? lawyer, CaseSummary? c) =>
+        new(NotificationTypes.SupervisionAssigned, c?.Id, "Ju u ngarkua një mbikëqyrje",
+            c is not null
+                ? $"Monitoruesi ju ngarkoi në mbikëqyrje çështjen {Case(c)}. E gjeni te \"Në mbikëqyrje\"."
+                : $"Monitoruesi ju ngarkoi në mbikëqyrje çështjet e avokatit {lawyer} (si avokat primar). I gjeni te \"Në mbikëqyrje\".",
+            c is not null ? LinkTo(c.PublicId, Tabs.Data) : SupervisedLink);
+
+    public static NotificationMessage SupervisionEnded(string? lawyer, CaseSummary? c) =>
+        new(NotificationTypes.SupervisionEnded, c?.Id, "Mbikëqyrja përfundoi",
+            c is not null
+                ? $"Mbikëqyrja juaj e çështjes {Case(c)} përfundoi."
+                : $"Mbikëqyrja juaj e çështjeve të avokatit {lawyer} përfundoi.",
+            SupervisedLink);
+
     /// <summary>The e-mail adds where to look, since the mail has no link into the app.</summary>
     public static EmailMessage Email(string to, string title, string body) =>
         new(to, $"Avokatura e Shtetit — {title}", body + "\n\nHyni në sistem: Çështjet → \"Çështjet e ardhura\".\n\n" +

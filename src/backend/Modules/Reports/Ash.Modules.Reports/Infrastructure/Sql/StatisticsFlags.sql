@@ -11,6 +11,8 @@
 --                      the primary at closing
 --   @institution_id    NULL = Tabela 5; else Tabela 6: the institution is a non-deleted party or linked (active link)
 --   @with_children     1 = the institution is a ministry: its direct agencies count too (parent_institution_id, task 015)
+--   @scope_head        NULL = no Kryetar scope; else that Kryetar's cases: @scope_office, supervised, own assignments
+--   @scope_office      the Kryetar's office (with @scope_head)
 -- ---------------------------------------------------------------------------------------------------------------------
 base AS (
   SELECT live.* FROM live WHERE @use_snapshot = 0
@@ -29,6 +31,12 @@ scoped AS (
          (b.is_delegim = 1 OR b.is_relatim = 1)                  AS is_deleg
     FROM base b
    WHERE (@office_id IS NULL OR b.office_id = @office_id)
+     -- the Kryetar's case scope (task 053d): own office, supervised (CaseScopeSpec.SupervisedSql, put in by StatisticsSql), own assignment
+     AND (@scope_head IS NULL
+          OR b.office_id = @scope_office
+          OR /*SUPERVISED*/
+          OR EXISTS (SELECT 1 FROM case_assignments sc WHERE sc.case_id = b.case_id AND sc.user_id = @scope_head AND sc.ended_at IS NULL
+                      AND sc.case_role IN ('PRIMARY_LAWYER', 'SECONDARY_LAWYER', 'LEGAL_ASSISTANT')))
      AND (@institution_id IS NULL
           OR EXISTS (SELECT 1 FROM case_parties p JOIN institutions i ON i.id = p.institution_id
                       WHERE p.case_id = b.case_id AND p.deleted_at IS NULL

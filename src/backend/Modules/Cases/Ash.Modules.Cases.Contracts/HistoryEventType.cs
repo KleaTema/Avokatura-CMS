@@ -58,4 +58,8 @@ public enum HistoryEventType
     HandoffChanged,
     /// <summary>HANDOFF_CANCELLED (task 053c): the decision became final before the next level was registered.</summary>
     HandoffCancelled,
+    /// <summary>SUPERVISION_STARTED (task 053d): the Monitor put this case under a Kryetar's supervision.</summary>
+    SupervisionStarted,
+    /// <summary>SUPERVISION_ENDED (task 053d): that supervision of this case ended.</summary>
+    SupervisionEnded,
 }

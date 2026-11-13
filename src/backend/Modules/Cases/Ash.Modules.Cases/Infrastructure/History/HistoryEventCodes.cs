@@ -46,6 +46,8 @@ public static class HistoryEventCodes
         HistoryEventType.CaseHandedOff => "CASE_HANDED_OFF",
         HistoryEventType.HandoffChanged => "HANDOFF_CHANGED",
         HistoryEventType.HandoffCancelled => "HANDOFF_CANCELLED",
+        HistoryEventType.SupervisionStarted => "SUPERVISION_STARTED",
+        HistoryEventType.SupervisionEnded => "SUPERVISION_ENDED",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unmapped history event type."),
     };
 }
