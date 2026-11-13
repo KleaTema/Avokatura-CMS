@@ -26,19 +26,8 @@ internal sealed class NotificationSender(
     {
         var states = await users.GetStatesAsync(recipients.UserIds, recipients.UserPublicIds, ct);
         var actorId = actor.UserId;
+        // client decision E (task 053g): every notification is mandatory — no opt-out
         var targets = states.Where(u => u.IsActive && u.Id != actorId).DistinctBy(u => u.Id).ToList();
-
-        // task 048: an optional type the recipient turned off on the profile (mandatory ones always go)
-        if (targets.Count > 0 && NotificationTypes.Find(message.Type) is { Mandatory: false })
-        {
-            var ids = targets.Select(u => (uint)u.Id).ToList();
-            var off = await db.Prefs.AsNoTracking()
-                .Where(p => p.NotificationType == message.Type && !p.Enabled && ids.Contains(p.UserId))
-                .Select(p => p.UserId)
-                .ToListAsync(ct);
-            targets = targets.Where(u => !off.Contains((uint)u.Id)).ToList();
-        }
-
         if (targets.Count == 0)
         {
             return 0;

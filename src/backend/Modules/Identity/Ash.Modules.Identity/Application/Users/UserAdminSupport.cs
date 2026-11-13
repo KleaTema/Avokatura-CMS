@@ -20,8 +20,8 @@ public sealed record UserResponse(
     bool IsActive,
     DateTime? LastLoginAt,
     int CurrentAssignments,
-    // admins only (this is the admin users API). TODO(client-q-phone-visibility): should the case team see each other's phone
-    string? Phone);
+    // Pozicioni, from the Organika import (task 053g; the phone was removed with client decision E)
+    string? Position);
 
 /// <summary>Shared rules and helpers of the user administration use cases.</summary>
 public sealed class UserAdminSupport(
@@ -141,7 +141,7 @@ public sealed class UserAdminSupport(
             .Select(i => new NamedRef(i.PublicId, i.Name)).FirstOrDefaultAsync(ct);
         return new UserResponse(
             user.PublicId, user.Email, user.FirstName, user.LastName, office, institution, roles,
-            user.IsActive, user.LastLoginAt, counts.GetValueOrDefault(user.Id), user.Phone);
+            user.IsActive, user.LastLoginAt, counts.GetValueOrDefault(user.Id), user.Position);
     }
 
     /// <summary>

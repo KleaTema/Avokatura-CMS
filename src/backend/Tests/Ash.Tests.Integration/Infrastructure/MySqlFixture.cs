@@ -29,7 +29,9 @@ public sealed class MySqlFixture : IAsyncLifetime
         "ash_core.case_reminders",
         "ash_core.sent_reminders",
         "ash_core.notifications",
-        "ash_core.user_notification_prefs",
+        // task 053g: Organika (the history before the imports it points to)
+        "ash_core.user_org_history",
+        "ash_core.org_imports",
         "ash_core.case_history_events",
         "ash_core.documents",
         "ash_core.case_decisions",
@@ -170,8 +172,10 @@ public sealed class MySqlFixture : IAsyncLifetime
                 await ExecuteAsync(connection, sql);
             }
 
-            // the seeded users stay, but a profile test may have given one a phone (task 048)
-            await ExecuteAsync(connection, "UPDATE ash_core.users SET phone = NULL WHERE phone IS NOT NULL;");
+            // the seeded users stay, but an Organika test may have given them a position, unit or manager (task 053g)
+            await ExecuteAsync(connection,
+                "UPDATE ash_core.users SET position = NULL, org_unit = NULL, manager_user_id = NULL " +
+                "WHERE position IS NOT NULL OR org_unit IS NOT NULL OR manager_user_id IS NOT NULL;");
 
             return 0;
         });

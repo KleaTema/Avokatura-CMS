@@ -26,8 +26,12 @@ public interface ICaseLookup
     /// Task 049: who belongs in the case chat — every user whose case PROFILE gives chat.case now (v_case_permissions):
     /// the current team (primary, secondary, assistants, the institution jurist) and the active INSTITUTION_USERs of a
     /// linked institution. System permissions do not count: a Kryetar or Monitor is in only when on the team.
+    /// Task 053g (client decision E): also the Protokoll who registered the case, for the life of the case.
     /// </summary>
     Task<IReadOnlyList<long>> GetChatParticipantIdsAsync(long caseId, CancellationToken ct = default);
+
+    /// <summary>Who registered the case (cases.registered_by, the Protokoll); null for an unknown case. No access check.</summary>
+    Task<long?> GetRegistrarAsync(long caseId, CancellationToken ct = default);
 
     /// <summary>Whether the case's dossier is archived (task 038) — no access check.</summary>
     Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken ct = default);

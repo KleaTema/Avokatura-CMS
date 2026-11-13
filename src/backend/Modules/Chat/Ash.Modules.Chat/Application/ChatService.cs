@@ -71,6 +71,9 @@ public sealed class ChatService(
 
     private uint Me => (uint)currentUser.UserId;
 
+    /// <summary>Task 053g (client decision E): the administrator reads any case chat and joins with the first message.</summary>
+    public const string AdminChatPermission = "chat.admin";
+
     // ------------------------------------------------------------------ conversations
 
     public async Task<ConversationPage> ListAsync(string? after, int? limit, CancellationToken ct)
@@ -119,7 +122,8 @@ public sealed class ChatService(
         }
 
         var members = await policy.CaseParticipantsAsync(c.Id, ct);
-        if (!members.Contains(currentUser.UserId))
+        // task 053g: the administrator opens any case chat (reads it) and joins with the first message
+        if (!members.Contains(currentUser.UserId) && !currentUser.HasPermission(AdminChatPermission))
         {
             return Error.Forbidden("chat.not_allowed", "Nuk jeni pjesë e ekipit të kësaj çështjeje, ndaj nuk keni bisedë.");
         }
@@ -136,10 +140,11 @@ public sealed class ChatService(
             await participants.ReconcileAsync(c.Id, ct);
         }
 
+        // an administrator who has not written yet is not a participant: nothing read
         var lastRead = await db.Participants.AsNoTracking()
             .Where(p => p.ConversationId == conversation.Id && p.UserId == Me)
-            .Select(p => p.LastReadMessageId)
-            .SingleAsync(ct);
+            .Select(p => (ulong?)p.LastReadMessageId)
+            .SingleOrDefaultAsync(ct) ?? 0;
         conversation = await db.Conversations.AsNoTracking().SingleAsync(x => x.Id == conversation.Id, ct);
         return await ToConversationAsync(conversation, lastRead, ct);
     }
@@ -274,6 +279,11 @@ public sealed class ChatService(
         await chat.Work.BeginAsync(ct);
         try
         {
+            if (found.Value.Participant is null)
+            {
+                await JoinAsAdminAsync(conversation, ct);
+            }
+
             row = await store.InsertAsync(conversation.Id, Me, MessageRow.Text, body, replyTo, store.Now(), ct);
 
             // the sender has read their own message
@@ -450,9 +460,12 @@ public sealed class ChatService(
 
         var conversation = found.Value.Conversation;
         var rows = await ActiveUserIdsAsync(conversation.Id, ct);
+        var admins = await participants.AdminIdsAsync(ct);
         if (conversation.CaseId is { } caseId)
         {
+            // administrators who joined by writing are expected too (task 053g)
             var expected = (await policy.CaseParticipantsAsync((long)caseId, ct)).ToHashSet();
+            expected.UnionWith(rows.Where(r => admins.Contains((uint)r)));
             if (!expected.SetEquals(rows))
             {
                 logger.LogWarning(
@@ -461,7 +474,7 @@ public sealed class ChatService(
                 await participants.ReconcileAsync((long)caseId, ct);
                 db.ChangeTracker.Clear();
                 rows = await ActiveUserIdsAsync(conversation.Id, ct);
-                if (!rows.Contains(currentUser.UserId))
+                if (!rows.Contains(currentUser.UserId) && found.Value.Participant is not null)
                 {
                     return Left;
                 }
@@ -469,6 +482,7 @@ public sealed class ChatService(
         }
 
         var team = conversation.CaseId is { } c ? await cases.GetTeamAsync((long)c, ct) : [];
+        var registrar = conversation.CaseId is { } rc ? await cases.GetRegistrarAsync((long)rc, ct) : null;
         var refs = await users.GetRefsAsync(rows, ct);
         var institutionIds = refs.Values.Where(r => r.InstitutionId is not null).Select(r => r.InstitutionId!.Value).Distinct().ToList();
         var institutions = institutionIds.Count == 0
@@ -487,6 +501,17 @@ public sealed class ChatService(
                 }
             }
 
+            // task 053g: the registering Protokoll and an administrator who joined
+            if (userId == registrar)
+            {
+                return ProtocolRole;
+            }
+
+            if (admins.Contains((uint)userId))
+            {
+                return AdminRole;
+            }
+
             return user?.InstitutionId is not null ? InstitutionUserRole : null;
         }
 
@@ -501,12 +526,22 @@ public sealed class ChatService(
                     user?.InstitutionId is { } i ? institutions.GetValueOrDefault(i) : null,
                     id == currentUser.UserId);
             })
-            .OrderBy(p => p.Role is null ? RoleOrder.Length + 1 : p.Role == InstitutionUserRole ? RoleOrder.Length : Array.IndexOf(RoleOrder, p.Role))
+            // the case team first, then the institution's users, the registering Protokoll, an administrator (task 053g)
+            .OrderBy(p => p.Role switch
+            {
+                null => RoleOrder.Length + 3,
+                InstitutionUserRole => RoleOrder.Length,
+                ProtocolRole => RoleOrder.Length + 1,
+                AdminRole => RoleOrder.Length + 2,
+                _ => Array.IndexOf(RoleOrder, p.Role),
+            })
             .ThenBy(p => p.Name, StringComparer.CurrentCulture)
             .ToList();
     }
 
     private const string InstitutionUserRole = "INSTITUTION_USER";
+    private const string ProtocolRole = "PROTOCOL";
+    private const string AdminRole = "ADMIN";
 
     private static readonly string[] RoleOrder = ["PRIMARY_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST"];
 
@@ -520,7 +555,36 @@ public sealed class ChatService(
 
     // ------------------------------------------------------------------ helpers
 
-    private sealed record Active(ConversationRow Conversation, ParticipantRow Participant);
+    /// <summary>
+    /// Task 053g: the administrator's first message makes them a participant (a new row, or a left one rejoined), with
+    /// the system message "… u shtua në bisedë" — in the message's transaction. The reconcile keeps them.
+    /// </summary>
+    private async Task JoinAsAdminAsync(ConversationRow conversation, CancellationToken ct)
+    {
+        var now = store.Now();
+        var me = Me;
+        var existing = await db.Participants.SingleOrDefaultAsync(p => p.ConversationId == conversation.Id && p.UserId == me, ct);
+        if (existing is null)
+        {
+            db.Participants.Add(new ParticipantRow { ConversationId = conversation.Id, UserId = me, JoinedAt = now });
+        }
+        else
+        {
+            existing.LeftAt = null;
+            existing.JoinedAt = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        var name = (await users.GetRefsAsync([currentUser.UserId], ct)).GetValueOrDefault(currentUser.UserId)?.Name ?? "?";
+        var joined = await store.InsertAsync(conversation.Id, null, MessageRow.System, ChatTexts.Joined(name), null, now, ct);
+        var publicId = currentUser.PublicId;
+        chat.Work.OnCommittedAsync(() => push.JoinAsync(conversation.PublicId, [publicId]));
+        chat.Work.OnCommitted(() => push.Send(conversation.PublicId, ChatHub.MessageNew, new MessagePushed(conversation.PublicId,
+            new ChatMessage(joined.PublicId, joined.MessageType, null, joined.Body!, false, null, joined.CreatedAt, null))));
+    }
+
+    /// <summary>Participant null: an administrator reading a case chat before writing in it (task 053g).</summary>
+    private sealed record Active(ConversationRow Conversation, ParticipantRow? Participant);
 
     /// <summary>The conversation for the current user: 404 if it does not exist or they were never in it, 403 after leaving.</summary>
     private async Task<Result<Active>> ActiveAsync(Guid conversationId, CancellationToken ct)
@@ -536,7 +600,14 @@ public sealed class ChatService(
             .SingleOrDefaultAsync(p => p.ConversationId == conversation.Id && p.UserId == me, ct);
         if (participant is null)
         {
-            return NotFound;
+            return conversation.CaseId is not null && currentUser.HasPermission(AdminChatPermission)
+                ? new Active(conversation, null)
+                : NotFound;
+        }
+
+        if (participant.LeftAt is not null && conversation.CaseId is not null && currentUser.HasPermission(AdminChatPermission))
+        {
+            return new Active(conversation, null); // an administrator is never "left"
         }
 
         return participant.LeftAt is null ? new Active(conversation, participant) : Left;

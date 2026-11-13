@@ -35,7 +35,19 @@ internal sealed class CaseLookup(CasesDbContext db, IReferenceData reference) : 
             .Select(p => p.UserId)
             .Distinct()
             .ToListAsync(ct);
+        // client decision E (task 053g): the Protokoll who registered the case, for the life of the case
+        if (await GetRegistrarAsync(caseId, ct) is { } registrar && !users.Contains((uint)registrar))
+        {
+            users.Add((uint)registrar);
+        }
+
         return users.Select(u => (long)u).Order().ToList();
+    }
+
+    public async Task<long?> GetRegistrarAsync(long caseId, CancellationToken ct = default)
+    {
+        var id = (ulong)caseId;
+        return await db.Cases.AsNoTracking().Where(c => c.Id == id).Select(c => (long?)c.RegisteredBy).SingleOrDefaultAsync(ct);
     }
 
     public async Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken ct = default)

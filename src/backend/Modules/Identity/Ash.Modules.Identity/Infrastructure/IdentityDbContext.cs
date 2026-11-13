@@ -11,9 +11,46 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
     public DbSet<RoleRecord> Roles => Set<RoleRecord>();
     public DbSet<UserRoleRecord> UserRoles => Set<UserRoleRecord>();
     public DbSet<OfficeCourtRecord> OfficeCourts => Set<OfficeCourtRecord>();
+    public DbSet<OrgImportRecord> OrgImports => Set<OrgImportRecord>();
+    public DbSet<UserOrgHistoryRecord> UserOrgHistory => Set<UserOrgHistoryRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // task 053g (script 025): the Organika imports and the per-user changes
+        modelBuilder.Entity<OrgImportRecord>(b =>
+        {
+            b.ToTable("org_imports");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
+            b.Property(x => x.FileName).HasColumnName("file_name");
+            b.Property(x => x.ContentType).HasColumnName("content_type");
+            b.Property(x => x.FileContent).HasColumnName("file_content");
+            b.Property(x => x.Summary).HasColumnName("summary");
+            b.Property(x => x.UploadedBy).HasColumnName("uploaded_by");
+            b.Property(x => x.UploadedAt).HasColumnName("uploaded_at");
+            b.Property(x => x.AppliedBy).HasColumnName("applied_by");
+            b.Property(x => x.AppliedAt).HasColumnName("applied_at");
+            b.Property(x => x.AppliedCount).HasColumnName("applied_count");
+        });
+
+        modelBuilder.Entity<UserOrgHistoryRecord>(b =>
+        {
+            b.ToTable("user_org_history");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.ImportId).HasColumnName("import_id");
+            b.Property(x => x.OldPosition).HasColumnName("old_position");
+            b.Property(x => x.NewPosition).HasColumnName("new_position");
+            b.Property(x => x.OldOrgUnit).HasColumnName("old_org_unit");
+            b.Property(x => x.NewOrgUnit).HasColumnName("new_org_unit");
+            b.Property(x => x.OldManagerUserId).HasColumnName("old_manager_user_id");
+            b.Property(x => x.NewManagerUserId).HasColumnName("new_manager_user_id");
+            b.Property(x => x.ChangedBy).HasColumnName("changed_by");
+            b.Property(x => x.ChangedAt).HasColumnName("changed_at");
+        });
+
         // task 053c (script 021): the courts an office handles; at most one active office per court
         modelBuilder.Entity<OfficeCourtRecord>(b =>
         {
@@ -35,7 +72,9 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.Email).HasColumnName("email");
             b.Property(x => x.FirstName).HasColumnName("first_name");
             b.Property(x => x.LastName).HasColumnName("last_name");
-            b.Property(x => x.Phone).HasColumnName("phone");
+            b.Property(x => x.Position).HasColumnName("position");
+            b.Property(x => x.OrgUnit).HasColumnName("org_unit");
+            b.Property(x => x.ManagerUserId).HasColumnName("manager_user_id");
             b.Property(x => x.OfficeId).HasColumnName("office_id");
             b.Property(x => x.InstitutionId).HasColumnName("institution_id");
             b.Property(x => x.IsActive).HasColumnName("is_active");
@@ -98,8 +137,12 @@ public sealed class UserRecord
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
-    /// <summary>E.164, set on the own profile (task 048). Shown only to the user and to admins.</summary>
-    public string? Phone { get; set; }
+    /// <summary>Pozicioni, from the Organika import (task 053g).</summary>
+    public string? Position { get; set; }
+    /// <summary>The unit as the HR sheet names it (text, task 053g) — not the office, which decides access.</summary>
+    public string? OrgUnit { get; set; }
+    /// <summary>Eprori, from the Organika import (task 053g).</summary>
+    public uint? ManagerUserId { get; set; }
     public ushort? OfficeId { get; set; }
     public uint? InstitutionId { get; set; }
     public bool IsActive { get; set; }
@@ -130,6 +173,37 @@ public sealed class OfficeRecord
     public ushort? ParentOfficeId { get; set; }
     public uint? HeadUserId { get; set; }
     public bool IsActive { get; set; } = true;
+}
+
+public sealed class OrgImportRecord
+{
+    public ulong Id { get; set; }
+    public Guid PublicId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public byte[] FileContent { get; set; } = [];
+    /// <summary>JSON of the preview counts.</summary>
+    public string Summary { get; set; } = "{}";
+    public uint UploadedBy { get; set; }
+    public DateTime UploadedAt { get; set; }
+    public uint? AppliedBy { get; set; }
+    public DateTime? AppliedAt { get; set; }
+    public uint? AppliedCount { get; set; }
+}
+
+public sealed class UserOrgHistoryRecord
+{
+    public ulong Id { get; set; }
+    public uint UserId { get; set; }
+    public ulong ImportId { get; set; }
+    public string? OldPosition { get; set; }
+    public string? NewPosition { get; set; }
+    public string? OldOrgUnit { get; set; }
+    public string? NewOrgUnit { get; set; }
+    public uint? OldManagerUserId { get; set; }
+    public uint? NewManagerUserId { get; set; }
+    public uint ChangedBy { get; set; }
+    public DateTime ChangedAt { get; set; }
 }
 
 public sealed class OfficeCourtRecord

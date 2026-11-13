@@ -29,8 +29,9 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
     /// <summary>Every wait gives up after this long: a missing push fails the test instead of hanging it.</summary>
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(10);
 
+    /// <summary>The seed case's chat: its team, the institution's user, and (task 053g) the Protokoll who registered it.</summary>
     private static readonly string[] Team =
-        ["avokat1@ash.local", "avokat2@ash.local", "institucion@ash.local", "jurist@ash.local", "ndihmes@ash.local"];
+        ["avokat1@ash.local", "avokat2@ash.local", "institucion@ash.local", "jurist@ash.local", "ndihmes@ash.local", "protokoll@ash.local"];
 
     // ---------------------------------------------------------------- helpers
 
@@ -497,7 +498,7 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
 
         var list = await ParticipantList(avokat1, conversation);
         list.Select(p => p.GetProperty("role").GetString()).ShouldBe(
-            ["PRIMARY_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST", "INSTITUTION_USER"]);
+            ["PRIMARY_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST", "INSTITUTION_USER", "PROTOCOL"]);
         list.Count(p => p.GetProperty("isMe").GetBoolean()).ShouldBe(1);
         list[0].GetProperty("isMe").GetBoolean().ShouldBeTrue();
         list.Where(p => p.GetProperty("role").GetString()!.StartsWith("INSTITUTION"))
@@ -514,7 +515,7 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
              WHERE user_id = {s.User("avokat2").Id}
                AND conversation_id = (SELECT id FROM conversations WHERE case_id = {s.ActiveCaseId})
             """, Db.ChatConnectionString);
-        (await ParticipantList(avokat1, conversation)).Count.ShouldBe(5);
+        (await ParticipantList(avokat1, conversation)).Count.ShouldBe(6); // + the registering Protokoll (053g)
         (await Participants(s.ActiveCaseId)).ShouldContain("avokat2@ash.local");
         (await SystemMessages(s.ActiveCaseId)).ShouldHaveSingleItem().ShouldEndWith("u shtua në bisedë");
     }
@@ -528,7 +529,7 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         using var avokat1 = factory.CreateClient().AsUser("avokat1@ash.local");
         using var ndihmes = factory.CreateClient().AsUser("ndihmes@ash.local");
         var conversation = await Open(avokat1, casePublicId);
-        (await ParticipantList(ndihmes, conversation)).Count.ShouldBe(5);
+        (await ParticipantList(ndihmes, conversation)).Count.ShouldBe(6); // + the registering Protokoll (053g)
 
         // task 053e: the seed's assistant row belongs to a link ndihmes → avokat1; the Kryetar removes the link
         var ndihmesId = await PublicIdOf("users", s.User("ndihmes").Id);
@@ -544,7 +545,7 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         removed.StatusCode.ShouldBe(HttpStatusCode.NoContent, await removed.Content.ReadAsStringAsync(Ct));
 
         var list = await ParticipantList(avokat1, conversation);
-        list.Count.ShouldBe(4);
+        list.Count.ShouldBe(5);
         list.ShouldNotContain(p => p.GetProperty("id").GetGuid() == ndihmesId);
         (await ndihmes.GetAsync($"/api/chat/conversations/{conversation}/participants", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await ndihmes.GetFromJsonAsync<JsonElement>("/api/chat/conversations", Ct)).GetProperty("items").GetArrayLength().ShouldBe(0);
@@ -648,5 +649,60 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         seen.Select(x => x.At).ShouldBeInOrder(SortDirection.Descending);
         seen.Select(x => x.At.Month).Distinct().Count().ShouldBe(3);
         (DateTime.UtcNow - started).ShouldBeLessThan(TimeSpan.FromSeconds(60)); // 100 pages
+    }
+
+    // ---------------------------------------------------------------- client decision E (task 053g)
+
+    [Fact]
+    public async Task E_the_registering_Protokoll_stays_in_the_chat_of_the_active_case_listed_with_the_role()
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        var casePublicId = await PublicIdOf("cases", s.ActiveCaseId); // ACTIVE, registered by protokoll
+        await using var factory = new AshApiFactory(Db);
+        using var avokat1 = factory.CreateClient().AsUser("avokat1@ash.local");
+        var conversation = await Open(avokat1, casePublicId);
+
+        (await Participants(s.ActiveCaseId)).ShouldContain("protokoll@ash.local");
+        var list = await ParticipantList(avokat1, conversation);
+        list.Single(p => p.GetProperty("name").GetString() == "Protokoll Dev").GetProperty("role").GetString().ShouldBe("PROTOCOL");
+
+        // the Protokoll reads and writes there, from the chat page (the case itself stays closed to them)
+        using var protokoll = factory.CreateClient().AsUser("protokoll@ash.local");
+        await SendOk(protokoll, conversation, "Fletëthirrja e re erdhi sot.");
+
+        // the nightly reconcile keeps them
+        await factory.Services.GetRequiredService<JobRunner>().RunAsync("chat-reconcile", DateTime.UtcNow, Ct);
+        (await Participants(s.ActiveCaseId)).ShouldContain("protokoll@ash.local");
+    }
+
+    [Fact]
+    public async Task E_the_admin_reads_any_case_chat_and_joins_with_the_first_message_and_stays()
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        var casePublicId = await PublicIdOf("cases", s.ActiveCaseId);
+        await using var factory = new AshApiFactory(Db);
+        using var avokat1 = factory.CreateClient().AsUser("avokat1@ash.local");
+        var conversation = await Open(avokat1, casePublicId);
+        await SendOk(avokat1, conversation, "Mirëmëngjes.");
+
+        // the admin opens it from the case page and reads, not yet a participant
+        using var admin = factory.CreateClient().AsUser("admin@ash.local");
+        (await Open(admin, casePublicId)).ShouldBe(conversation);
+        var messages = await Json(await admin.GetAsync($"/api/chat/conversations/{conversation}/messages", Ct));
+        messages.GetProperty("items").EnumerateArray().ShouldContain(m => m.GetProperty("body").GetString() == "Mirëmëngjes.");
+        (await Participants(s.ActiveCaseId)).ShouldNotContain("admin@ash.local");
+
+        // the first message makes them a participant, announced
+        await SendOk(admin, conversation, "Administratori këtu.");
+        (await Participants(s.ActiveCaseId)).ShouldContain("admin@ash.local");
+        (await SystemMessages(s.ActiveCaseId)).ShouldContain(m => m.Contains("Admin") && m.EndsWith("u shtua në bisedë"));
+        var list = await ParticipantList(avokat1, conversation);
+        list.Single(p => p.GetProperty("role").GetString() == "ADMIN").GetProperty("name").GetString()!.ShouldStartWith("Admin");
+
+        // never removed by the reconcile; others still cannot open it
+        await factory.Services.GetRequiredService<JobRunner>().RunAsync("chat-reconcile", DateTime.UtcNow, Ct);
+        (await Participants(s.ActiveCaseId)).ShouldContain("admin@ash.local");
+        using var monitor = factory.CreateClient().AsUser("monitor@ash.local");
+        (await monitor.PostAsync($"/api/chat/cases/{casePublicId}/conversation", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 }

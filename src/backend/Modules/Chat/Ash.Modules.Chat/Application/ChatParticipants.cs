@@ -28,6 +28,16 @@ public sealed class ChatParticipants(
     IAuditLog audit,
     ILogger<ChatParticipants> logger)
 {
+    /// <summary>
+    /// Task 053g (client decision E): the role whose users hold chat.admin — they read any case chat and join it with
+    /// their first message; the reconcile keeps them.
+    /// </summary>
+    public const string AdminRole = "ADMIN";
+
+    /// <summary>The active administrators (internal ids).</summary>
+    public async Task<HashSet<uint>> AdminIdsAsync(CancellationToken ct) =>
+        (await users.GetUsersByRoleAsync(AdminRole, ct)).Select(u => (uint)u.Id).ToHashSet();
+
     /// <summary>True when something changed.</summary>
     public async Task<bool> ReconcileAsync(long caseId, CancellationToken ct)
     {
@@ -44,6 +54,7 @@ public sealed class ChatParticipants(
         // the facts come from the core database (committed data), read before the chat transaction starts
         var desired = (await policy.CaseParticipantsAsync(caseId, ct)).Select(u => (uint)u).ToHashSet();
         var archived = await cases.IsDossierArchivedAsync(caseId, ct);
+        var admins = await AdminIdsAsync(ct);
 
         var joined = new List<uint>();
         var left = new List<uint>();
@@ -79,7 +90,8 @@ public sealed class ChatParticipants(
                 }
             }
 
-            foreach (var row in rows.Where(r => r.LeftAt is null && !desired.Contains(r.UserId)))
+            // an administrator who joined by writing (chat.admin, task 053g) stays: never on the case, never removed
+            foreach (var row in rows.Where(r => r.LeftAt is null && !desired.Contains(r.UserId) && !admins.Contains(r.UserId)))
             {
                 row.LeftAt = now;
                 left.Add(row.UserId);
