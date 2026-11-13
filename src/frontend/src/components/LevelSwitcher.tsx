@@ -1,4 +1,5 @@
 import { Box, Button, Stack, Tooltip, Typography } from '@mui/material'
+import { Lock } from 'lucide-react'
 import { Link } from 'react-router'
 import type { CaseDetail } from '../features/cases/api'
 import { sq } from '../i18n/sq'
@@ -43,8 +44,10 @@ export function LevelSwitcher({
             </Tooltip>
           )
         }
+        // task 053f (D2): an earlier level opened through a later one — shown normally, with a lock ("Vetëm lexim")
+        const fullLabel = level.readOnly ? `${label}. ${t.levelReadOnly}` : label
         return (
-          <Tooltip key={level.caseCode} title={label}>
+          <Tooltip key={level.caseCode} title={fullLabel}>
             <Button
               size="small"
               variant={current ? 'contained' : 'outlined'}
@@ -52,7 +55,8 @@ export function LevelSwitcher({
               to={`/cases/${level.publicId}/${tab}`}
               state={linkState}
               aria-current={current ? 'page' : undefined}
-              aria-label={label}
+              aria-label={fullLabel}
+              startIcon={level.readOnly ? <Lock size={14} aria-hidden /> : undefined}
             >
               {level.caseCode}
             </Button>

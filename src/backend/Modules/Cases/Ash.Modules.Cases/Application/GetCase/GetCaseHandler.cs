@@ -62,7 +62,7 @@ internal sealed class GetCaseHandler(
         var permissions = await access.GetEffectivePermissionsAsync(caseId, ct);
         var response = new GetCaseResponse(
             new CaseHeader(c.PublicId, c.CaseCode, c.LevelSeq, c.LifecycleStatus, c.Priority, c.IsSuspended, c.RowVersion,
-                dossier.PublicId, dossier.ArchivedAt is not null),
+                dossier.PublicId, dossier.ArchivedAt is not null, await access.IsReadOnlyEarlierLevelAsync(caseId, ct)),
             await DataAsync(c, people, ct),
             team.Where(a => people.ContainsKey(a.UserId))
                 .Select(a => new CaseTeamMember(a.CaseRole, people[a.UserId].PublicId, people[a.UserId].Name, a.AssignedAt))
@@ -146,7 +146,7 @@ internal sealed class GetCaseHandler(
             var canOpen = await access.CanViewAsync((long)level.Id, ct);
             var courtLevel = await reference.GetCourtLevel(level.CourtLevelId, ct);
             result.Add(new CaseLevelView(level.CaseCode, level.LevelSeq, courtLevel?.Name ?? string.Empty, level.LifecycleStatus,
-                canOpen ? level.PublicId : null, canOpen));
+                canOpen ? level.PublicId : null, canOpen, canOpen && await access.IsReadOnlyEarlierLevelAsync((long)level.Id, ct)));
         }
 
         return result;

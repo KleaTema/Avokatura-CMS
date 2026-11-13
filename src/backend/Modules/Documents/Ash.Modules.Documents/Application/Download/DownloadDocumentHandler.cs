@@ -36,7 +36,7 @@ internal sealed class DownloadDocumentHandler(
     public async Task<Result<StoredFileResult>> Handle(Guid documentPublicId, DownloadMode mode, string? range, CancellationToken ct)
     {
         var row = await db.Documents.AsNoTracking().SingleOrDefaultAsync(d => d.PublicId == documentPublicId, ct);
-        if (row is null || row.DeletedAt is not null || !await access.CanViewDossierDocumentsAsync((long)row.DossierId, ct))
+        if (row is null || row.DeletedAt is not null || !await DocumentAccess.CanViewAsync(access, row.DossierId, row.CaseId, ct))
         {
             return NotFound();
         }

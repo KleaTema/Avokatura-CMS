@@ -28,11 +28,15 @@ public interface ICaseAccessService
     Task<bool> IsDossierArchivedAsync(long caseId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Documents (task 034): true when the user can view ANY level of the dossier — and then sees the documents of ALL
-    /// its levels. A deliberate exception to the history rule (task 020: history rows of a level the user cannot view
-    /// are skipped): the workflow treats the documents as ONE dossier timeline, and the lawyer of the appeal works from
-    /// the first-instance file (claim, evidence, decision). The only place this rule lives.
-    /// TODO(client-q-docs-across-levels): confirm that the appeal lawyer sees the first-instance documents (default yes).
+    /// Client decision D2 (task 053f): the user sees this level only because they can view a LATER level of the dossier
+    /// — completely, but read-only (effective permissions = case.view). False with own access, or without view.
+    /// </summary>
+    Task<bool> IsReadOnlyEarlierLevelAsync(long caseId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Dossier-wide documents (no level, task 034): true when the user can view ANY level of the dossier. A document of
+    /// a level follows that level (Documents' DocumentAccess, task 053f) — since client decision D2 a later level opens
+    /// every earlier one completely (the appeal lawyer reads the first-instance file), never backwards.
     /// </summary>
     Task<bool> CanViewDossierDocumentsAsync(long dossierId, CancellationToken cancellationToken = default);
 

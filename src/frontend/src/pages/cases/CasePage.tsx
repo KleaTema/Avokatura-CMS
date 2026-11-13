@@ -1,5 +1,5 @@
 import { Alert, Box, Button, CircularProgress, Link as MuiLink, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
-import { Archive, ArrowLeft, UserPlus } from 'lucide-react'
+import { Archive, ArrowLeft, Lock, UserPlus } from 'lucide-react'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
 import { HeaderPrioritySelect } from '../../components/caseData/HeaderPrioritySelect'
 import { CaseCode } from '../../components/ui/CaseCode'
@@ -106,6 +106,12 @@ export function CasePage() {
   return (
     <Stack spacing={2}>
       <BackToList depth={listDepth} />
+      {/* task 053f (D2): seen through a later level — everything shown, nothing can be changed (permissions = case.view) */}
+      {header.readOnlyEarlierLevel && (
+        <Alert severity="info" icon={<Lock size={22} aria-hidden />} role="status">
+          {sq.cases.page.readOnlyEarlierBanner}
+        </Alert>
+      )}
       {header.isArchived && (
         <Alert severity="info" icon={<Archive size={22} aria-hidden />} role="status">
           {sq.cases.page.decision.archivedBanner}

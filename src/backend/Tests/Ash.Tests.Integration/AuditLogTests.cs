@@ -151,7 +151,8 @@ public class AuditLogTests(MySqlFixture db) : IntegrationTest(db)
         await factory.DisposeAsync();
 
         var rows = await WaitForRowsAsync(correlationId);
-        rows.ShouldHaveSingleItem().Action.ShouldBe(AuditActions.CaseView);
+        // the admin's first request in a fresh database also writes LOGIN (same correlation): only the view counts here
+        rows.Where(r => r.Action != AuditActions.Login).ShouldHaveSingleItem().Action.ShouldBe(AuditActions.CaseView);
     }
 
     [Fact]

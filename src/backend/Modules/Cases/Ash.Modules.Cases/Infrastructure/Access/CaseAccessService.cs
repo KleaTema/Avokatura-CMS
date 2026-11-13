@@ -15,6 +15,9 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
 
     public IQueryable<Case> ApplyScope(IQueryable<Case> cases) => CaseScopeQuery.Apply(cases, db, user);
 
+    /// <summary>The scope plus the earlier levels of its dossiers (D2, task 053f) — what <see cref="CanViewAsync"/> opens.</summary>
+    public IQueryable<Case> ApplyScopeWithEarlierLevels(IQueryable<Case> cases) => CaseScopeQuery.ApplyWithEarlierLevels(cases, db, user);
+
     public async Task<bool> CanViewAsync(long caseId, CancellationToken cancellationToken = default) =>
         (await GetAsync(caseId, cancellationToken)).CanView;
 
@@ -138,6 +141,8 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             from p in ps.DefaultIfEmpty()
             select new
             {
+                c.DossierId,
+                c.LevelSeq,
                 c.OfficeId,
                 c.LifecycleStatus,
                 c.RegisteredBy,
@@ -165,7 +170,12 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
 
         if (!canView)
         {
-            return CaseAccess.None;
+            // client decision D2 (task 053f): whoever can view a LATER level of the dossier views this one completely,
+            // read-only (case.view only). Never backwards: X/1 gives nothing on X/2. Own access (above) wins: the X/1
+            // lawyer keeps X/1's rights even when also on X/2 (decision of 13.11.2026).
+            return await ViewableLaterLevelAsync(first.DossierId, first.LevelSeq, cancellationToken)
+                ? new CaseAccess(true, ViewOnlyPermissions, ReadOnlyEarlierLevel: true)
+                : CaseAccess.None;
         }
 
         // an archived dossier is read-only on EVERY level: view only (ActionsAllowedWhenClosed does not apply)
@@ -287,7 +297,36 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// </summary>
     public static readonly IReadOnlySet<string> ArchivedPermissions = new HashSet<string> { ViewPermission };
 
-    private sealed record CaseAccess(bool CanView, IReadOnlySet<string> Permissions, bool Archived = false)
+    /// <summary>An earlier level seen through a later one (D2, task 053f): viewing only — no chat, upload or decision.</summary>
+    public static readonly IReadOnlySet<string> ViewOnlyPermissions = new HashSet<string> { ViewPermission };
+
+    /// <summary>
+    /// Whether the user can view a later level of the dossier (a level they can view with their own access, or itself
+    /// through a still later one — so X/3 opens X/2 and X/1). Answered from the per-request cache.
+    /// </summary>
+    private async Task<bool> ViewableLaterLevelAsync(ulong dossierId, ushort levelSeq, CancellationToken ct)
+    {
+        var later = await db.Cases.AsNoTracking()
+            .Where(c => c.DossierId == dossierId && c.LevelSeq > levelSeq)
+            .OrderBy(c => c.LevelSeq)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+        foreach (var id in later)
+        {
+            if ((await GetAsync((long)id, ct)).CanView)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> IsReadOnlyEarlierLevelAsync(long caseId, CancellationToken cancellationToken = default) =>
+        (await GetAsync(caseId, cancellationToken)).ReadOnlyEarlierLevel;
+
+    private sealed record CaseAccess(bool CanView, IReadOnlySet<string> Permissions, bool Archived = false, bool ReadOnlyEarlierLevel = false)
     {
         public static CaseAccess None { get; } = new(false, new HashSet<string>());
     }

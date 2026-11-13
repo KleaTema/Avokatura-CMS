@@ -62,6 +62,12 @@ is a MySQL named lock here.
 - **System permission** (from `user_roles` → `role_permissions`): menus and office-wide actions, e.g. `case.assign_lawyer`, `case.view_office`, `case.view_all`.
 - **Case permission** (from view `v_case_permissions`): what a user may do inside one case, decided by their case profile (`PRIMARY_LAWYER`, `SECONDARY_LAWYER`, `LEGAL_ASSISTANT`, `INSTITUTION_MONITORING`, `INSTITUTION_DELEGATED`).
 - `ICaseAccessService.CanView(caseId)` = case profile exists OR `case.view_all` OR (`case.view_office` AND case.office_id = user.office_id) OR (`case.view_supervised` AND the case is under the user's supervision) OR the user is the Protokoll who registered it and it is still `REGISTERED`.
+- **Earlier levels (task 053f, client decision D2).**
+  - Whoever can view X/n also views every EARLIER level X/1 … X/n-1 of the dossier completely, but read-only: effective permissions are `case.view` only, so no chat, upload, decision or edit.
+  - It is never backwards: X/1 gives nothing on X/2.
+  - Own access to the earlier level wins: the X/1 lawyer keeps X/1's rights. `IsReadOnlyEarlierLevelAsync` marks the rest; the case header (`readOnlyEarlierLevel`) and `levels[].readOnly` carry the mark.
+  - Decided in ONE place, `CaseAccessService.LoadAsync` (`ViewableLaterLevelAsync`), so `levels[]`, the history (X/n's history holds the earlier levels' rows with their level labels) and the documents follow by themselves. A level's document is visible exactly when its level is (`DocumentAccess`); dossier-wide documents stay with "any level".
+  - The header search reaches the earlier levels too (`CaseScopeQuery.ApplyWithEarlierLevels`). The case lists, the dashboard, the agenda, the reports and the statistics keep the user's own cases: earlier levels' hearings show in the history, not in the agenda.
 - **Supervision, "Mbikëqyrja" (task 053d, client decision C, D3).**
   - The Monitor (`supervision.manage`, menu `supervision`) gives a Kryetar either a LAWYER or one CASE (table `supervisions`). A LAWYER covers every case where that lawyer is the CURRENT primary. This is decided at read time, so the lawyer's later cases join and transferred ones leave.
   - The Kryetar's scope is the own office + the supervised cases + the cases where they have a current assignment.

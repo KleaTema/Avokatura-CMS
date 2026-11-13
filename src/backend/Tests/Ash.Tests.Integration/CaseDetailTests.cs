@@ -209,7 +209,7 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
     // ---------------------------------------------------------------- levels + history access
 
     [Fact]
-    public async Task Lawyer_of_level_2_only_sees_level_1_as_closed_door()
+    public async Task D2_lawyer_of_level_2_only_opens_level_1_read_only_with_its_history()
     {
         var s = await SeedAsync();
         await using var factory = new AshApiFactory(Db);
@@ -218,19 +218,23 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
         var page = await Get(client, $"/api/cases/{s.Level2}");
         var levels = page.GetProperty("levels").EnumerateArray().ToList();
         levels.Select(l => l.GetProperty("caseCode").GetString()).ShouldBe(["2026-777001/1", "2026-777001/2"]);
-        levels[0].GetProperty("canOpen").GetBoolean().ShouldBeFalse();
-        levels[0].GetProperty("publicId").ValueKind.ShouldBe(JsonValueKind.Null);
+        // client decision D2 (task 053f): the earlier level opens, read-only (was a closed door before)
+        levels[0].GetProperty("canOpen").GetBoolean().ShouldBeTrue();
+        levels[0].GetProperty("readOnly").GetBoolean().ShouldBeTrue();
+        levels[0].GetProperty("publicId").GetGuid().ShouldBe(s.Level1);
         levels[0].GetProperty("status").GetString().ShouldBe("CLOSED");
         levels[0].GetProperty("courtLevelName").GetString().ShouldBe("Shkalla e parë");
         levels[1].GetProperty("canOpen").GetBoolean().ShouldBeTrue();
+        levels[1].GetProperty("readOnly").GetBoolean().ShouldBeFalse();
         levels[1].GetProperty("publicId").GetGuid().ShouldBe(s.Level2);
 
-        (await client.GetAsync($"/api/cases/{s.Level1}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await client.GetAsync($"/api/cases/{s.Level1}/history", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var level1 = await Get(client, $"/api/cases/{s.Level1}");
+        level1.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()).ShouldBe(["case.view"]);
+        (await client.GetAsync($"/api/cases/{s.Level1}/history", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var history = await AllHistory(client, s.Level2);
         history.Select(h => h.GetProperty("level").GetString()).Distinct().Order()
-            .ShouldBe(["2026-777001", "2026-777001/2"]); // dossier-wide rows + /2, nothing of /1
+            .ShouldBe(["2026-777001", "2026-777001/1", "2026-777001/2"]); // dossier-wide rows, /1 and /2
 
         // avokat2 works on both levels and sees the history of both
         using var both = factory.CreateClient().AsUser("avokat2@ash.local");

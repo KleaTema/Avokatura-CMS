@@ -1053,6 +1053,9 @@ export const sq = {
       registeredAt: 'Regjistruar më',
       levels: 'Shkallët e dosjes',
       levelNoAccess: 'Nuk keni akses në këtë shkallë',
+      /** task 053f (D2): an earlier level opened through a later one */
+      levelReadOnly: 'Vetëm lexim',
+      readOnlyEarlierBanner: 'Shkallë e mëparshme — vetëm për lexim',
       levelLabel: (code: string, level: string, status: string) => `${code} — ${level} (${status})`,
       tabsLabel: 'Pjesët e çështjes',
       tabs: {

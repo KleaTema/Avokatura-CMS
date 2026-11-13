@@ -22,10 +22,12 @@ public sealed record GetCaseResponse(
 /// <summary>
 /// DossierPublicId: for POST /api/dossiers/{id}/archive; IsArchived: the dossier is read-only (task 038). No default
 /// values here: the OpenAPI schema exporter writes them, and a Guid default cannot be written (500 on /openapi).
+/// ReadOnlyEarlierLevel: seen only through a later level of the dossier (client decision D2, task 053f) — everything is
+/// shown, nothing can be changed ("Shkallë e mëparshme — vetëm për lexim").
 /// </summary>
 public sealed record CaseHeader(
     Guid PublicId, string CaseCode, int LevelSeq, string Status, string Priority, bool IsSuspended, uint RowVersion,
-    Guid DossierPublicId, bool IsArchived);
+    Guid DossierPublicId, bool IsArchived, bool ReadOnlyEarlierLevel);
 
 public sealed record CodeName(string Code, string Name);
 
@@ -101,5 +103,8 @@ public sealed record CaseDecisionSummary(
     DateTime RecordedAt,
     uint RowVersion);
 
-/// <summary>A level X/n of the dossier. PublicId only when the user can open it.</summary>
-public sealed record CaseLevelView(string CaseCode, int LevelSeq, string CourtLevelName, string Status, Guid? PublicId, bool CanOpen);
+/// <summary>
+/// A level X/n of the dossier. PublicId only when the user can open it; ReadOnly: an earlier level opened through a
+/// later one (D2, task 053f — "Vetëm lexim").
+/// </summary>
+public sealed record CaseLevelView(string CaseCode, int LevelSeq, string CourtLevelName, string Status, Guid? PublicId, bool CanOpen, bool ReadOnly);

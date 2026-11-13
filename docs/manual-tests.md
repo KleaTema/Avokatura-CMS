@@ -766,6 +766,28 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
 
+## 053f — Earlier levels read-only (D2)
+**Setup:**
+- A dossier with X/1 closed and X/2 registered from it.
+- X/2 assigned to a lawyer who has NO role on X/1 (e.g. a new lawyer created in Administrimi).
+- Restart the API, `npm run dev`.
+
+**Steps:**
+1. **The X/2 lawyer on X/2:**
+   - The level switcher shows X/1 as a normal link with a lock and the tooltip "… Vetëm lexim".
+   - *Historiku* shows X/1's rows labelled X/1.
+2. **Open X/1:**
+   - The banner reads "Shkallë e mëparshme — vetëm për lexim".
+   - Every tab shows its data (parties, hearings, documents, decision, team names).
+   - No action anywhere: no "Ndrysho", upload, decision or transfer buttons; *Chat* says it is not allowed.
+   - Download a document of X/1 → it opens; the audit log has DOCUMENT_DOWNLOAD for it.
+3. **The header search:** search X/1's code → found; it opens read-only.
+4. **The agenda:** X/1's hearings are not in the agenda (only in X/1's history).
+5. **The X/1-only lawyer (avokat1):**
+   - X/2 in the switcher is disabled ("Nuk keni akses…"); opening its link → not found.
+   - X/1's documents list has no X/2 documents.
+6. **The X/1 lawyer who is also on X/2:** X/1 shows no banner and keeps "Plotëso / Ndrysho vendimin".
+
 ## 053e — "Ndihmësit ligjorë" (C, D4)
 **Setup:** run the migrator (scripts 023–024; it prints what 024 converted: LINK_CREATED / ROW_KEPT / ROW_ENDED),
 restart the API, `npm run dev`.

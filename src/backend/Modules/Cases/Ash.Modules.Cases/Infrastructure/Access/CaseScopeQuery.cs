@@ -68,6 +68,22 @@ public static class CaseScopeQuery
     public static IQueryable<Case> Apply(IQueryable<Case> cases, CasesDbContext db, ICurrentUser user) =>
         Apply(cases, db, For(user));
 
+    /// <summary>
+    /// Client decision D2 (task 053f): a case is also in reach when the user's scope holds a LATER (or the same) level of
+    /// its dossier — the earlier levels open read-only (CaseAccessService). Never backwards.
+    /// </summary>
+    public static IQueryable<Case> ApplyWithEarlierLevels(IQueryable<Case> cases, CasesDbContext db, ICurrentUser user)
+    {
+        var spec = For(user);
+        if (spec.All)
+        {
+            return cases;
+        }
+
+        var visible = Apply(db.Cases, db, spec);
+        return cases.Where(c => visible.Any(v => v.DossierId == c.DossierId && v.LevelSeq >= c.LevelSeq));
+    }
+
     public static IQueryable<Case> Apply(IQueryable<Case> cases, CasesDbContext db, CaseScopeSpec spec)
     {
         if (spec.All)

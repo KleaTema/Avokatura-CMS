@@ -35,12 +35,13 @@ public sealed record DocumentListItem(
     bool CanPreview);
 
 /// <summary>
-/// GET /api/cases/{id}/documents (task 034): the dossier's documents as ONE timeline, newest first — every level, for
-/// a user who may view this level (ICaseAccessService.CanViewDossierDocumentsAsync explains why). Keyset paging on
+/// GET /api/cases/{id}/documents (task 034): the dossier's documents as ONE timeline, newest first — of every level the
+/// user can view (DocumentAccess, task 053f: the earlier levels through a later one) plus the dossier-wide ones. Keyset paging on
 /// (uploaded_at DESC, id DESC) over ix_documents_timeline (dossier_id, deleted_at, uploaded_at); deleted ones never.
 /// </summary>
 internal sealed class ListDocumentsHandler(
-    DocumentsDbContext db, ParallelReads parallel, ICaseActivity cases, IReferenceData reference, IUserDirectory users)
+    DocumentsDbContext db, ParallelReads parallel, ICaseActivity cases, ICaseAccessService access, IReferenceData reference,
+    IUserDirectory users)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
@@ -129,10 +130,22 @@ internal sealed class ListDocumentsHandler(
             return errors.ToError("Kërkimi nuk është i vlefshëm.");
         }
 
+        // the levels the user can view (D2, task 053f: this one and the earlier ones through it; never later ones
+        // the user has no access to); dossier-wide documents (no level) always
+        var visible = new List<ulong>(levels.Count);
+        foreach (var level in levels)
+        {
+            if (await access.CanViewAsync(level.CaseId, ct))
+            {
+                visible.Add((ulong)level.CaseId);
+            }
+        }
+
         var dossierId = (ulong)c.DossierId;
         IQueryable<DocumentRow> Filtered(DocumentsDbContext context)
         {
-            var filtered = context.Documents.AsNoTracking().Where(d => d.DossierId == dossierId && d.DeletedAt == null);
+            var filtered = context.Documents.AsNoTracking()
+                .Where(d => d.DossierId == dossierId && d.DeletedAt == null && (d.CaseId == null || visible.Contains(d.CaseId.Value)));
             if (typeId is { } t)
             {
                 filtered = filtered.Where(d => d.DocumentTypeId == t);

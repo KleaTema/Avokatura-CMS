@@ -82,6 +82,8 @@ internal sealed partial class GlobalSearchHandler(
         var filter = new CaseListFilter(CaseListTab.All, CaseListFilter.AllStatuses, null, null, null, null, null, null, null, text)
         {
             Search = terms,
+            // D2 (task 053f): the earlier levels of the user's dossiers too (they open read-only)
+            IncludeEarlierLevels = true,
         };
         var scoped = builder.Filtered(filter);
         var counted = await scoped.Select(c => c.Id).Take(TotalCap + 1).CountAsync(ct);

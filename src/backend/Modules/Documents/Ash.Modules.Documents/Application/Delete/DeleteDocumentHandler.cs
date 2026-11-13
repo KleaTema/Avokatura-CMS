@@ -39,7 +39,7 @@ internal sealed class DeleteDocumentHandler(
         }
 
         var row = await db.Documents.SingleOrDefaultAsync(d => d.PublicId == documentPublicId && d.DeletedAt == null, ct);
-        if (row is null || !await access.CanViewDossierDocumentsAsync((long)row.DossierId, ct))
+        if (row is null || !await DocumentAccess.CanViewAsync(access, row.DossierId, row.CaseId, ct))
         {
             return DownloadDocumentHandler.NotFound();
         }

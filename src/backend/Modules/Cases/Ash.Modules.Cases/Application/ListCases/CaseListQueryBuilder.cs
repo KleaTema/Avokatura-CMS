@@ -58,6 +58,12 @@ public sealed record CaseListFilter(
     /// <summary>Q resolved by CaseSearch.ResolveAsync (task 047) — set whenever Q is.</summary>
     public CaseSearchTerms? Search { get; init; }
 
+    /// <summary>
+    /// Client decision D2 (task 053f): also the EARLIER levels of the dossiers in scope (opened read-only). Only the
+    /// header search sets it; lists, the dashboard and the agenda keep the user's own cases.
+    /// </summary>
+    public bool IncludeEarlierLevels { get; init; }
+
     /// <summary>A named dashboard predicate (task 046, "filter="), or none.</summary>
     public CaseListSpecialFilter? Special { get; init; }
 
@@ -217,7 +223,7 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             cases = ApplySpecial(cases, special);
         }
 
-        return access.ApplyScope(cases);
+        return f.IncludeEarlierLevels ? access.ApplyScopeWithEarlierLevels(cases) : access.ApplyScope(cases);
     }
 
     /// <summary>The dashboard's named predicates (task 046); every one rides an existing index.</summary>

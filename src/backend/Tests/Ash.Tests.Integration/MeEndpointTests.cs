@@ -36,10 +36,10 @@ public class MeEndpointTests(MySqlFixture db) : IntegrationTest(db)
     public static TheoryData<string, string[]> MenusPerUser() => new()
     {
         { "protokoll", ["dashboard", "cases", "notifications", "profile"] },
-        { "kryetar", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports"] },
+        { "kryetar", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports", "assistants"] }, // 053e
         { "avokat1", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports"] },
         { "ndihmes", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports"] },
-        { "monitor", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports"] },
+        { "monitor", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports", "supervision"] }, // 053d
         { "institucion", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports"] },
         { "jurist", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports"] },
         { "admin", ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports", "admin"] }

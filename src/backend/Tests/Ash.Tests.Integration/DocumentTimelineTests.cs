@@ -110,10 +110,10 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
         items[1].GetProperty("uploadedBy").GetString().ShouldBe("Avokat1 Dev");
         items[1].GetProperty("canPreview").GetBoolean().ShouldBeTrue();
         items[1].GetProperty("sizeBytes").GetInt64().ShouldBe(2048);
-        // the dossier rule: the first-instance document downloads for the appeal lawyer…
+        // the first-instance document downloads for the appeal lawyer, and since client decision D2 (task 053f) the X/1
+        // case itself opens for them too (read-only)
         (await lawyer2.GetAsync($"/api/documents/{first.Id}/download", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
-        // …although the X/1 case itself stays closed to them
-        (await lawyer2.GetAsync($"/api/cases/{s.Level1Public}/documents", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await lawyer2.GetAsync($"/api/cases/{s.Level1Public}/documents", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -123,14 +123,21 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
         var padi = await DocAsync(s.Level1, "Padia", T0);
         var akt = await DocAsync(s.Level1, "Akti", T0.AddHours(1), type: "AKT_PROCEDURAL");
         var ankim = await DocAsync(s.Level2, "Ankimi", T0.AddHours(2), type: "ANKIM");
-        using var client = s.As(Primary);
+        // the X/2 lawyer sees both levels (D2: X/1 through X/2)
+        using var client = s.As(s.Level2LawyerEmail);
 
-        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?type=AKT_PROCEDURAL")).ShouldBe([akt.Id]);
-        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?level=1")).ShouldBe([akt.Id, padi.Id]);
-        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?level=2")).ShouldBe([ankim.Id]);
-        (await Ids(client, $"/api/cases/{s.Level1Public}/documents?level=2&type=PADI_PROVA")).ShouldBeEmpty();
-        (await client.GetAsync($"/api/cases/{s.Level1Public}/documents?level=7", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        (await client.GetAsync($"/api/cases/{s.Level1Public}/documents?type=NUK_KA", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await Ids(client, $"/api/cases/{s.Level2Public}/documents?type=AKT_PROCEDURAL")).ShouldBe([akt.Id]);
+        (await Ids(client, $"/api/cases/{s.Level2Public}/documents?level=1")).ShouldBe([akt.Id, padi.Id]);
+        (await Ids(client, $"/api/cases/{s.Level2Public}/documents?level=2")).ShouldBe([ankim.Id]);
+        (await Ids(client, $"/api/cases/{s.Level2Public}/documents?level=2&type=PADI_PROVA")).ShouldBeEmpty();
+        (await client.GetAsync($"/api/cases/{s.Level2Public}/documents?level=7", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await client.GetAsync($"/api/cases/{s.Level2Public}/documents?type=NUK_KA", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        // never backwards (D2): the X/1-only lawyer does not see X/2's documents, nor download them
+        using var primary = s.As(Primary);
+        (await Ids(primary, $"/api/cases/{s.Level1Public}/documents")).ShouldBe([akt.Id, padi.Id]);
+        (await Ids(primary, $"/api/cases/{s.Level1Public}/documents?level=2")).ShouldBeEmpty();
+        (await primary.GetAsync($"/api/documents/{ankim.Id}/download", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -141,7 +148,8 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
         var pending = await DocAsync(s.Level1, "Në kontroll", T0.AddHours(1), status: "PENDING");
         var infected = await DocAsync(s.Level1, "Me virus", T0.AddHours(2), status: "INFECTED");
         var failed = await DocAsync(s.Level2, "Pa kontroll", T0.AddHours(3), status: "FAILED");
-        using var client = s.As(Primary);
+        // the X/2 lawyer sees both levels from X/1's page too (D2, task 053f)
+        using var client = s.As(s.Level2LawyerEmail);
 
         (await Ids(client, $"/api/cases/{s.Level1Public}/documents?status=CLEAN")).ShouldBe([clean.Id]);
         (await Ids(client, $"/api/cases/{s.Level1Public}/documents?status=pending")).ShouldBe([pending.Id]);
@@ -169,7 +177,7 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
             expected.Add((await DocAsync(i % 2 == 0 ? s.Level1 : s.Level2, $"Dok {i}", T0.AddMinutes(i / 2))).Id);
         }
 
-        using var client = s.As(Primary);
+        using var client = s.As(s.Level2LawyerEmail); // sees both levels (D2, task 053f)
         var seen = new List<Guid>();
         string? cursor = null;
         var pages = 0;
@@ -472,4 +480,103 @@ public class DocumentTimelineTests(MySqlFixture db, MinioFixture minio) : Integr
 
     private async Task<Guid> PublicIdOf(string table, long id) =>
         PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM {table} WHERE id = {id}"))!);
+
+    // ---------------------------------------------------------------- client decision D2 (task 053f)
+
+    [Fact]
+    public async Task D2_the_X2_lawyer_opens_X1_completely_and_read_only()
+    {
+        await using var s = await SetupAsync();
+        await Execute($"""
+            INSERT INTO case_history_events (dossier_id, case_id, event_type, summary)
+            SELECT dossier_id, id, 'OBJECT_CHANGED', 'Objekti u ndryshua në X/1.' FROM cases WHERE id = {s.Level1}
+            """);
+        var document = await DocAsync(s.Level1, "Vendimi X/1", T0, type: "VENDIM");
+        using var lawyer2 = s.As(s.Level2LawyerEmail);
+
+        // the level switcher on X/2: X/1 opens, marked read-only
+        var x2 = await GetJson(lawyer2, $"/api/cases/{s.Level2Public}");
+        var levels = x2.GetProperty("levels").EnumerateArray().ToList();
+        levels[0].GetProperty("canOpen").GetBoolean().ShouldBeTrue();
+        levels[0].GetProperty("readOnly").GetBoolean().ShouldBeTrue();
+        levels[0].GetProperty("publicId").GetGuid().ShouldBe(s.Level1Public);
+        levels[1].GetProperty("readOnly").GetBoolean().ShouldBeFalse();
+        x2.GetProperty("header").GetProperty("readOnlyEarlierLevel").GetBoolean().ShouldBeFalse();
+
+        // X/1 itself: everything, permissions = case.view only
+        var x1 = await GetJson(lawyer2, $"/api/cases/{s.Level1Public}");
+        x1.GetProperty("header").GetProperty("readOnlyEarlierLevel").GetBoolean().ShouldBeTrue();
+        x1.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()).ShouldBe(["case.view"]);
+        x1.GetProperty("team").GetArrayLength().ShouldBeGreaterThan(0); // the team's names
+        foreach (var path in new[] { "parties", "hearings", "documents", "history" })
+        {
+            (await lawyer2.GetAsync($"/api/cases/{s.Level1Public}/{path}", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK, path);
+        }
+
+        // X/2's history holds X/1's rows, labelled with their level
+        var history = await GetJson(lawyer2, $"/api/cases/{s.Level2Public}/history");
+        history.GetProperty("items").EnumerateArray()
+            .ShouldContain(i => i.GetProperty("level").GetString() == s.Level1Code && i.GetProperty("summary").GetString() == "Objekti u ndryshua në X/1.");
+
+        // the documents of X/1 download, with their audit row
+        (await lawyer2.GetAsync($"/api/documents/{document.Id}/download", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        var documentId = await Scalar($"SELECT id FROM documents WHERE public_id = UUID_TO_BIN('{document.Id}', 1)");
+        var sql = "SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.Mode')) FROM ash_audit.audit_log " +
+                  $"WHERE action = 'DOCUMENT_DOWNLOAD' AND entity_id = {documentId} AND case_id = {s.Level1}";
+        (await PollAsync(sql, value => value == "download")).ShouldBe("download");
+    }
+
+    [Fact]
+    public async Task D2_every_write_on_the_earlier_level_is_refused()
+    {
+        await using var s = await SetupAsync();
+        using var lawyer2 = s.As(s.Level2LawyerEmail);
+        var rowVersion = Convert.ToUInt32(await Scalar($"SELECT row_version FROM cases WHERE id = {s.Level1}"));
+        var x1 = $"/api/cases/{s.Level1Public}";
+
+        var writes = new (string What, Func<Task<HttpResponseMessage>> Send)[]
+        {
+            ("priority", () => lawyer2.PatchAsJsonAsync($"{x1}/priority", new { priority = "HIGH", rowVersion }, Ct)),
+            ("hearing", () => lawyer2.PostAsJsonAsync($"{x1}/hearings", new { at = DateTime.UtcNow.AddDays(9), hearingTypeCode = "PERGATITORE", rowVersion }, Ct)),
+            ("party", () => lawyer2.PostAsJsonAsync($"/api/cases/{s.Level1Public}/parties", new { partyRoleCode = "PADITES", kind = "NATURAL", displayName = "X" }, Ct)),
+            ("decision", () => lawyer2.PostAsJsonAsync($"{x1}/decision", new { resultCode = "HUMBUR", isFinal = true, rowVersion }, Ct)),
+            ("transfer", () => lawyer2.PostAsJsonAsync($"{x1}/transfer", new { reason = "x", rowVersion }, Ct)),
+            ("chat", () => lawyer2.PostAsync($"/api/chat/cases/{s.Level1Public}/conversation", null, Ct)),
+        };
+        foreach (var (what, send) in writes)
+        {
+            var response = await send();
+            response.StatusCode.ShouldBeOneOf([HttpStatusCode.Forbidden, HttpStatusCode.Conflict], what);
+        }
+
+        (await Scalar($"SELECT row_version FROM cases WHERE id = {s.Level1}")).ShouldBe(rowVersion); // nothing changed
+    }
+
+    [Fact]
+    public async Task D2_never_backwards_and_an_own_role_on_X1_keeps_its_rights()
+    {
+        await using var s = await SetupAsync();
+        using var primary = s.As(Primary); // avokat1: X/1 only
+
+        (await primary.GetAsync($"/api/cases/{s.Level2Public}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        var x1 = await GetJson(primary, $"/api/cases/{s.Level1Public}");
+        x1.GetProperty("header").GetProperty("readOnlyEarlierLevel").GetBoolean().ShouldBeFalse();
+        var levels = x1.GetProperty("levels").EnumerateArray().ToList();
+        levels[1].GetProperty("canOpen").GetBoolean().ShouldBeFalse();
+        levels[1].TryGetProperty("publicId", out var id).ShouldBeTrue();
+        id.ValueKind.ShouldBe(JsonValueKind.Null);
+
+        // on X/1 AND X/2: X/1 keeps the own role's rights (decision of 13.11.2026), not read-only
+        await Execute($"INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by) VALUES ({s.Level2}, {s.Seed.User("avokat1").Id}, 'SECONDARY_LAWYER', {s.Seed.User("kryetar").Id})");
+        using var again = s.As(Primary);
+        var own = await GetJson(again, $"/api/cases/{s.Level1Public}");
+        own.GetProperty("header").GetProperty("readOnlyEarlierLevel").GetBoolean().ShouldBeFalse();
+        own.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()).ShouldContain("decision.record");
+
+        // the header search finds X/1 for the X/2-only lawyer (it opens read-only)
+        using var lawyer2 = s.As(s.Level2LawyerEmail);
+        var search = await GetJson(lawyer2, $"/api/search?q={Uri.EscapeDataString(s.Level1Code[..^2])}&limit=20");
+        search.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("caseCode").GetString())
+            .ShouldContain(s.Level1Code);
+    }
 }

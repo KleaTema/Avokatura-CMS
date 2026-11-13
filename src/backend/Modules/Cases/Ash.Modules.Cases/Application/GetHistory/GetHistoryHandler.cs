@@ -19,7 +19,9 @@ public sealed record CaseHistoryItem(
 
 /// <summary>
 /// GET /api/cases/{id}/history: the history of the WHOLE dossier, newest first (keyset on occurred_at, id), limited to
-/// the levels the user can view — rows of a level without access are skipped, dossier-wide rows are kept.
+/// the levels the user can view — rows of a level without access are skipped, dossier-wide rows are kept. Since client
+/// decision D2 (task 053f) a later level opens every earlier one, so X/n's history holds X/1 … X/n, each row labelled
+/// with its level; X/1 alone never shows X/2's rows.
 /// </summary>
 internal sealed class GetHistoryHandler(CasesDbContext db, ParallelReads parallel, ICaseAccessService access, IUserDirectory users)
 {
