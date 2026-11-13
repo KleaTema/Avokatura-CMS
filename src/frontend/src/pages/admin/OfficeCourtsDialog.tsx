@@ -36,9 +36,9 @@ export function OfficeCourtsDialog({ office, onClose }: { office: AdminOffice; o
   const [formError, setFormError] = useState<string | null>(null)
   const [selected, setSelected] = useState<number[] | null>(null)
 
-  const own = (mappings.data ?? []).filter((m) => m.officePublicId === office.publicId).map((m) => m.courtId)
+  const own = (mappings.data ?? []).filter((m) => m.officePublicId === office.publicId).map((m) => Number(m.courtId))
   const takenBy = new Map(
-    (mappings.data ?? []).filter((m) => m.officePublicId !== office.publicId).map((m) => [m.courtId, m.officeName]),
+    (mappings.data ?? []).filter((m) => m.officePublicId !== office.publicId).map((m) => [Number(m.courtId), m.officeName]),
   )
   const chosen = selected ?? own
   const levelName = (code: string | null | undefined) => (levels.data ?? []).find((l) => l.code === code)?.name ?? ''
@@ -71,12 +71,12 @@ export function OfficeCourtsDialog({ office, onClose }: { office: AdminOffice; o
               multiple
               disableCloseOnSelect
               options={options}
-              value={options.filter((c) => chosen.includes(c.id))}
-              onChange={(_, value) => setSelected(value.map((c) => c.id))}
+              value={options.filter((c) => chosen.includes(Number(c.id)))}
+              onChange={(_, value) => setSelected(value.map((c) => Number(c.id)))}
               getOptionLabel={(c) => c.name}
               isOptionEqualToValue={(a, b) => a.id === b.id}
               groupBy={(c) => levelName(c.courtLevelCode)}
-              getOptionDisabled={(c) => takenBy.has(c.id)}
+              getOptionDisabled={(c) => takenBy.has(Number(c.id))}
               filterOptions={(all, state) => all.filter((c) => matches(state.inputValue, c.name))}
               noOptionsText={sq.search.noOptions}
               renderOption={(props, c, { selected: isSelected }) => {
@@ -86,9 +86,9 @@ export function OfficeCourtsDialog({ office, onClose }: { office: AdminOffice; o
                     <Checkbox checked={isSelected} size="small" sx={{ mr: 1 }} />
                     <Stack>
                       <span>{c.name}</span>
-                      {takenBy.has(c.id) && (
+                      {takenBy.has(Number(c.id)) && (
                         <Typography variant="body2" color="text.secondary">
-                          {t.courtsTakenBy(takenBy.get(c.id) ?? '')}
+                          {t.courtsTakenBy(takenBy.get(Number(c.id)) ?? '')}
                         </Typography>
                       )}
                     </Stack>

@@ -77,19 +77,20 @@ internal sealed class AssignLawyersHandler(
             return Changed();
         }
 
-        // Only the people the picker offers for this case: the office's active lawyers and the Kryetar himself.
+        // Only the people the picker offers for this case, each for the position their role allows (task 053i):
+        // primary = STATE_LAWYER, secondary = SECONDARY_LAWYER (the Kryetar only when holding the role).
         var candidates = await lawyers.ListAsync(c.OfficeId, includeSelf: true, ct);
         var primary = candidates.Find(x => x.PublicId == req.PrimaryUserPublicId);
         var secondary = req.SecondaryUserPublicId is { } s ? candidates.Find(x => x.PublicId == s) : null;
         var errors = new FieldErrors();
-        if (primary is null)
+        if (OfficeLawyers.PositionError(primary, primary: true) is { } primaryError)
         {
-            errors.Add("primaryUserPublicId", "Ky avokat nuk mund të caktohet në këtë çështje.");
+            errors.Add("primaryUserPublicId", primaryError);
         }
 
-        if (req.SecondaryUserPublicId is not null && secondary is null)
+        if (req.SecondaryUserPublicId is not null && OfficeLawyers.PositionError(secondary, primary: false) is { } secondaryError)
         {
-            errors.Add("secondaryUserPublicId", "Ky avokat nuk mund të caktohet në këtë çështje.");
+            errors.Add("secondaryUserPublicId", secondaryError);
         }
 
         if (errors.Any)

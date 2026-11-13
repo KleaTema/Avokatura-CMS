@@ -1,3 +1,4 @@
+using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Identity.Application.Offices;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Results;
@@ -43,8 +44,15 @@ public sealed class GrantRoleHandler(IdentityDbContext db, UserAdminSupport supp
     }
 }
 
-public sealed class RevokeRoleHandler(IdentityDbContext db, UserAdminSupport support)
+public sealed class RevokeRoleHandler(IdentityDbContext db, UserAdminSupport support, ICaseAssignmentCounts counts)
 {
+    /// <summary>The system lawyer roles and the case position each one gives (task 053i).</summary>
+    private static readonly Dictionary<string, (string CaseRole, string Text)> LawyerPositions = new()
+    {
+        ["STATE_LAWYER"] = ("PRIMARY_LAWYER", "avokat primar"),
+        ["SECONDARY_LAWYER"] = ("SECONDARY_LAWYER", "avokat sekondar"),
+    };
+
     public async Task<Result<UserResponse>> Handle(Guid publicId, string role, CancellationToken ct)
     {
         var user = await db.Users.SingleOrDefaultAsync(u => u.PublicId == publicId, ct);
@@ -79,6 +87,17 @@ public sealed class RevokeRoleHandler(IdentityDbContext db, UserAdminSupport sup
             if (headError is not null)
             {
                 return headError;
+            }
+        }
+
+        // task 053i: a lawyer role is not removed while its position is held on open cases — transfer first
+        if (LawyerPositions.TryGetValue(role, out var position))
+        {
+            var held = await counts.CountOpenPositionsAsync(user.Id, position.CaseRole, ct);
+            if (held > 0)
+            {
+                return Error.Validation("user.role_in_use",
+                    $"Ky përdorues është {position.Text} në {held} çështje të hapura. Transferojini fillimisht te një avokat tjetër.");
             }
         }
 

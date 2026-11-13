@@ -74,6 +74,12 @@ internal sealed class DashboardHandler(
         if (tabs.Contains(CaseListTab.Mine))
         {
             definitions.Add(new("mineOpen", DashboardWidget.Count, "Çështjet e mia të hapura", CacheScope.Personal, (w, n, t) => w.MineOpenAsync(n, t)));
+            if (user.Roles.Contains(AssignLawyers.OfficeLawyers.SecondaryRole))
+            {
+                // task 053i: "Avokat sekondar" sees their secondary cases; no statistics widgets exist for them
+                definitions.Add(new("mineSecondary", DashboardWidget.Count, "Si avokat sekondar", CacheScope.Personal, (w, n, t) => w.MineSecondaryAsync(n, t)));
+            }
+
             definitions.Add(Special("mineHearingOverdue", "Seanca për t'u përditësuar", CacheScope.Personal, CaseListTab.Mine, CaseListSpecial.HearingOverdue));
             definitions.Add(Special("mineMissingData30", "Pa të dhëna mbi 30 ditë", CacheScope.Personal, CaseListTab.Mine, CaseListSpecial.MissingData30));
             definitions.Add(Special("mineDecisionPending", "Në pritje të vendimit të arsyetuar", CacheScope.Personal, CaseListTab.Mine, CaseListSpecial.DecisionPending));

@@ -105,3 +105,11 @@ D5	Përcjellja to an office with several Protokoll users	Every Protokoll user of
 - D1: vendimin e regjistrojnë avokati primar, sekondar, ndihmësi ligjor, juristi, Kryetari. Jo Protokolli.
 - D2: kush ka X/2 sheh gjithçka të X/1 (edhe dokumentet), vetëm për lexim.
 - D3: mbikëqyrja si avokat i plotë ose çështje të veçanta.
+
+3. Client correction (13.11.2026): two lawyer roles
+"Avokat Shteti (primar)" (STATE_LAWYER) and "Avokat sekondar" (SECONDARY_LAWYER) are two SEPARATE system roles of the office, not only positions on a case. A user may hold both.
+- Primary on a case: only a user with the role Avokat Shteti (primar). Secondary on a case: only a user with the role Avokat sekondar. The transfer swap (secondary ↔ primary) only when the person holds the needed role.
+- Assistants are linked only to users with Avokat Shteti (primar).
+- Statistikat: a user with Avokat sekondar and WITHOUT Avokat Shteti → no statistics (403); a user with Avokat Shteti → only the cases where they are primary at the moment the measure refers to (open → current primary, closed → primary at closing). Reports (Tabela 1/3) for both, with a "Roli im" column.
+- The secondary keeps the case rights of D1 (records the decision).
+- A role cannot be removed from a user who still holds that position on open cases: transfer first.

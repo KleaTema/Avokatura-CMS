@@ -56,7 +56,7 @@ export function IncomingHandoffs() {
                   <Button
                     variant="contained"
                     component={Link}
-                    to={continueLink(h.casePublicId, h.courtLevelCode, h.courtId)}
+                    to={continueLink(h.casePublicId, h.courtLevelCode, Number(h.courtId))}
                     aria-label={t.continueFor(h.caseCode)}
                   >
                     {t.continue}

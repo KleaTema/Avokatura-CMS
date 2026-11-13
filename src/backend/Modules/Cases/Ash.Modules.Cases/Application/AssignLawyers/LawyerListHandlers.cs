@@ -36,7 +36,8 @@ internal sealed class AssignableLawyersHandler(CasesDbContext db, ICaseAccessSer
         var workload = await lawyers.WorkloadAsync(candidates.Select(x => x.UserId).ToList(), ct);
         var none = new LawyerWorkload(0, 0);
         return candidates
-            .Select(x => new AssignableLawyer(x.PublicId, x.FullName, x.IsSelf, workload.GetValueOrDefault(x.UserId, none)))
+            .Select(x => new AssignableLawyer(x.PublicId, x.FullName, x.IsSelf, workload.GetValueOrDefault(x.UserId, none),
+                x.CanBePrimary, x.CanBeSecondary))
             .OrderBy(x => x.Workload.ActivePrimary)
             .ThenBy(x => x.FullName, OfficeLawyers.NameOrder)
             .ToList();

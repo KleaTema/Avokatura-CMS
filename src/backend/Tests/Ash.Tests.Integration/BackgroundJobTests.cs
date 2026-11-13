@@ -302,18 +302,19 @@ public class BackgroundJobTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Hearing_tomorrow_skips_a_user_who_turned_it_off_and_still_reaches_the_rest_of_the_team()
+    public async Task Hearing_tomorrow_reaches_the_whole_team_because_notifications_cannot_be_turned_off()
     {
+        // task 053g: every notification is mandatory — the per-user preferences (and their endpoint) are gone
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
         await HearingAsync(s, Tirane(2026, 11, 11, 10));
         await using var factory = new AshApiFactory(Db);
         using var avokat2 = factory.CreateClient().AsUser("avokat2@ash.local");
         (await avokat2.PutAsJsonAsync("/api/identity/profile/notifications",
-            new Dictionary<string, bool> { ["HEARING_TOMORROW"] = false }, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+            new Dictionary<string, bool> { ["HEARING_TOMORROW"] = false }, Ct)).IsSuccessStatusCode.ShouldBeFalse();
 
         await Run(factory, "hearing-reminders", Tirane(2026, 11, 10, 8, 0));
 
-        (await Notifications()).ShouldBe(new[] { "avokat1@ash.local", "jurist@ash.local", "ndihmes@ash.local" }
+        (await Notifications()).ShouldBe(new[] { "avokat1@ash.local", "avokat2@ash.local", "jurist@ash.local", "ndihmes@ash.local" }
             .Select(e => $"{e}|HEARING_TOMORROW").ToList());
     }
 

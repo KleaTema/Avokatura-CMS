@@ -34,7 +34,7 @@ public static class CaseListTabs
     public const string ViewAllPermission = "case.view_all";
 
     /// <summary>Roles that hold case assignments, so the user has "my cases".</summary>
-    private static readonly string[] AssignableRoles = ["STATE_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST"];
+    private static readonly string[] AssignableRoles = ["STATE_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST"];
     private const string InstitutionUserRole = "INSTITUTION_USER";
 
     public static string Code(CaseListTab tab) => tab switch

@@ -189,6 +189,16 @@ internal sealed class DashboardWidgets(
         new("mineOpen", DashboardWidget.Count, "Çështjet e mia të hapura",
             await builder.Filtered(CaseListFilter.Open(CaseListTab.Mine)).CountAsync(ct), LinkPath: Link(CaseListTab.Mine));
 
+    /// <summary>Task 053i: the open cases of "Të miat" where the user is the current secondary lawyer.</summary>
+    public async Task<DashboardWidget> MineSecondaryAsync(DateTime now, CancellationToken ct)
+    {
+        var me = (uint)user.UserId;
+        var count = await builder.Filtered(CaseListFilter.Open(CaseListTab.Mine))
+            .CountAsync(c => db.CaseAssignments.Any(a => a.CaseId == c.Id && a.UserId == me && a.EndedAt == null
+                                                         && a.CaseRole == CaseAssignmentRow.SecondaryLawyer), ct);
+        return new DashboardWidget("mineSecondary", DashboardWidget.Count, "Si avokat sekondar", count, LinkPath: Link(CaseListTab.Mine));
+    }
+
     /// <summary>
     /// The last history rows of the levels the user is on now (any status) — never other levels (task 020 rule).
     /// Newest by id: the table is append-only, so the id is the order of recording, and MySQL can walk the primary key

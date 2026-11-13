@@ -6,10 +6,10 @@ import { login } from './support/login'
 const SHOTS = process.env.E2E_SHOTS
 
 /**
- * Task 048: the profile. The phone is changed inline (an invalid one is refused with the server's message, a valid
- * one is shown formatted), then cleared again; a mandatory notification is on, disabled.
+ * Tasks 048 / 053g: the profile is read-only — name, e-mail, position (Organika), role(s), office. Client decision E:
+ * no phone and no notification switches.
  */
-test('the phone is changed inline, shown formatted, then cleared; mandatory notifications are locked', async ({ page }) => {
+test('the profile shows the data read-only, with no phone and no notification switches', async ({ page }) => {
   await login(page, USERS.kryetar)
   await page.goto('/dashboard')
   await page.getByRole('button', { name: 'Menyja e përdoruesit' }).click()
@@ -17,34 +17,34 @@ test('the phone is changed inline, shown formatted, then cleared; mandatory noti
   await expect(page).toHaveURL(/\/profile$/)
   await expect(page.getByRole('heading', { name: 'Profili', level: 1 })).toBeVisible()
   await expect(page.getByText('Emri dhe email-i menaxhohen nga sistemi i identifikimit')).toBeVisible()
+  await expect(page.getByText('Pozicioni, njësia dhe eprori vendosen nga administratori përmes Organikës.')).toBeVisible()
+  await expect(page.getByText('kryetar@ash.local')).toBeVisible()
 
-  const edit = page.getByRole('button', { name: 'Ndrysho telefonin' })
-  const field = page.getByRole('textbox', { name: 'Telefoni' })
-
-  await edit.click()
-  await field.fill('12345')
-  await page.getByRole('button', { name: 'Ruaj' }).click()
-  await expect(page.getByText(/Numri i telefonit nuk është i vlefshëm/)).toBeVisible()
-
-  await field.fill('069 123 4567')
-  await page.getByRole('button', { name: 'Ruaj' }).click()
-  await expect(page.getByText('+355 69 123 4567')).toBeVisible()
-  await expect(page.getByText('Telefoni u ruajt.')).toBeVisible()
-
-  // mandatory: on and disabled; optional: can be switched
-  await expect(page.getByRole('switch', { name: 'Caktimi si avokat në një çështje' })).toBeDisabled()
-  await expect(page.getByRole('switch', { name: 'Caktimi si avokat në një çështje' })).toBeChecked()
-  await expect(page.getByRole('switch', { name: 'Seancë nesër' })).toBeEnabled()
+  // gone (client decision E)
+  await expect(page.getByRole('button', { name: 'Ndrysho telefonin' })).toHaveCount(0)
+  await expect(page.getByRole('switch')).toHaveCount(0)
   if (SHOTS) {
     await page.screenshot({ path: `${SHOTS}/profile-1536.png`, fullPage: true })
     await page.setViewportSize({ width: 390, height: 844 })
     await page.screenshot({ path: `${SHOTS}/profile-390.png`, fullPage: true })
-    await page.setViewportSize({ width: 1536, height: 1024 })
   }
+})
 
-  // leave the seeded user as it was
-  await edit.click()
-  await field.fill('')
-  await page.getByRole('button', { name: 'Ruaj' }).click()
-  await expect(page.getByText('Nuk keni vendosur numër telefoni.')).toBeVisible()
+/** Task 053g: Administrimi → Organika opens with the template, the upload and the list of imports. */
+test('the administrator opens Organika', async ({ page }) => {
+  await login(page, USERS.admin)
+  await page.goto('/admin/organika')
+  await expect(page.getByRole('heading', { name: 'Organika', level: 1 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Shkarko shabllonin' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ngarko skedarin' })).toBeVisible()
+
+  // a sheet with an unknown e-mail: the preview says so, and there is nothing to apply
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'organika-e2e.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('email;pozicioni;njesia;eprori_email\nnuk.ekziston.e2e@ash.local;Avokat;Sektori A;\n'),
+  })
+  await expect(page.getByRole('heading', { name: 'Pamja paraprake — organika-e2e.csv' })).toBeVisible()
+  await expect(page.getByText('E-mail i panjohur: 1')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Apliko' })).toBeDisabled()
 })

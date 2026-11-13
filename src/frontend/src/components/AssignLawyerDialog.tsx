@@ -85,7 +85,10 @@ export function AssignLawyerDialog({
   const c = detail.data
   const canSetPriority = c?.permissions.includes(SET_PRIORITY) ?? false
   const loadError = detail.error ?? lawyers.error
-  const options = lawyers.data ?? []
+  const all = lawyers.data ?? []
+  // task 053i: primary only "Avokat Shteti (primar)", secondary only "Avokat sekondar"
+  const primaryOptions = all.filter((o) => o.canBePrimary)
+  const secondaryOptions = all.filter((o) => o.canBeSecondary)
 
   const onSubmit = handleSubmit(async (x) => {
     if (assign.isPending || !c || !x.primary) return
@@ -111,7 +114,7 @@ export function AssignLawyerDialog({
       control={control}
       render={({ field }) => (
         <AppAutocomplete<AssignableLawyer>
-          options={options}
+          options={name === 'primary' ? primaryOptions : secondaryOptions}
           value={field.value}
           onChange={(picked) => {
             field.onChange(picked)
@@ -177,7 +180,7 @@ export function AssignLawyerDialog({
               </Box>
 
               {outcome.feedback}
-              {options.length === 0 && <Alert severity="info">{t.noLawyers}</Alert>}
+              {primaryOptions.length === 0 && <Alert severity="info">{t.noLawyers}</Alert>}
 
               {picker('primary', t.primary, true)}
               {picker('secondary', t.secondary, false)}

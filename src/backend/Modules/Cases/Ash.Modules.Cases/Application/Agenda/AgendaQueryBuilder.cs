@@ -13,7 +13,7 @@ namespace Ash.Modules.Cases.Application.Agenda;
 public sealed class AgendaQueryBuilder(CasesDbContext db, CaseAccessService access, ICurrentUser user)
 {
     /// <summary>Roles that hold case assignments (their agenda = the cases they are assigned to).</summary>
-    public static readonly string[] AssignableRoles = ["STATE_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST"];
+    public static readonly string[] AssignableRoles = ["STATE_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "INSTITUTION_JURIST"];
     public const string InstitutionUserRole = "INSTITUTION_USER";
 
     public IQueryable<AgendaRow> Rows(AgendaFilter f)

@@ -62,6 +62,20 @@ is a MySQL named lock here.
 - **System permission** (from `user_roles` → `role_permissions`): menus and office-wide actions, e.g. `case.assign_lawyer`, `case.view_office`, `case.view_all`.
 - **Case permission** (from view `v_case_permissions`): what a user may do inside one case, decided by their case profile (`PRIMARY_LAWYER`, `SECONDARY_LAWYER`, `LEGAL_ASSISTANT`, `INSTITUTION_MONITORING`, `INSTITUTION_DELEGATED`).
 - `ICaseAccessService.CanView(caseId)` = case profile exists OR `case.view_all` OR (`case.view_office` AND case.office_id = user.office_id) OR (`case.view_supervised` AND the case is under the user's supervision) OR the user is the Protokoll who registered it and it is still `REGISTERED`.
+- **Two lawyer roles (task 053i, client correction 13.11.2026).**
+  - "Avokat Shteti (primar)" (`STATE_LAWYER`) and "Avokat sekondar" (`SECONDARY_LAWYER`, script 026, same system permissions) are separate roles; a user may hold both.
+  - `OfficeLawyers.ListAsync` is the single list of the pickers and of the assignment / transfer checks; each candidate carries `CanBePrimary` / `CanBeSecondary`, and `OfficeLawyers.PositionError` gives the 400 ("Ky përdorues nuk ka rolin …"), also for the swap. The current user (Kryetar, Monitor) is offered only with one of the roles. Workload stays per position.
+  - Assistant links (053e) only to `STATE_LAWYER`. Statistics: `SECONDARY_LAWYER` without `STATE_LAWYER` → 403 (`StatisticsScope`); a `STATE_LAWYER` is counted as primary at the measure's time. Reports stay open to both.
+  - `RevokeRoleHandler` refuses to remove `STATE_LAWYER` / `SECONDARY_LAWYER` while the user holds that position on open cases (`user.role_in_use`, with the count; `ICaseAssignmentCounts.CountOpenPositionsAsync`).
+  - Dashboard: a holder of `SECONDARY_LAWYER` gets "Si avokat sekondar" next to the "Të miat" widgets; no statistics widgets.
+- **Profile, chat and Organika (task 053g, client decision E).**
+  - **Profile:** read-only (name, e-mail, position, unit, manager, roles, office / institution). The phone and the notification switches are gone (script 025 drops `users.phone` and `user_notification_prefs`), and every notification is mandatory.
+  - **Chat:** the Protokoll who registered a case is in its chat for the life of the case (`ICaseLookup.GetChatParticipantIdsAsync` adds `registered_by`; sync and reconcile as in 049). An administrator (`chat.admin`) opens any case chat from the case page, reads it, and joins with the first message; the reconcile never removes them. Both show with their role in the participants list (PROTOCOL / ADMIN).
+  - **Organika** (Administrimi → Organika, `admin.org`):
+    - an .xlsx template (email, pozicioni, njesia, eprori_email); an .xlsx or .csv upload is validated into a preview (CHANGED / UNCHANGED / EMAIL_NOT_FOUND / DUPLICATE / MANAGER_NOT_FOUND / INVALID) without applying anything;
+    - "Apliko" recomputes it against the current users and writes `users.position`, `org_unit` and `manager_user_id` for the CHANGED rows in ONE transaction, with a `user_org_history` row each;
+    - every import is kept in `org_imports` (file, by, at, summary);
+    - `org_unit` is text, not the office, so access is unchanged. `TODO(akshi-q-hrmis)`.
 - **Earlier levels (task 053f, client decision D2).**
   - Whoever can view X/n also views every EARLIER level X/1 … X/n-1 of the dossier completely, but read-only: effective permissions are `case.view` only, so no chat, upload, decision or edit.
   - It is never backwards: X/1 gives nothing on X/2.

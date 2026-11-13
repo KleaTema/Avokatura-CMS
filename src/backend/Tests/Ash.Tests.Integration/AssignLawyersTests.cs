@@ -284,17 +284,23 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Kryetar_assigns_himself()
+    public async Task Kryetar_assigns_himself_only_when_he_holds_the_primary_role()
     {
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
         await using var factory = new AshApiFactory(Db);
         using var kryetar = factory.CreateClient().AsUser(Kryetar);
+        object Body(uint rowVersion, Guid self) => new { primaryUserPublicId = self, rowVersion };
+        var path = AssignPath(await PublicIdOf("cases", s.RegisteredCaseId));
+        var self = await PublicIdOf("users", s.User("kryetar").Id);
 
-        var response = await kryetar.PostAsJsonAsync(AssignPath(await PublicIdOf("cases", s.RegisteredCaseId)), new
-        {
-            primaryUserPublicId = await PublicIdOf("users", s.User("kryetar").Id),
-            rowVersion = await RowVersion(s.RegisteredCaseId)
-        }, Ct);
+        // task 053i: OFFICE_HEAD alone is not a lawyer — not offered
+        var refused = await kryetar.PostAsJsonAsync(path, Body(await RowVersion(s.RegisteredCaseId), self), Ct);
+        refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await Json(refused)).GetProperty("errors").GetProperty("primaryUserPublicId")[0].GetString()
+            .ShouldBe("Ky avokat nuk mund të caktohet në këtë çështje.");
+
+        await s.GrantRoleAsync("kryetar", "STATE_LAWYER");
+        var response = await kryetar.PostAsJsonAsync(path, Body(await RowVersion(s.RegisteredCaseId), self), Ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         (await Scalar($"""
@@ -311,6 +317,7 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
     public async Task Assignable_lawyers_have_workload_counts_and_include_the_kryetar_as_self()
     {
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await s.GrantRoleAsync("kryetar", "STATE_LAWYER"); // task 053i: offered only with a lawyer role
         // seeded ACTIVE case: avokat1 primary, avokat2 secondary
         var second = await CaseAsync(s, "ACTIVE");
         await AssignSqlAsync(s, second, "avokat2", "PRIMARY_LAWYER");
@@ -344,6 +351,14 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
         byId.ShouldNotContainKey(await PublicIdOf("users", s.User("drlawyer").Id)); // another office
         byId.ShouldNotContainKey(await PublicIdOf("users", s.User("ndihmes").Id)); // not a STATE_LAWYER
 
+        // task 053i: the positions each one may take, from their roles
+        string Positions(JsonElement x) => $"{x.GetProperty("canBePrimary").GetBoolean()}|{x.GetProperty("canBeSecondary").GetBoolean()}";
+        var positions = list.ToDictionary(Id, Positions);
+        positions[await PublicIdOf("users", s.User("avokat1").Id)].ShouldBe("True|False");
+        positions[await PublicIdOf("users", s.User("avokat2").Id)].ShouldBe("True|True");
+        positions[await PublicIdOf("users", s.User("sekondar").Id)].ShouldBe("False|True");
+        positions[await PublicIdOf("users", s.User("kryetar").Id)].ShouldBe("True|False");
+
         // least loaded first, then by name
         var order = list.Select(x => (Primary: x.GetProperty("workload").GetProperty("activePrimary").GetInt32(),
             Name: x.GetProperty("fullName").GetString()!)).ToList();
@@ -370,7 +385,41 @@ public class AssignLawyersTests(MySqlFixture db) : IntegrationTest(db)
         office.Where(x => x.TryGetProperty("workload", out _)).ShouldBeEmpty();
         var names = office.Select(x => x.GetProperty("fullName").GetString()!).ToList();
         names.ShouldBe(names.Order(StringComparer.InvariantCultureIgnoreCase).ToList());
-        names.ShouldContain("Kryetar Dev"); // the Kryetar may assign himself, so he is a lawyer of the office too
+        names.ShouldContain("Sekondar Dev");
+        names.ShouldNotContain("Kryetar Dev"); // task 053i: OFFICE_HEAD without a lawyer role is not a lawyer
+    }
+
+    // ---------------------------------------------------------------- the two lawyer roles (task 053i)
+
+    [Fact]
+    public async Task Each_position_needs_its_own_role()
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await using var factory = new AshApiFactory(Db);
+        using var kryetar = factory.CreateClient().AsUser(Kryetar);
+        var path = AssignPath(await PublicIdOf("cases", s.RegisteredCaseId));
+        var rowVersion = await RowVersion(s.RegisteredCaseId);
+        var avokat1 = await PublicIdOf("users", s.User("avokat1").Id); // STATE_LAWYER only
+        var avokat2 = await PublicIdOf("users", s.User("avokat2").Id); // both
+        var sekondar = await PublicIdOf("users", s.User("sekondar").Id); // SECONDARY_LAWYER only
+
+        async Task<string> Error(object body, string field)
+        {
+            var response = await kryetar.PostAsJsonAsync(path, body, Ct);
+            response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+            return (await Json(response)).GetProperty("errors").GetProperty(field)[0].GetString()!;
+        }
+
+        (await Error(new { primaryUserPublicId = sekondar, rowVersion }, "primaryUserPublicId"))
+            .ShouldBe("Ky përdorues nuk ka rolin Avokat Shteti (primar).");
+        (await Error(new { primaryUserPublicId = avokat2, secondaryUserPublicId = avokat1, rowVersion }, "secondaryUserPublicId"))
+            .ShouldBe("Ky përdorues nuk ka rolin Avokat sekondar.");
+        (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {s.RegisteredCaseId}")).ShouldBe(0L);
+
+        var ok = await kryetar.PostAsJsonAsync(path, new { primaryUserPublicId = avokat1, secondaryUserPublicId = sekondar, rowVersion }, Ct);
+        ok.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var secondary = factory.CreateClient().AsUser("sekondar@ash.local");
+        (await secondary.GetAsync($"/api/cases/{await PublicIdOf("cases", s.RegisteredCaseId)}", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     // ---------------------------------------------------------------- access

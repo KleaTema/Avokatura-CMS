@@ -123,13 +123,22 @@ export function TransferDialog({
   const all = lawyers.data ?? []
   const currentPrimary = c?.team.find((m) => m.role === 'PRIMARY_LAWYER') ?? null
   const currentSecondary = c?.team.find((m) => m.role === 'SECONDARY_LAWYER') ?? null
-  const secondaryInList = currentSecondary ? all.find((x) => x.publicId === currentSecondary.userPublicId) : undefined
-  const primaryInList = currentPrimary ? all.some((x) => x.publicId === currentPrimary.userPublicId) : false
+  // task 053i: each position only for the role that allows it — primary "Avokat Shteti (primar)", secondary
+  // "Avokat sekondar"; the swap entries likewise
+  const secondaryInList = currentSecondary
+    ? all.find((x) => x.publicId === currentSecondary.userPublicId && x.canBePrimary)
+    : undefined
+  const primaryInList = currentPrimary
+    ? all.some((x) => x.publicId === currentPrimary.userPublicId && x.canBeSecondary)
+    : false
+  const secondaryCandidates = all.filter((x) => x.canBeSecondary)
 
   // the current primary is not offered; the quick entry first when the secondary can move up
   const primaryOptions: PrimaryOption[] = [
     ...(secondaryInList ? [{ lawyer: secondaryInList, promote: true }] : []),
-    ...all.filter((x) => x.publicId !== currentPrimary?.userPublicId).map((lawyer) => ({ lawyer, promote: false })),
+    ...all
+      .filter((x) => x.canBePrimary && x.publicId !== currentPrimary?.userPublicId)
+      .map((lawyer) => ({ lawyer, promote: false })),
   ]
 
   // ---------------------------------------------------------------- the result (summary and request)
@@ -273,7 +282,7 @@ export function TransferDialog({
                   control={control}
                   render={({ field }) => (
                     <AppAutocomplete<AssignableLawyer>
-                      options={all}
+                      options={secondaryCandidates}
                       value={field.value}
                       onChange={(picked) => field.onChange(picked)}
                       getOptionLabel={lawyerLabel}
@@ -304,7 +313,7 @@ export function TransferDialog({
                 />
               )}
 
-              {/* the old primary as the secondary: only with a new primary, and only if he can be assigned */}
+              {/* the old primary as the secondary: only with a new primary, and only with SECONDARY_LAWYER (053i) */}
               {primaryInList && (
                 <Controller
                   name="oldPrimaryToSecondary"

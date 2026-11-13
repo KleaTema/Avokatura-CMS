@@ -31,7 +31,8 @@ public sealed record StatisticsFilter(
 /// <item>Monitor / Admin (report.view_all): everything, any filter.</item>
 /// <item>Kryetar (report.view_office): their case scope — own office + supervised cases + own assignments (task 053d,
 /// client decision F "të vetat + zyra + në mbikëqyrje"); the office filter may only be their own office, another → 403.</item>
-/// <item>Lawyer / assistant (report.view_own, office user): their own cases — the lawyer filter is forced to them.</item>
+/// <item>Lawyer / assistant (report.view_own, office user): their own cases — the lawyer filter is forced to them;
+/// SECONDARY_LAWYER without STATE_LAWYER → 403 (task 053i).</item>
 /// <item>Institution user: Tabela 6 of their own institution only (Tabela 5 or another institution → 403).</item>
 /// <item>Protokoll, institution jurists, anyone else → 403.</item>
 /// </list>
@@ -40,6 +41,8 @@ public sealed record StatisticsFilter(
 public sealed class StatisticsScope(ICurrentUser user, IOfficeDirectory offices, IUserDirectory users, IInstitutionDirectory institutions, IClock clock)
 {
     private const string InstitutionUserRole = "INSTITUTION_USER";
+    private const string StateLawyerRole = "STATE_LAWYER";
+    private const string SecondaryLawyerRole = "SECONDARY_LAWYER";
     private static readonly Error Forbidden = Error.Forbidden("statistics.forbidden", "Nuk keni të drejtë të shihni këto statistika.");
 
     public async Task<Result<StatisticsFilter>> ResolveAsync(StatisticsQuery q, CancellationToken ct)
@@ -126,7 +129,10 @@ public sealed class StatisticsScope(ICurrentUser user, IOfficeDirectory offices,
         }
         else if (user.HasPermission("report.view_own") && user.OfficeId is not null)
         {
-            if (lawyerId is not null && lawyerId != user.UserId)
+            // task 053i: the statistics count a lawyer as the primary only; "Avokat sekondar" without "Avokat Shteti
+            // (primar)" has nothing to count → 403 (the reports, Tabela 1/3, stay open to them)
+            if (lawyerId is not null && lawyerId != user.UserId
+                || user.Roles.Contains(SecondaryLawyerRole) && !user.Roles.Contains(StateLawyerRole))
             {
                 return Forbidden;
             }

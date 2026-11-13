@@ -449,10 +449,6 @@ export const useArchiveDossier = (caseId: string, dossierPublicId: string) => {
   })
 }
 
-// ---------------------------------------------------------------- legal assistants (task 026)
-
-export type AssignableAssistant = components['schemas']['AssignableAssistant']
-
 // ---------------------------------------------------------------- institution jurist and delegation (task 027)
 
 export type AssignableJurist = components['schemas']['AssignableJurist']

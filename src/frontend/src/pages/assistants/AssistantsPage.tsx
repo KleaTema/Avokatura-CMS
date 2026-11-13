@@ -75,9 +75,9 @@ export function AssistantsPage() {
                   {a.lawyers.map((l) => (
                     <li key={l.linkPublicId}>
                       <Chip
-                        label={`${l.lawyerName} · ${t.cases(l.cases)}`}
+                        label={`${l.lawyerName} · ${t.cases(Number(l.cases))}`}
                         onDelete={() => setRemoving({ assistant: a, link: l })}
-                        slotProps={{ root: { 'aria-label': `${l.lawyerName} · ${t.cases(l.cases)}` } }}
+                        slotProps={{ root: { 'aria-label': `${l.lawyerName} · ${t.cases(Number(l.cases))}` } }}
                       />
                     </li>
                   ))}
@@ -134,7 +134,7 @@ function LinkDialog({
     setError(null)
     try {
       const created = await link.mutateAsync({ assistantUserPublicId: assistant.publicId, lawyerUserPublicId: lawyer })
-      onLinked(t.linked(created.lawyerName, created.cases))
+      onLinked(t.linked(created.lawyerName, Number(created.cases)))
     } catch (e) {
       setError(problemMessage(e))
     }

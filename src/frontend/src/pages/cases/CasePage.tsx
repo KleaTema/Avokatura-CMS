@@ -10,6 +10,7 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import { ApiError } from '../../api/client'
 import { LevelSwitcher } from '../../components/LevelSwitcher'
 import { useCase } from '../../features/cases/api'
+import { useMe } from '../../features/identity/api'
 import { sq } from '../../i18n/sq'
 import { formatDate, formatDateTime, tiraneDateOf } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
@@ -68,6 +69,7 @@ export function CasePage() {
   // every tab or level link of this page is one more entry between here and the list
   const linkState: FromCaseList | undefined = listDepth ? { listDepth: listDepth + 1 } : undefined
   const detail = useCase(publicId)
+  const me = useMe(true)
   const [copied, setCopied] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -90,7 +92,8 @@ export function CasePage() {
   const { header, data } = c
   // from permissions[] only: case.assign_lawyer exists only while REGISTERED (CaseAccessService state rules)
   const canAssign = c.permissions.includes('case.assign_lawyer')
-  const canChat = c.permissions.includes('chat.case')
+  // task 053g: the administrator opens any case chat (chat.admin, a system permission) and joins with the first message
+  const canChat = c.permissions.includes('chat.case') || (me.data?.permissions.includes('chat.admin') ?? false)
   // hearings and documents of this level: the counts follow every change (afterCaseChange reloads the case)
   const counts: Partial<Record<CaseTab, number | string>> = { seancat: c.hearingsCount, dokumentet: c.documentsCount }
   const tabLabel = (x: CaseTab) => (counts[x] === undefined ? t.tabs[x] : `${t.tabs[x]} (${counts[x]})`)

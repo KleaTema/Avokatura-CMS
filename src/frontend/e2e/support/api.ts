@@ -10,9 +10,11 @@ export const USERS = {
   kryetar: 'kryetar@ash.local',
   avokat1: 'avokat1@ash.local',
   avokat2: 'avokat2@ash.local',
+  sekondar: 'sekondar@ash.local',
   monitor: 'monitor@ash.local',
   institucion: 'institucion@ash.local',
   ndihmes: 'ndihmes@ash.local',
+  admin: 'admin@ash.local',
 } as const
 
 const COURT = 'Gjykata e Shkallës së Parë Tiranë'

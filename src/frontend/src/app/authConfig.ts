@@ -10,6 +10,7 @@ export const devUsers = [
   'kryetar',
   'avokat1',
   'avokat2',
+  'sekondar',
   'ndihmes',
   'monitor',
   'institucion',

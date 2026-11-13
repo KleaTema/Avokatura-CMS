@@ -10,7 +10,6 @@ import { useActivateUser, useAdminOffices, useAdminRoles, useAdminUsers, type Ad
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
-import { formatPhone } from '../../lib/phone'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
@@ -127,7 +126,7 @@ export function UsersPage() {
         columns={[
           { key: 'name', label: t.columns.name },
           { key: 'email', label: t.columns.email },
-          { key: 'phone', label: t.columns.phone },
+          { key: 'position', label: t.columns.position },
           { key: 'organization', label: t.columns.organization },
           { key: 'roles', label: t.columns.roles },
           { key: 'status', label: t.columns.status },
@@ -153,7 +152,7 @@ export function UsersPage() {
                 <TableRow key={u.publicId} hover>
                   <TableCell>{fullName}</TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{u.phone ? formatPhone(u.phone) : ''}</TableCell>
+                  <TableCell>{u.position ?? ''}</TableCell>
                   <TableCell>{u.office?.name ?? u.institution?.name ?? ''}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>

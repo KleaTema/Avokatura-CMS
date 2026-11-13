@@ -14,7 +14,7 @@ namespace Ash.Tests.Integration;
 /// <summary>
 /// Task 024 — the Kryetar transfers the primary lawyer and changes the secondary. Uses <see cref="CaseSeed"/>'s ACTIVE
 /// case of office TR (avokat1 primary, avokat2 secondary, ndihmes legal assistant, the ministry's jurist) plus a third
-/// STATE_LAWYER of TR ("Avokat Tre").
+/// lawyer of TR ("Avokat Tre", STATE_LAWYER and SECONDARY_LAWYER).
 /// </summary>
 public class TransferLawyerTests(MySqlFixture db) : IntegrationTest(db)
 {
@@ -44,7 +44,7 @@ public class TransferLawyerTests(MySqlFixture db) : IntegrationTest(db)
     private async Task<Scenario> ScenarioAsync(CaseSeed s)
     {
         await using var seed = await Seed.CreateAsync(Db.AppConnectionString);
-        var third = await seed.UserAsync("av3", "Avokat", "Tre", s.OfficeTrId, null, "STATE_LAWYER");
+        var third = await seed.UserAsync("av3", "Avokat", "Tre", s.OfficeTrId, null, "STATE_LAWYER", "SECONDARY_LAWYER");
         return new Scenario(s, await PublicIdOf("cases", s.ActiveCaseId), s.ActiveCaseId,
             (string)(await Scalar($"SELECT case_code FROM cases WHERE id = {s.ActiveCaseId}"))!, third, $"av3-{seed.Suffix}@ash.test");
     }
@@ -193,6 +193,7 @@ public class TransferLawyerTests(MySqlFixture db) : IntegrationTest(db)
     public async Task Primary_and_secondary_swap_places()
     {
         await using var seed = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await seed.GrantRoleAsync("avokat1", "SECONDARY_LAWYER"); // task 053i: the swap needs the role
         var s = await ScenarioAsync(seed);
         await using var factory = new AshApiFactory(Db);
         using var kryetar = factory.CreateClient().AsUser(Kryetar);
@@ -287,9 +288,47 @@ public class TransferLawyerTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
+    public async Task Swap_is_refused_without_the_roles_and_changes_nothing()
+    {
+        await using var seed = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        var s = await ScenarioAsync(seed);
+        await using var factory = new AshApiFactory(Db);
+        using var kryetar = factory.CreateClient().AsUser(Kryetar);
+        var rowVersion = await RowVersion(s.CaseId);
+        var avokat1 = await PublicIdOf("users", s.Id("avokat1"));
+        var avokat2 = await PublicIdOf("users", s.Id("avokat2"));
+
+        // avokat1 (STATE_LAWYER only) cannot become the secondary
+        var response = await Transfer(kryetar, s, new
+        {
+            newPrimaryUserPublicId = avokat2,
+            secondary = new { action = "set", userPublicId = avokat1 },
+            rowVersion
+        });
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await Json(response)).GetProperty("errors").GetProperty("secondary.userPublicId")[0].GetString()
+            .ShouldBe("Ky përdorues nuk ka rolin Avokat sekondar.");
+
+        // a SECONDARY_LAWYER-only secondary cannot move up to primary
+        await Scalar($"""
+            UPDATE case_assignments SET user_id = {seed.User("sekondar").Id}
+            WHERE case_id = {s.CaseId} AND case_role = 'SECONDARY_LAWYER' AND ended_at IS NULL
+            """);
+        response = await Transfer(kryetar, s, new { newPrimaryUserPublicId = await PublicIdOf("users", seed.User("sekondar").Id), rowVersion });
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await Json(response)).GetProperty("errors").GetProperty("newPrimaryUserPublicId")[0].GetString()
+            .ShouldBe("Ky përdorues nuk ka rolin Avokat Shteti (primar).");
+
+        (await Ended(s.CaseId)).ShouldBeNull();
+        (await Events(s.CaseId)).ShouldBeNull();
+        (await RowVersion(s.CaseId)).ShouldBe(rowVersion);
+    }
+
+    [Fact]
     public async Task Invalid_transfers_are_400_and_change_nothing()
     {
         await using var seed = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await seed.GrantRoleAsync("avokat1", "SECONDARY_LAWYER"); // so the "kept primary as secondary" check is reached
         var s = await ScenarioAsync(seed);
         await using var factory = new AshApiFactory(Db);
         using var kryetar = factory.CreateClient().AsUser(Kryetar);

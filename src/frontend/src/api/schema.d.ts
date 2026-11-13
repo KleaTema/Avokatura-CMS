@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/identity/admin/office-courts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAdminOfficeCourts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/institutions": {
         parameters: {
             query?: never;
@@ -308,54 +324,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/cases/{id}/assignable-assistants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ListAssignableAssistants"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/cases/{id}/assistants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["AddAssistant"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/cases/{id}/assistants/{userPublicId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["RemoveAssistant"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/cases/{id}/claim": {
         parameters: {
             query?: never;
@@ -596,6 +564,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/handoff-destination": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetHandoffDestination"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/handoffs/incoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListIncomingHandoffs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/documents": {
         parameters: {
             query?: never;
@@ -764,23 +764,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["GetProfile"];
-        put: operations["UpdateProfile"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/identity/profile/notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["UpdateProfileNotifications"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -964,6 +948,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/identity/admin/offices/{publicId}/courts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["SetAdminOfficeCourts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/admin/institutions": {
         parameters: {
             query?: never;
@@ -1022,6 +1022,70 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["ActivateAdminInstitution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/organika/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetOrganikaTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/organika/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListOrganikaImports"];
+        put?: never;
+        post: operations["UploadOrganikaImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/organika/imports/{publicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetOrganikaImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/organika/imports/{publicId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApplyOrganikaImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1748,6 +1812,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAssistantLinks"];
+        put?: never;
+        post: operations["CreateAssistantLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant-links/{linkPublicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["EndAssistantLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/hearings": {
         parameters: {
             query?: never;
@@ -1822,6 +1918,70 @@ export interface paths {
         get?: never;
         put: operations["UpdateDecision"];
         post: operations["RecordDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetCaseHandoff"];
+        put: operations["ChangeCaseHandoff"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListSupervisions"];
+        put?: never;
+        post: operations["CreateSupervision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisions/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListSupervisionPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisions/{publicId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["EndSupervision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2097,12 +2257,6 @@ export interface components {
             priority: string;
             isSuspended: boolean;
         };
-        AddAssistantRequest: {
-            /** Format: uuid */
-            userPublicId: null | string;
-            /** Format: uint32 */
-            rowVersion: null | number | string;
-        };
         AddHearingRequest: {
             at: null | string;
             hearingTypeCode: null | string;
@@ -2143,13 +2297,6 @@ export interface components {
             /** Format: uint32 */
             caseRowVersion: number | string;
         };
-        AssignableAssistant: {
-            /** Format: uuid */
-            publicId: string;
-            fullName: string;
-            /** Format: int32 */
-            activeAssignments: number | string;
-        };
         AssignableJurist: {
             /** Format: uuid */
             publicId: string;
@@ -2162,6 +2309,8 @@ export interface components {
             fullName: string;
             isSelf: boolean;
             workload: components["schemas"]["LawyerWorkload"];
+            canBePrimary: boolean;
+            canBeSecondary: boolean;
         };
         AssignJuristRequest: {
             /** Format: uuid */
@@ -2194,15 +2343,20 @@ export interface components {
             /** Format: uint32 */
             rowVersion: number | string;
         };
-        AssistantChangeResponse: {
-            /** Format: uint32 */
-            rowVersion: number | string;
-            assistant: components["schemas"]["AssistantRef"];
+        AssistantLinksResponse: {
+            assistants: components["schemas"]["OfficeAssistantView"][];
+            lawyers: components["schemas"]["OfficeLawyerView"][];
         };
-        AssistantRef: {
+        AssistantLinkView: {
             /** Format: uuid */
-            publicId: string;
-            name: string;
+            linkPublicId: string;
+            /** Format: uuid */
+            lawyerPublicId: string;
+            lawyerName: string;
+            /** Format: int32 */
+            cases: number | string;
+            /** Format: date-time */
+            since: string;
         };
         AuditChainVerification: {
             ok: boolean;
@@ -2280,6 +2434,20 @@ export interface components {
             /** Format: uint32 */
             rowVersion: number | string;
         };
+        CaseHandoffView: {
+            /** Format: uuid */
+            publicId: string;
+            courtLevelCode: string;
+            courtLevelName: string;
+            /** Format: int32 */
+            courtId: number | string;
+            courtName: string;
+            office: components["schemas"]["OfficeRef"];
+            overrideReason: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            canChange: boolean;
+        };
         CaseHeader: {
             /** Format: uuid */
             publicId: string;
@@ -2294,6 +2462,7 @@ export interface components {
             /** Format: uuid */
             dossierPublicId: string;
             isArchived: boolean;
+            readOnlyEarlierLevel: boolean;
         };
         CaseHistoryItem: {
             level: string;
@@ -2321,6 +2490,7 @@ export interface components {
             /** Format: uuid */
             publicId: null | string;
             canOpen: boolean;
+            readOnly: boolean;
         };
         CaseListItem: {
             /** Format: uuid */
@@ -2361,6 +2531,14 @@ export interface components {
             name: string;
             /** Format: date-time */
             assignedAt: string;
+        };
+        ChangeHandoffRequest: {
+            nextCourtLevelCode: null | string;
+            /** Format: int32 */
+            nextCourtId: null | number | string;
+            /** Format: uuid */
+            receivingOfficePublicId: null | string;
+            reason: null | string;
         };
         ChangeJudgeRequest: {
             /** Format: int64 */
@@ -2521,6 +2699,12 @@ export interface components {
             city: null | string;
             isForeign: boolean;
         };
+        CreateAssistantLinkRequest: {
+            /** Format: uuid */
+            assistantUserPublicId: null | string;
+            /** Format: uuid */
+            lawyerUserPublicId: null | string;
+        };
         CreateCourtRequest: {
             name: string;
             courtLevel: string;
@@ -2598,6 +2782,14 @@ export interface components {
             code: string;
             name: string;
         };
+        CreateSupervisionRequest: {
+            /** Format: uuid */
+            headUserPublicId: null | string;
+            kind: null | string;
+            /** Format: uuid */
+            lawyerUserPublicId: null | string;
+            caseCode: null | string;
+        };
         CreateUserRequest: {
             email: string;
             firstName: string;
@@ -2671,6 +2863,13 @@ export interface components {
             cancelOpenHearings: null | boolean;
             /** Format: uint32 */
             rowVersion: null | number | string;
+            nextCourtLevelCode?: null | string;
+            /** Format: int32 */
+            nextCourtId?: null | number | string;
+            /** Format: uuid */
+            receivingOfficePublicId?: null | string;
+            handoffReason?: null | string;
+            handoff?: components["schemas"]["HandoffInput"];
         };
         DecisionResultAdminResponse: {
             code: string;
@@ -2821,6 +3020,19 @@ export interface components {
             permissions: string[];
             menus: string[];
         };
+        HandoffDestinationResponse: {
+            office: null | components["schemas"]["OfficeRef"];
+            offices: components["schemas"]["OfficeRef"][];
+        };
+        HandoffInput: {
+            nextCourtLevelCode: null | string;
+            /** Format: int32 */
+            nextCourtId: null | number | string;
+            /** Format: uuid */
+            receivingOfficePublicId: null | string;
+            reason: null | string;
+            isEmpty?: boolean;
+        };
         HearingSaveResponse: {
             hearing: components["schemas"]["HearingView"];
             warnings: components["schemas"]["RegistrationWarning"][];
@@ -2866,6 +3078,31 @@ export interface components {
         };
         /** Format: binary */
         IFormFile: string;
+        IncomingHandoffItem: {
+            /** Format: uuid */
+            handoffPublicId: string;
+            /** Format: uuid */
+            casePublicId: string;
+            caseCode: string;
+            partyNames: string[];
+            objectText: string;
+            fromCourtName: string;
+            resultName: null | string;
+            /** Format: date */
+            decisionDate: null | string;
+            courtLevelCode: string;
+            courtLevelName: string;
+            /** Format: int32 */
+            courtId: number | string;
+            courtName: string;
+            /** Format: date-time */
+            handedOffAt: string;
+        };
+        IncomingHandoffsResponse: {
+            items: components["schemas"]["IncomingHandoffItem"][];
+            /** Format: int32 */
+            total: number | string;
+        };
         InstitutionAdminResponse: {
             /** Format: uuid */
             publicId: string;
@@ -3033,11 +3270,6 @@ export interface components {
             /** Format: date-time */
             readAt: null | string;
         };
-        NotificationPreference: {
-            type: string;
-            mandatory: boolean;
-            enabled: boolean;
-        };
         NotifyNotClosedRequest: {
             summonsNumber: null | string;
             /** Format: int32 */
@@ -3071,9 +3303,93 @@ export interface components {
             /** Format: int32 */
             activeUsers: number | string;
         };
+        OfficeAssistantView: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+            lawyers: components["schemas"]["AssistantLinkView"][];
+        };
+        OfficeCourtResponse: {
+            /** Format: int32 */
+            courtId: number | string;
+            /** Format: uuid */
+            officePublicId: string;
+            officeName: string;
+        };
+        OfficeLawyerView: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
+        OfficeRef: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
         OpenDirectRequest: {
             /** Format: uuid */
             userId: string;
+        };
+        OrgImportListItem: {
+            /** Format: uuid */
+            publicId: string;
+            fileName: string;
+            uploadedBy: string;
+            /** Format: date-time */
+            uploadedAt: string;
+            appliedBy: null | string;
+            /** Format: date-time */
+            appliedAt: null | string;
+            /** Format: int32 */
+            appliedCount: null | number | string;
+            summary: components["schemas"]["OrgSummary"];
+        };
+        OrgImportView: {
+            /** Format: uuid */
+            publicId: string;
+            fileName: string;
+            uploadedBy: string;
+            /** Format: date-time */
+            uploadedAt: string;
+            appliedBy: null | string;
+            /** Format: date-time */
+            appliedAt: null | string;
+            /** Format: int32 */
+            appliedCount: null | number | string;
+            summary: components["schemas"]["OrgSummary"];
+            rows: components["schemas"]["OrgPreviewRow"][];
+        };
+        OrgPreviewRow: {
+            /** Format: int32 */
+            line: number | string;
+            email: null | string;
+            status: string;
+            userName: null | string;
+            oldPosition: null | string;
+            newPosition: null | string;
+            oldUnit: null | string;
+            newUnit: null | string;
+            oldManager: null | string;
+            newManager: null | string;
+            message: null | string;
+        };
+        OrgSummary: {
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            matched: number | string;
+            /** Format: int32 */
+            changed: number | string;
+            /** Format: int32 */
+            unchanged: number | string;
+            /** Format: int32 */
+            emailNotFound: number | string;
+            /** Format: int32 */
+            duplicate: number | string;
+            /** Format: int32 */
+            managerNotFound: number | string;
+            /** Format: int32 */
+            invalid: number | string;
         };
         PartyInstitutionRef: {
             /** Format: uuid */
@@ -3132,14 +3448,15 @@ export interface components {
             firstName: string;
             lastName: string;
             email: string;
+            position: null | string;
+            orgUnit: null | string;
+            manager: null | string;
             office: null | components["schemas"]["NamedRef"];
             institution: null | components["schemas"]["NamedRef"];
             roles: components["schemas"]["RoleRef"][];
             headOf: null | string;
             /** Format: date-time */
             lastLoginAt: null | string;
-            phone: null | string;
-            notifications: components["schemas"]["NotificationPreference"][];
         };
         ReadAllResponse: {
             /** Format: int32 */
@@ -3312,6 +3629,9 @@ export interface components {
             category: components["schemas"]["CodeName"];
             subcategory: null | components["schemas"]["CodeName"];
         };
+        SetOfficeCourtsRequest: {
+            courtIds: null | (number | string)[];
+        };
         SetOfficeHeadRequest: {
             /** Format: uuid */
             userPublicId: null | string;
@@ -3446,6 +3766,36 @@ export interface components {
             code: string;
             name: string;
         };
+        SupervisionCase: {
+            /** Format: uuid */
+            publicId: string;
+            caseCode: string;
+        };
+        SupervisionItem: {
+            /** Format: uuid */
+            publicId: string;
+            head: components["schemas"]["SupervisionPerson"];
+            kind: string;
+            lawyer: null | components["schemas"]["SupervisionPerson"];
+            case: null | components["schemas"]["SupervisionCase"];
+            /** Format: int32 */
+            coveredCases: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: string;
+            /** Format: date-time */
+            endedAt: null | string;
+        };
+        SupervisionPeople: {
+            heads: components["schemas"]["SupervisionPerson"][];
+            lawyers: components["schemas"]["SupervisionPerson"][];
+        };
+        SupervisionPerson: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+            officeName: null | string;
+        };
         TransferLawyerRequest: {
             /** Format: uuid */
             newPrimaryUserPublicId: null | string;
@@ -3561,9 +3911,6 @@ export interface components {
             /** Format: int32 */
             sortOrder: number | string;
         };
-        UpdateProfileRequest: {
-            phone: null | string;
-        };
         UpdateSummonsTypeRequest: {
             name: string;
         };
@@ -3596,7 +3943,7 @@ export interface components {
             lastLoginAt: null | string;
             /** Format: int32 */
             currentAssignments: number | string;
-            phone: null | string;
+            position: null | string;
         };
         UserView: {
             /** Format: uuid */
@@ -3688,6 +4035,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleResponse"][];
+                };
+            };
+        };
+    };
+    ListAdminOfficeCourts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficeCourtResponse"][];
                 };
             };
         };
@@ -4293,142 +4660,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferLawyerResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    ListAssignableAssistants: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssignableAssistant"][];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    AddAssistant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddAssistantRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantChangeResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    RemoveAssistant: {
-        parameters: {
-            query?: {
-                rowVersion?: number | string;
-            };
-            header?: never;
-            path: {
-                id: string;
-                userPublicId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantChangeResponse"];
                 };
             };
             /** @description Bad Request */
@@ -5188,6 +5419,57 @@ export interface operations {
             };
         };
     };
+    GetHandoffDestination: {
+        parameters: {
+            query: {
+                courtId: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandoffDestinationResponse"];
+                };
+            };
+        };
+    };
+    ListIncomingHandoffs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncomingHandoffsResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     ListDocuments: {
         parameters: {
             query?: {
@@ -5648,74 +5930,6 @@ export interface operations {
             };
         };
     };
-    UpdateProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateProfileRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProfileResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    UpdateProfileNotifications: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationPreference"][];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
     ListAdminUsers: {
         parameters: {
             query?: {
@@ -6162,6 +6376,59 @@ export interface operations {
             };
         };
     };
+    SetAdminOfficeCourts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOfficeCourtsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficeCourtResponse"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     ListAdminInstitutions: {
         parameters: {
             query?: {
@@ -6328,6 +6595,148 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetOrganikaTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ListOrganikaImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgImportListItem"][];
+                };
+            };
+        };
+    };
+    UploadOrganikaImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["IFormFile"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgImportView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    GetOrganikaImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgImportView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ApplyOrganikaImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgImportView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8077,6 +8486,106 @@ export interface operations {
             };
         };
     };
+    ListAssistantLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantLinksResponse"];
+                };
+            };
+        };
+    };
+    CreateAssistantLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAssistantLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantLinkView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    EndAssistantLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                linkPublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     ListHearings: {
         parameters: {
             query?: never;
@@ -8402,6 +8911,230 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetCaseHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseHandoffView"];
+                };
+            };
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ChangeCaseHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeHandoffRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseHandoffView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListSupervisions: {
+        parameters: {
+            query?: {
+                includeEnded?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionItem"][];
+                };
+            };
+        };
+    };
+    CreateSupervision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSupervisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListSupervisionPeople: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionPeople"];
+                };
+            };
+        };
+    };
+    EndSupervision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupervisionItem"];
                 };
             };
             /** @description Not Found */

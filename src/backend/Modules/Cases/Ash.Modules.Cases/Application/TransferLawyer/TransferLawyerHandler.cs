@@ -94,12 +94,13 @@ internal sealed class TransferLawyerHandler(
         LawyerCandidate? newPrimary = null;
         if (req.NewPrimaryUserPublicId is { } p)
         {
+            // task 053i: the new primary needs STATE_LAWYER — also in the swap "sekondari bëhet primar"
             newPrimary = candidates.Find(x => x.PublicId == p);
-            if (newPrimary is null)
+            if (OfficeLawyers.PositionError(newPrimary, primary: true) is { } primaryError)
             {
-                errors.Add("newPrimaryUserPublicId", "Ky avokat nuk mund të caktohet në këtë çështje.");
+                errors.Add("newPrimaryUserPublicId", primaryError);
             }
-            else if (newPrimary.UserId == currentPrimary.UserId)
+            else if (newPrimary!.UserId == currentPrimary.UserId)
             {
                 errors.Add("newPrimaryUserPublicId", "Ky është avokati primar aktual. Zgjidhni një avokat tjetër.");
             }
@@ -108,10 +109,11 @@ internal sealed class TransferLawyerHandler(
         LawyerCandidate? setSecondary = null;
         if (secondaryAction == TransferLawyerValidator.Set)
         {
+            // task 053i: the secondary needs SECONDARY_LAWYER — also in the swap "primari bëhet sekondar"
             setSecondary = candidates.Find(x => x.PublicId == req.Secondary!.UserPublicId);
-            if (setSecondary is null)
+            if (OfficeLawyers.PositionError(setSecondary, primary: false) is { } secondaryError)
             {
-                errors.Add("secondary.userPublicId", "Ky avokat nuk mund të caktohet në këtë çështje.");
+                errors.Add("secondary.userPublicId", secondaryError);
             }
         }
 

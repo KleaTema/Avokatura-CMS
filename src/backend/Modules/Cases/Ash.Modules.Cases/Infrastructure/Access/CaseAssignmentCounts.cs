@@ -21,4 +21,13 @@ public sealed class CaseAssignmentCounts(CasesDbContext db) : ICaseAssignmentCou
             .ToListAsync(cancellationToken);
         return rows.ToDictionary(r => (long)r.UserId, r => r.Count);
     }
+
+    public Task<int> CountOpenPositionsAsync(long userId, string caseRole, CancellationToken cancellationToken = default)
+    {
+        var id = (uint)userId;
+        return (from a in db.CaseAssignments.AsNoTracking()
+                join c in db.Cases.AsNoTracking() on a.CaseId equals c.Id
+                where a.UserId == id && a.EndedAt == null && a.CaseRole == caseRole && c.LifecycleStatus != Case.Closed
+                select a.Id).CountAsync(cancellationToken);
+    }
 }

@@ -13,6 +13,8 @@ const adminItems = [
   { path: '/admin/lists', label: t.lists, permission: 'admin.lookups' },
   { path: '/admin/file-types', label: t.fileTypes, permission: 'admin.lookups' },
   { path: '/admin/code-format', label: t.codeFormat, permission: 'admin.lookups' },
+  // task 053g: the position, unit and manager of every user, from the HR sheet
+  { path: '/admin/organika', label: t.organika, permission: 'admin.org' },
 ]
 
 function useVisibleAdminItems() {

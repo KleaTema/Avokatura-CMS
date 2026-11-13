@@ -44,7 +44,7 @@ test('a closed level is handed off and the receiving Protokoll continues it from
   await dialog.getByRole('button', { name: 'Vazhdo' }).click() // → Statusi
   await dialog.getByRole('checkbox', { name: 'Ankimuar' }).check()
   await dialog.getByRole('button', { name: 'Vazhdo' }).click() // → Vendimi i arsyetuar
-  await expect(dialog.getByRole('button', { name: 'Përcjellja' })).toBeVisible() // the extra step, not final
+  await expect(dialog.getByRole('tab', { name: 'Përcjellja' })).toBeVisible() // the extra step, not final (stepper = tabs)
   await dialog.getByRole('button', { name: 'Vazhdo' }).click() // → Përcjellja
 
   const confirm = dialog.getByRole('button', { name: 'Mbyll çështjen' })
@@ -68,7 +68,8 @@ test('a closed level is handed off and the receiving Protokoll continues it from
   await expect(dialog.getByText('Çështja ka seanca të planifikuara')).toBeVisible()
   await dialog.getByRole('button', { name: 'Anuloji dhe mbyll' }).click()
   await expect(page.getByRole('heading', { name: 'Përcjellja e çështjes' })).toBeVisible()
-  await expect(page.getByText(new RegExp(`^${appeal} — ${APPEAL_COURT}\\. Do t'i përcillet: `))).toBeVisible()
+  // the level name has parentheses ("Apel (shkalla e dytë)"): compare as plain text, not as a pattern
+  await expect(page.getByText(`${appeal} — ${APPEAL_COURT}. Do t'i përcillet: `)).toBeVisible()
 
   // 2. the receiving Protokoll: "Çështjet e ardhura" → Vazhdo
   await login(page, USERS.protokoll)

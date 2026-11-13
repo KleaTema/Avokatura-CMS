@@ -6,6 +6,7 @@ import { CodeFormatPage } from '../pages/admin/CodeFormat'
 import { FileTypesPage } from '../pages/admin/FileTypes'
 import { InstitutionsPage } from '../pages/admin/Institutions'
 import { OfficesPage } from '../pages/admin/Offices'
+import { OrganikaPage } from '../pages/admin/Organika'
 import { ListsPage } from '../pages/admin/Lists'
 import { UsersPage } from '../pages/admin/UsersPage'
 import { LazyAgendaPage } from '../pages/agenda/LazyAgendaPage'
@@ -145,6 +146,14 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission code="admin.lookups">
                 <FileTypesPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'organika',
+            element: (
+              <RequirePermission code="admin.org">
+                <OrganikaPage />
               </RequirePermission>
             ),
           },

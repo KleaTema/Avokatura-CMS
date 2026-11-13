@@ -11,7 +11,7 @@ namespace Ash.Tests.Integration.Infrastructure;
 public sealed class CaseSeed : IAsyncDisposable
 {
     private static readonly string[] SeededUserKeys =
-        ["admin", "protokoll", "kryetar", "avokat1", "avokat2", "ndihmes", "monitor", "institucion", "jurist"];
+        ["admin", "protokoll", "kryetar", "avokat1", "avokat2", "sekondar", "ndihmes", "monitor", "institucion", "jurist"];
 
     private readonly MySqlConnection _connection;
     private readonly Dictionary<string, SeedUser> _users = new();
@@ -156,6 +156,24 @@ public sealed class CaseSeed : IAsyncDisposable
         }
 
         return $"{subject}@ash.test";
+    }
+
+    /// <summary>
+    /// Task 053i: gives a seeded user one more role for this test (e.g. the Kryetar "Avokat Shteti (primar)", avokat1
+    /// "Avokat sekondar"); removed with the seed. A role the user already holds is left alone.
+    /// </summary>
+    public async Task GrantRoleAsync(string key, string role)
+    {
+        var userId = _users[key].Id;
+        var roleId = await ScalarAsync("SELECT id FROM roles WHERE code = @r", ("@r", role));
+        var held = await ScalarAsync("SELECT COUNT(*) FROM user_roles WHERE user_id = @u AND role_id = @r", ("@u", userId), ("@r", roleId));
+        if (held > 0)
+        {
+            return;
+        }
+
+        await ExecuteAsync("INSERT INTO user_roles (user_id, role_id) VALUES (@u, @r)", ("@u", userId), ("@r", roleId));
+        _cleanup.Add(($"DELETE FROM user_roles WHERE user_id = @id AND role_id = {roleId}", userId));
     }
 
     private async Task<long> InsertUserAsync(string subject, string first, string last, long? officeId, long? institutionId, string role)

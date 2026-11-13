@@ -766,6 +766,48 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
 
+## 053i — Two lawyer roles: "Avokat Shteti (primar)" and "Avokat sekondar"
+**Setup:** run the migrator (script 026 and LocalScripts 907), restart the API, `npm run dev`. Dev login now also
+offers sekondar@ash.local (SECONDARY_LAWYER only); avokat2 holds both roles; avokat1 only STATE_LAWYER; kryetar only
+OFFICE_HEAD.
+1. **Kryetar → assign a REGISTERED case:**
+   - "Avokati primar" lists avokat1 and avokat2, not sekondar and not the Kryetar.
+   - "Avokati sekondar" lists avokat2 and sekondar, not avokat1.
+   - Assign avokat1 + sekondar → the case is ACTIVE; sekondar sees it in *Të miat*.
+2. **Kryetar → *Ndrysho avokatin* on that case:**
+   - The quick entry "Avokati sekondar bëhet primar (Sekondar Dev)" is missing (sekondar is not primary-capable).
+   - "Avokati aktual primar bëhet sekondar" is missing (avokat1 is not secondary-capable).
+   - In Scalar, `POST /api/cases/{id}/transfer` with `newPrimaryUserPublicId` = sekondar → 400 "Ky përdorues nuk ka
+     rolin Avokat Shteti (primar)."; with secondary set to avokat1 → 400 "Ky përdorues nuk ka rolin Avokat sekondar."
+3. **Admin → *Përdoruesit*:**
+   - The roles read "Avokat Shteti (primar)" and "Avokat sekondar".
+   - Remove SECONDARY_LAWYER from sekondar → 400 "Ky përdorues është avokat sekondar në 1 çështje të hapura…".
+   - Transfer the secondary away first, then the removal works (give the role back afterwards).
+4. **As sekondar:**
+   - *Paneli* shows "Si avokat sekondar", "Seancat e mia këtë javë" and "Seanca për t'u përditësuar"; no statistics.
+   - *Raporte → Statistikat* → the "Nuk keni të drejtë…" message.
+   - *Raportet* (Tabela 1/3) lists their case.
+5. **Kryetar → *Ndihmësit ligjorë*:** the lawyer list has avokat1 and avokat2, not sekondar.
+
+## 053g — Profile, chat, Organika (E)
+**Setup:** run the migrator (script 025), restart the API, `npm run dev`.
+1. **Any user → *Profili*:**
+   - No phone, no notification switches.
+   - Shows name, e-mail, position, unit and manager ("—" until Organika sets them), roles, office.
+2. **Chat as the Protokoll** who registered an ACTIVE case: *Chat* lists that case's conversation; they read and write
+   there. In its participants they show as "Protokolli (regjistroi çështjen)".
+3. **Chat as admin:**
+   - Open any case → *Chat* tab: the messages are readable, the admin is not in the participants.
+   - Send a message → "Admin … u shtua në bisedë", then the message; the participants list shows "Administratori".
+   - The nightly chat-reconcile keeps them.
+4. **Admin → *Administrimi → Organika*:**
+   - "Shkarko shabllonin" → an .xlsx with the four columns.
+   - Fill in: a real user, an unknown e-mail, the same e-mail twice, a row without position, an unknown manager.
+     Upload → the counts and each row's status; nothing changed yet (open the user's profile).
+   - "Apliko" → the toast shows the count; the profile now shows the position; *Përdoruesit* has a "Pozicioni" column.
+   - The import is in the list ("Aplikuar më … nga …"); applying again is refused.
+   - A .pdf or a sheet without the headers → the error message.
+
 ## 053f — Earlier levels read-only (D2)
 **Setup:**
 - A dossier with X/1 closed and X/2 registered from it.
