@@ -22,8 +22,8 @@ internal sealed class CaseEventNotifications(
     IEventHandler<CaseRegistered>,
     IEventHandler<LawyerAssigned>,
     IEventHandler<LawyerTransferred>,
-    IEventHandler<AssistantAssigned>,
-    IEventHandler<AssistantRemoved>,
+    IEventHandler<AssistantLinked>,
+    IEventHandler<AssistantUnlinked>,
     IEventHandler<JuristAssigned>,
     IEventHandler<InstitutionLinked>,
     IEventHandler<CaseDelegated>,
@@ -128,21 +128,12 @@ internal sealed class CaseEventNotifications(
         }
     }
 
-    public async Task HandleAsync(AssistantAssigned e, CancellationToken ct = default)
-    {
-        if (await CaseAsync(e.CasePublicId, ct) is { } c)
-        {
-            await sender.SendAsync(NotificationTexts.AssistantAssigned(c), NotificationRecipients.Of(e.AssistantUserPublicId), ct);
-        }
-    }
+    /// <summary>Task 053e: once per link (not per case — the link may bring dozens of cases).</summary>
+    public Task HandleAsync(AssistantLinked e, CancellationToken ct = default) =>
+        sender.SendAsync(NotificationTexts.AssistantLinked(e.LawyerName, e.Cases), NotificationRecipients.Of(e.AssistantUserPublicId), ct);
 
-    public async Task HandleAsync(AssistantRemoved e, CancellationToken ct = default)
-    {
-        if (await CaseAsync(e.CasePublicId, ct) is { } c)
-        {
-            await sender.SendAsync(NotificationTexts.AssistantRemoved(c), NotificationRecipients.Of(e.AssistantUserPublicId), ct);
-        }
-    }
+    public Task HandleAsync(AssistantUnlinked e, CancellationToken ct = default) =>
+        sender.SendAsync(NotificationTexts.AssistantUnlinked(e.LawyerName), NotificationRecipients.Of(e.AssistantUserPublicId), ct);
 
     /// <summary>The new jurist; the jurist they replace, if any.</summary>
     public async Task HandleAsync(JuristAssigned e, CancellationToken ct = default)

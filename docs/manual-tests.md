@@ -766,6 +766,24 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
 
+## 053e — "Ndihmësit ligjorë" (C, D4)
+**Setup:** run the migrator (scripts 023–024; it prints what 024 converted: LINK_CREATED / ROW_KEPT / ROW_ENDED),
+restart the API, `npm run dev`.
+1. **avokat1:** a case's "Ekipi" has no "Shto ndihmës"; assistants show read-only with the note.
+2. **Kryetar → *Ndihmësit ligjorë*:**
+   - Every assistant of the office is listed with their lawyers.
+   - "Lidh me avokat" → Ndihmës Dev → Avokat1 Dev: the toast says how many cases the link brings.
+   - Ndihmës Dev's bell shows "U lidhët me një avokat…" once. Their "Çështjet e mia" now holds every avokat1 primary
+     case, and each case's history shows "Ndihmësi ligjor u shtua".
+3. **New case:** the Kryetar assigns avokat1 as primary of a new case → Ndihmës Dev sees it at once.
+4. **Transfer:** transfer one of avokat1's cases to Avokat2 Dev → it leaves Ndihmës Dev.
+   - If another assistant is linked to Avokat2 Dev, it appears there.
+   - The chat of the case follows.
+5. **Closing:** close one of the cases → Ndihmës Dev still has it (assignments are kept).
+6. **Unlink:** remove the chip (×) → confirm → Ndihmës Dev loses every avokat1 case and is told once.
+7. **Drift** (SQL): end one link row by hand → run the job (`POST /api/admin/jobs/assistant-reconcile/run` as admin,
+   Development) → the row is back; running it again changes nothing.
+
 ## 053d — "Mbikëqyrja" (C, D3)
 **Setup:**
 - Run the migrator (script 022), restart the API, `npm run dev`.

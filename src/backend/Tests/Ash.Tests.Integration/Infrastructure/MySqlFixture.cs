@@ -18,6 +18,8 @@ public sealed class MySqlFixture : IAsyncLifetime
         // task 044: a snapshot taken by one test must not freeze a year for the next
         "ash_core.statistics_snapshot_cases",
         "ash_core.statistics_snapshots",
+        // task 053e
+        "ash_core.assistant_lawyers",
         // task 053d
         "ash_core.supervisions",
         // task 053c
@@ -84,7 +86,8 @@ public sealed class MySqlFixture : IAsyncLifetime
 
     public string ChatConnectionString { get; private set; } = string.Empty;
 
-    private string RootConnectionString { get; set; } = string.Empty;
+    /// <summary>Root (the migrator's rights): a test that runs a migration script itself (task 053e) uses it.</summary>
+    public string RootConnectionString { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
     {

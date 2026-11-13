@@ -42,8 +42,8 @@ public static class NotificationsModule
 		services.AddScoped<IEventHandler<CaseRegistered>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<LawyerAssigned>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<LawyerTransferred>>(sp => sp.GetRequiredService<CaseEventNotifications>());
-		services.AddScoped<IEventHandler<AssistantAssigned>>(sp => sp.GetRequiredService<CaseEventNotifications>());
-		services.AddScoped<IEventHandler<AssistantRemoved>>(sp => sp.GetRequiredService<CaseEventNotifications>());
+		services.AddScoped<IEventHandler<AssistantLinked>>(sp => sp.GetRequiredService<CaseEventNotifications>());
+		services.AddScoped<IEventHandler<AssistantUnlinked>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<JuristAssigned>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<InstitutionLinked>>(sp => sp.GetRequiredService<CaseEventNotifications>());
 		services.AddScoped<IEventHandler<CaseDelegated>>(sp => sp.GetRequiredService<CaseEventNotifications>());

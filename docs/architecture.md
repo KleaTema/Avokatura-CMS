@@ -53,6 +53,7 @@ is a MySQL named lock here.
 | `hearing-reminders` | Cases | hourly | HEARING_TOMORROW (from 08:00 Tirane), NEXT_LEVEL_PENDING_3D |
 | `notification-cleanup` | Notifications | 02:00 Tirane | read notifications older than 12 months, 5,000 per statement |
 | `statistics-snapshot` | Reports | 00:30 Tirane | freezes the year that just ended (per-case statistics flags) if not yet frozen, task 044 |
+| `assistant-reconcile` | Cases | 01:45 Tirane | every case with an assistant link row or a linked primary: its LEGAL_ASSISTANT rows brought in line with the links (`AssistantSync`), task 053e |
 | `chat-reconcile` | Chat | 01:30 Tirane | every case chat's participants recomputed from the case (repairs a missed event), task 049 |
 | `partition-check` | Notifications | 03:00 Tirane | p_max holding rows / next month's partition missing → admins |
 | `audit-digest` | Audit | 02:00 Tirane | SHA-256 chain per Tirane day into `audit_daily_digests` (own account `ash_audit_digest`) |
@@ -70,6 +71,14 @@ is a MySQL named lock here.
     - SQL: `CaseScopeSpec.SupervisedSql`, used by `ReportScope` and by the statistics' `StatisticsFlags.sql` placeholder.
   - So the case list, case page, agenda, dashboard, header search, reports and statistics all agree. `SupervisionTests` compares them.
   - The Kryetar gets a mandatory `SUPERVISION_ASSIGNED` / `SUPERVISION_ENDED` notification. A CASE supervision also writes `SUPERVISION_STARTED` / `SUPERVISION_ENDED` on the case.
+
+- **Legal assistants, "Ndihmësit ligjorë" (task 053e, client decision C, D4).**
+  - The Kryetar (`assistant.manage`, now a SYSTEM permission of OFFICE_HEAD; menu `assistants`) links an assistant to lawyers of the office (`assistant_lawyers`).
+  - The access code is unchanged. `AssistantSync` keeps a `LEGAL_ASSISTANT` row in `case_assignments`, with `assistant_link_id` set, on every case where a linked lawyer is the CURRENT primary.
+  - It runs on link / unlink, on `LawyerAssigned` / `LawyerTransferred` (the assistant rows follow the new primary), and in the nightly `assistant-reconcile` job. It is idempotent.
+  - Closing a case keeps the rows, like every other assignment. The case's chat follows the `AssistantAssigned` / `AssistantRemoved` events. The assistant gets one notification per link, not per case.
+  - Task 026's per-case "Shto ndihmës" and its endpoints are gone; "Ekipi" shows assistants read-only.
+  - Script 024 turned the old per-case rows into links: same office as the current primary → linked; otherwise ended. It is reported in `ash_ops.migration_reports`, which the migrator prints after a run.
 
 ## Case life cycle
 `REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set by "Arkivo" only when the latest level is closed, final, and its reasoned decision has arrived with a clean document (task 053a, `ArchiveRule`). A closed case can continue as X/n+1 at any court level, a lower one too (appeal, recourse, retrial). X/n+1 copies only the parties and the object; each institution party gets a MONITORING link. Category, subcategory and delegation are not copied (client decision B.1).

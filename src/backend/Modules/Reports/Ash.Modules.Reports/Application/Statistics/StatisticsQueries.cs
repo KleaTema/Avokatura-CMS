@@ -186,6 +186,13 @@ public sealed class StatisticsQueries(
             texts.Add(new("Zyra", await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
                 "SELECT name FROM offices WHERE id = @id", new { id = office }, cancellationToken: ct)) ?? string.Empty));
         }
+        else if (f.ScopeOfficeId is { } scopeOffice)
+        {
+            // the Kryetar's whole scope (task 053d): the office, the supervised cases and their own
+            var name = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                "SELECT name FROM offices WHERE id = @id", new { id = scopeOffice }, cancellationToken: ct)) ?? string.Empty;
+            texts.Add(new("Zyra", $"{name} + çështjet në mbikëqyrje dhe të miat"));
+        }
 
         if (f.LawyerId is { } lawyer)
         {

@@ -56,10 +56,62 @@ public static class DatabaseUpgrader
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"{name}: upgrade succeeded. Scripts applied: {result.Scripts.Count()}");
                 Console.ResetColor();
+                PrintReports(serverConnectionString, result.Scripts.Select(s => s.Name));
             }
         }
 
         return new DatabaseUpgradeResult(true, null);
+    }
+
+    /// <summary>
+    /// What the data migrations applied in this run did (ash_ops.migration_reports, script 023): a count per kind, then
+    /// each line. Scripts that write no report print nothing.
+    /// </summary>
+    private static void PrintReports(string serverConnectionString, IEnumerable<string> appliedResources)
+    {
+        // resource "Ash.Database.Scripts.024_assistant_links_migration.sql" → file "024_assistant_links_migration.sql"
+        var files = appliedResources.Select(r => r.Split('.')[^2] + ".sql").ToList();
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        using var connection = new MySqlConnection(serverConnectionString);
+        connection.Open();
+        using (var exists = connection.CreateCommand())
+        {
+            exists.CommandText = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'ash_ops' AND table_name = 'migration_reports'";
+            if (Convert.ToInt64(exists.ExecuteScalar()) == 0)
+            {
+                return;
+            }
+        }
+
+        foreach (var file in files)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT kind, detail FROM ash_ops.migration_reports WHERE script = @script ORDER BY kind, id";
+            command.Parameters.AddWithValue("@script", file);
+            var lines = new List<(string Kind, string Detail)>();
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    lines.Add((reader.GetString(0), reader.GetString(1)));
+                }
+            }
+
+            if (lines.Count == 0)
+            {
+                continue;
+            }
+
+            Console.WriteLine($"--- {file}: " + string.Join(", ", lines.GroupBy(l => l.Kind).Select(g => $"{g.Key} {g.Count()}")));
+            foreach (var (kind, detail) in lines)
+            {
+                Console.WriteLine($"    {kind,-14} {detail}");
+            }
+        }
     }
 
     private static DbUp.Engine.UpgradeEngine Build(string serverConnectionString, Assembly assembly, string marker, bool quiet)

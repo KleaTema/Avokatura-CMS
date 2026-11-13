@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { addAssistant, assignLawyers, markAllChatRead, registerCase, removeAssistant, USERS } from './support/api'
+import { assignLawyers, linkAssistant, markAllChatRead, registerCase, unlinkAssistant, USERS } from './support/api'
 import { login } from './support/login'
 
 /** Optional: a folder for the screenshots of the chat page and the case's Chat tab (E2E_SHOTS=…). */
@@ -88,7 +88,8 @@ test('two lawyers exchange messages live; after a reload the unread badge is rig
 test('a removed assistant loses the conversation, live and after a reload', async ({ browser }) => {
   const created = await registerCase()
   await assignLawyers(created.id, 'Avokat1 Dev', 'Avokat2 Dev')
-  await addAssistant(created.id, USERS.avokat1, USERS.ndihmes)
+  // task 053e: the Kryetar links ndihmes to avokat1 (the primary); unlinking takes the case away again
+  await linkAssistant(USERS.ndihmes, USERS.avokat1)
 
   const context = await browser.newContext()
   try {
@@ -106,7 +107,7 @@ test('a removed assistant loses the conversation, live and after a reload', asyn
     })()
     await page.waitForLoadState('networkidle')
 
-    await removeAssistant(created.id, USERS.avokat1, USERS.ndihmes)
+    await unlinkAssistant(USERS.ndihmes, USERS.avokat1)
 
     // live
     await expect(page.getByText('Nuk jeni më pjesë e kësaj bisede.').first()).toBeVisible({ timeout: 5_000 })
@@ -117,6 +118,7 @@ test('a removed assistant loses the conversation, live and after a reload', asyn
     await expect(page.getByText('Nuk jeni më pjesë e kësaj bisede.').first()).toBeVisible()
     await expect(page.getByRole('button', { name: new RegExp(created.code.replace('/', '\\/')) })).toHaveCount(0)
   } finally {
+    await unlinkAssistant(USERS.ndihmes, USERS.avokat1) // leaves the local data as it was, also when a step failed
     await context.close()
   }
 })

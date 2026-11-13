@@ -239,7 +239,8 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         Counts(kryetar).ShouldBe(new Dictionary<string, int>
         {
             ["unassigned"] = (await Oracle(s.Sql("c.office_id = {tr} AND c.lifecycle_status = 'REGISTERED'"), "c.id")).Count,
-            ["office"] = (await Oracle(s.Sql($"c.office_id = {{tr}} AND {Open}"), "c.id")).Count
+            ["office"] = (await Oracle(s.Sql($"c.office_id = {{tr}} AND {Open}"), "c.id")).Count,
+            ["supervised"] = 0, // task 053d: nothing under supervision here
         }, ignoreOrder: true);
         kryetar.GetProperty("defaultTab").GetString().ShouldBe("unassigned");
 

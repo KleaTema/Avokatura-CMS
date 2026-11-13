@@ -108,7 +108,7 @@ public class DashboardTests(MySqlFixture db) : IntegrationTest(db)
 
     [Theory]
     [InlineData("protokoll@ash.local", "registeredToday,registeredWaiting,myRegistrations", true)]
-    [InlineData("kryetar@ash.local", "unassigned,officeMissingData30,officeHearingOverdue,officeDecisionPending,officeWorkload,officeHearingsThisWeek", true)]
+    [InlineData("kryetar@ash.local", "unassigned,officeMissingData30,officeHearingOverdue,officeDecisionPending,officeWorkload,officeHearingsThisWeek,supervisedOpen,supervisedHearingOverdue", true)]
     [InlineData("avokat1@ash.local", "mineOpen,mineHearingOverdue,mineMissingData30,mineDecisionPending,mineHearingsThisWeek,mineActivity", true)]
     [InlineData("institucion@ash.local", "institutionLinked,institutionDelegated,institutionNoJurist,institutionUpcoming", true)]
     // the seed gives the jurist no overdue hearing: some of its numbers are 0
@@ -130,7 +130,9 @@ public class DashboardTests(MySqlFixture db) : IntegrationTest(db)
         // the seed makes the numbers non-trivial: a passing check over zeros proves little
         if (nonZero)
         {
-            widgets.Where(w => Text(w, "kind") == "count" && !Text(w, "code")!.StartsWith("admin", StringComparison.Ordinal))
+            // the supervised widgets (task 053d) are 0 here: nothing is under supervision (SupervisionTests check them)
+            widgets.Where(w => Text(w, "kind") == "count" && !Text(w, "code")!.StartsWith("admin", StringComparison.Ordinal)
+                               && !Text(w, "code")!.StartsWith("supervised", StringComparison.Ordinal))
                 .ShouldAllBe(w => Long(w, "value") > 0);
         }
         foreach (var w in widgets.Where(w => w.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array))

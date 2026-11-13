@@ -10,7 +10,6 @@ import { login } from './support/login'
 const ACTIONS: { permission: string | string[]; buttons: (page: Page) => Locator[] }[] = [
   { permission: 'case.assign_lawyer', buttons: (p) => [p.getByRole('button', { name: 'Cakto avokatin', exact: true })] },
   { permission: 'case.transfer', buttons: (p) => [p.getByRole('button', { name: 'Transfero', exact: true })] },
-  { permission: 'assistant.manage', buttons: (p) => [p.getByRole('button', { name: 'Shto ndihmës' })] },
   { permission: 'case.delegate', buttons: (p) => [p.getByRole('button', { name: /^(Delego \/ Relato|Anulo delegimin)$/ })] },
   {
     permission: 'case.edit_data',

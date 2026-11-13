@@ -8,7 +8,7 @@ namespace Ash.Modules.Identity.Application.GetMe;
 public sealed class GetMeHandler(IdentityDbContext db, CurrentUser user)
 {
     private static readonly string[] MenuOrder =
-        ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports", "supervision", "admin"];
+        ["dashboard", "cases", "chat", "notifications", "profile", "agenda", "reports", "supervision", "assistants", "admin"];
 
     public async Task<Result<GetMeResponse>> Handle(CancellationToken ct)
     {

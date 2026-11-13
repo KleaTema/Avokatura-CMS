@@ -84,9 +84,12 @@ public static class CasesModule
 		services.AddScoped<SetSuspensionHandler>();
 		services.AddScoped<SetSecurityMeasureHandler>();
 		services.AddScoped<SetPriorityHandler>();
-		services.AddScoped<AssignableAssistantsHandler>();
-		services.AddScoped<AddAssistantHandler>();
-		services.AddScoped<RemoveAssistantHandler>();
+		// task 053e: assistants attached to lawyers; their case rows follow the primary lawyer
+		services.AddScoped<AssistantSync>();
+		services.AddScoped<AssistantLinkHandlers>();
+		services.AddScoped<AssistantSyncEvents>();
+		services.AddScoped<Ash.SharedKernel.Events.IEventHandler<Contracts.Events.LawyerAssigned>>(sp => sp.GetRequiredService<AssistantSyncEvents>());
+		services.AddScoped<Ash.SharedKernel.Events.IEventHandler<Contracts.Events.LawyerTransferred>>(sp => sp.GetRequiredService<AssistantSyncEvents>());
 		services.AddScoped<InstitutionJurists>();
 		services.AddScoped<AssignableJuristsHandler>();
 		services.AddScoped<AssignJuristHandler>();
@@ -121,6 +124,7 @@ public static class CasesModule
 		services.AddScoped<DashboardHandler>();
 		services.AddScheduledJob<DataReminderJob>();
 		services.AddScheduledJob<HearingReminderJob>();
+		services.AddScheduledJob<AssistantReconcileJob>();
 		return services;
 	}
 

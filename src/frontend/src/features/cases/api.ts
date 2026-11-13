@@ -453,38 +453,6 @@ export const useArchiveDossier = (caseId: string, dossierPublicId: string) => {
 
 export type AssignableAssistant = components['schemas']['AssignableAssistant']
 
-/** Legal assistants of the case's office not yet on the case, least loaded first. */
-export const useAssignableAssistants = (caseId: string, enabled: boolean) =>
-  useQuery({
-    queryKey: caseKeys.picker(caseId, 'assistants'),
-    enabled,
-    retry: false,
-    queryFn: () =>
-      api.GET('/api/cases/{id}/assignable-assistants', { params: { path: { id: caseId } } }).then(unwrap),
-  })
-
-export const useAddAssistant = (caseId: string) => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: { userPublicId: string; rowVersion: number }) =>
-      api.POST('/api/cases/{id}/assistants', { params: { path: { id: caseId } }, body }).then(unwrap),
-    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
-  })
-}
-
-export const useRemoveAssistant = (caseId: string) => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ userPublicId, rowVersion }: { userPublicId: string; rowVersion: number }) =>
-      api
-        .DELETE('/api/cases/{id}/assistants/{userPublicId}', {
-          params: { path: { id: caseId, userPublicId }, query: { rowVersion } },
-        })
-        .then(unwrap),
-    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
-  })
-}
-
 // ---------------------------------------------------------------- institution jurist and delegation (task 027)
 
 export type AssignableJurist = components['schemas']['AssignableJurist']
