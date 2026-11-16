@@ -127,9 +127,9 @@ public class SupervisionTests(MySqlFixture db) : IntegrationTest(db)
         permissions.ShouldContain("decision.record");
         permissions.ShouldNotContain("case.edit_registration"); // the registration desk stays with the own office
         (await kryetar.GetAsync($"/api/cases/{s.OtherId}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        // the transfer picker: the case office's lawyers + himself
+        // the transfer picker: the case office's lawyers (himself only with a lawyer role, task 053i — he has none)
         var lawyers = await Json(await kryetar.GetAsync($"/api/cases/{s.ByLawyerId}/assignable-lawyers", Ct));
-        lawyers.EnumerateArray().ShouldContain(l => l.GetProperty("isSelf").GetBoolean());
+        lawyers.EnumerateArray().ShouldNotContain(l => l.GetProperty("isSelf").GetBoolean());
         lawyers.EnumerateArray().ShouldContain(l => l.GetProperty("fullName").GetString() == "Dr Lawyer");
 
         // the agenda (this week): the supervised hearings, and with the supervised lawyer as filter

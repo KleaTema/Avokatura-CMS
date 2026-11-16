@@ -108,9 +108,10 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
             .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var roles = (await Get(client, "/api/identity/admin/roles", Admin)).EnumerateArray().ToList();
-        roles.Count.ShouldBe(8);
+        roles.Count.ShouldBe(9);
         var scopes = roles.ToDictionary(r => r.GetProperty("code").GetString()!, r => r.GetProperty("scope").GetString());
         scopes["STATE_LAWYER"].ShouldBe("OFFICE");
+        scopes["SECONDARY_LAWYER"].ShouldBe("OFFICE"); // task 053i
         scopes["ADMIN"].ShouldBe("OFFICE");
         scopes["INSTITUTION_USER"].ShouldBe("INSTITUTION");
         scopes["INSTITUTION_JURIST"].ShouldBe("INSTITUTION");

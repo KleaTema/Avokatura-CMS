@@ -19,7 +19,11 @@ public sealed record ActiveCasesFilter(
     string? CourtLevelCode,
     string? Priority,
     bool? Suspended,
-    string? Q);
+    string? Q)
+{
+    /// <summary>Task 053h: the filter builder's filters (CaseReportBuilder), on top of the ones above.</summary>
+    public Builder.ReportCriteria? Criteria { get; init; }
+}
 
 /// <summary>Tabela 1, one row per open case (REGISTERED or ACTIVE). Public ids only.</summary>
 public sealed record ActiveCaseRow(
@@ -43,8 +47,15 @@ public sealed record ActiveCaseRow(
     string Priority,
     bool IsSuspended) : IReportRow
 {
+    /// <summary>Task 053h: the user can open the case (else the code is shown without a link).</summary>
+    public bool CanOpen { get; init; } = true;
+
+    /// <summary>Task 053h: "Roli im" — the reader's own role in the case (<see cref="ReportMyRole"/>).</summary>
+    public string? MyRole { get; init; }
+
     public object? Get(string key) => key switch
     {
+        ReportMyRole.ColumnKey => MyRole,
         "caseCode" => CaseCode,
         "actNumber" => ActNumber,
         "plaintiffs" => Plaintiffs,
@@ -74,14 +85,16 @@ public sealed record ActiveCaseRow(
 /// (3) the parties and (4) the current lawyers each by ONE grouped query for the page's ids (never per row). The
 /// columns and values equal the view's for the same cases (ReportTests compares them); the view stays for direct use.
 /// </summary>
-public sealed class ActiveCasesReport(ReportingDb db, ReportScope scope, ICaseSearchSql search, IOfficeDirectory offices, IUserDirectory users)
+public sealed class ActiveCasesReport(
+    ReportingDb db, ReportScope scope, ICaseSearchSql search, IOfficeDirectory offices, IUserDirectory users, CaseLinks links,
+    Ash.SharedKernel.Identity.ICurrentUser user)
 {
     private const string LawyerRolesSql = "('PRIMARY_LAWYER', 'SECONDARY_LAWYER')";
 
     /// <summary>The WHERE over alias c; null when nothing can match (unknown office or lawyer, a text with no word).</summary>
     private async Task<string?> WhereAsync(ActiveCasesFilter f, DynamicParameters p, CancellationToken ct)
     {
-        var where = new StringBuilder("c.lifecycle_status <> 'CLOSED' AND ").Append(scope.Sql(p));
+        var where = new StringBuilder("c.lifecycle_status <> 'CLOSED' AND ").Append(await scope.SqlAsync(p, ct));
         if (f.OfficeId is { } officePublicId)
         {
             if (await offices.GetIdAsync(officePublicId, ct) is not { } officeId)
@@ -148,12 +161,18 @@ public sealed class ActiveCasesReport(ReportingDb db, ReportScope scope, ICaseSe
             where.Append($" AND c.id IN ({terms.Sql})");
         }
 
+        if (f.Criteria is { } criteria)
+        {
+            p.AddDynamicParams(criteria.Parameters);
+            where.Append(criteria.Sql);
+        }
+
         return where.ToString();
     }
 
     public async Task<Result<ReportPage<ActiveCaseRow>>> PageAsync(ActiveCasesFilter f, string? after, int? limit, CancellationToken ct)
     {
-        if (scope.Denied() is { } denied)
+        if (await scope.DeniedAsync(ct) is { } denied)
         {
             return denied;
         }
@@ -175,8 +194,42 @@ public sealed class ActiveCasesReport(ReportingDb db, ReportScope scope, ICaseSe
             $"SELECT c.id FROM cases c WHERE {where} AND c.id > @after_id ORDER BY c.id LIMIT @take", p, false, ct)).ToList();
         var hasMore = ids.Count > take;
         ids = ids.Take(take).ToList();
-        var rows = await RowsAsync(connection, ids, false, ct);
+        var openable = await links.OpenableAsync(connection, ids, ct);
+        var roles = await ReportMyRole.ForAsync(db, connection, ids, user.UserId, false, ct);
+        var rows = (await RowsAsync(connection, ids, false, ct))
+            .Select(r => r with { CanOpen = openable.Contains(r.CasePublicId), MyRole = roles.GetValueOrDefault(r.CasePublicId) })
+            .ToList();
         return new ReportPage<ActiveCaseRow>(rows, hasMore ? Cursor.Encode("a", (long)ids[^1]) : null, total, ReportColumns.Active);
+    }
+
+    /// <summary>
+    /// Task 053h: the totals row over EVERY row of the filters (not the page): the count, the claim per currency (never
+    /// mixed), the m².
+    /// </summary>
+    public async Task<ReportTotals> TotalsAsync(ActiveCasesFilter f, CancellationToken ct)
+    {
+        var p = new DynamicParameters();
+        var where = await WhereAsync(f, p, ct);
+        if (where is null)
+        {
+            return new ReportTotals(0, []);
+        }
+
+        await using var connection = await db.OpenAsync(ct);
+        var groups = (await db.QueryAsync<(string? Currency, int Rows, decimal? Amount, decimal? Area)>(connection, $"""
+            SELECT c.claim_currency, COUNT(*), SUM(c.claim_amount), SUM(c.claim_area_m2)
+              FROM cases c WHERE {where} GROUP BY c.claim_currency
+            """, p, false, ct)).ToList();
+        var sums = groups.Where(g => g.Amount is not null && g.Currency is not null)
+            .OrderBy(g => g.Currency, StringComparer.Ordinal)
+            .Select(g => new ReportTotal("claimAmount", g.Currency, g.Amount!.Value))
+            .ToList();
+        if (groups.Sum(g => g.Area ?? 0) is var area and > 0)
+        {
+            sums.Add(new ReportTotal("claimAreaM2", null, area));
+        }
+
+        return new ReportTotals(groups.Sum(g => g.Rows), sums);
     }
 
     /// <summary>For the export: the number of rows, or null when nothing can match.</summary>
@@ -216,9 +269,10 @@ public sealed class ActiveCasesReport(ReportingDb db, ReportScope scope, ICaseSe
                 yield break;
             }
 
+            var roles = await ReportMyRole.ForAsync(db, connection, ids, user.UserId, true, ct);
             foreach (var row in await RowsAsync(connection, ids, true, ct))
             {
-                yield return row;
+                yield return row with { MyRole = roles.GetValueOrDefault(row.CasePublicId) };
             }
 
             after = ids[^1];

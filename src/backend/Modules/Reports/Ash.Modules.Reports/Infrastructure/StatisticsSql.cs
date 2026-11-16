@@ -12,7 +12,10 @@ public static class StatisticsSql
     private static readonly string Live = Load("StatisticsLive.sql");
     // task 053d: the supervision branch of the case scope, written once in Cases.Contracts (still a constant)
     private static readonly string Flags = Load("StatisticsFlags.sql")
-        .Replace("/*SUPERVISED*/", CaseScopeSpec.SupervisedSql("b.case_id", "@scope_head"), StringComparison.Ordinal);
+        .Replace("/*SUPERVISED*/", CaseScopeSpec.SupervisedSql("b.case_id", "@scope_head"), StringComparison.Ordinal)
+        // task 053h: the institution scope, written once in ReportAudience (still a constant)
+        .Replace("/*INSTITUTION_SCOPE*/",
+            Application.ReportAudience.InstitutionSql("b.case_id", "@scope_inst", "@scope_inst_children"), StringComparison.Ordinal);
 
     /// <summary>The CTEs every statistics query starts with (live → base → scoped → f).</summary>
     private static readonly string With = string.Concat("WITH\n", Live, ",\n", Flags, "\n");

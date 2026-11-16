@@ -109,7 +109,7 @@ public class SecondaryLawyerRoleTests(MySqlFixture db) : IntegrationTest(db)
             response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
             var body = await Json(response);
             body.GetProperty("code").GetString().ShouldBe("user.role_in_use");
-            return body.GetProperty("detail").GetString()!;
+            return body.GetProperty("title").GetString()!;
         }
 
         (await Refused(sekondar, "SECONDARY_LAWYER")).ShouldContain("avokat sekondar në 1 çështje");

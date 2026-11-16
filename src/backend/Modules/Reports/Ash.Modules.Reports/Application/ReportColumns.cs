@@ -46,6 +46,7 @@ public static class ReportColumns
         new("subcategory", "Lloji", ReportColumnKind.Text, 20),
         new("priority", "Prioriteti", ReportColumnKind.Text, 11),
         new("isSuspended", "Pezulluar", ReportColumnKind.YesNo, 10),
+        new(ReportMyRole.ColumnKey, "Roli im", ReportColumnKind.Text, 16), // task 053h
     ];
 
     public static readonly IReadOnlyList<ReportColumn> Closed =
@@ -80,6 +81,7 @@ public static class ReportColumns
         new("isFinal", "Formë e prerë", ReportColumnKind.YesNo, 10),
         new("decisionReceived", "Vendimi i arsyetuar ardhur", ReportColumnKind.YesNo, 12),
         new("closedAt", "Data e mbylljes", ReportColumnKind.Date, 13),
+        new(ReportMyRole.ColumnKey, "Roli im", ReportColumnKind.Text, 16), // task 053h
     ];
 
     public const string Yes = "Po";

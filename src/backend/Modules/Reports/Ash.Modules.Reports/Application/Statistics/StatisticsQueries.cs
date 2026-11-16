@@ -16,7 +16,7 @@ namespace Ash.Modules.Reports.Application.Statistics;
 /// cached 5 minutes per scope and filters.
 /// </summary>
 public sealed class StatisticsQueries(
-    ReportingDb db, StatisticsScope scope, IUserDirectory users, IInstitutionDirectory institutions, IMemoryCache cache)
+    ReportingDb db, StatisticsScope scope, IUserDirectory users, IInstitutionDirectory institutions, IMemoryCache cache, CaseLinks links)
 {
     public static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(5);
     public const string NotFrozenWarning =
@@ -135,10 +135,12 @@ public sealed class StatisticsQueries(
         var rows = ids.Count == 0
             ? []
             : (await connection.QueryAsync<CaseDb>(new CommandDefinition(StatisticsSql.CaseDetails, new { ids }, cancellationToken: ct))).ToList();
+        var openable = await links.OpenableAsync(connection, ids, ct);
         var items = rows.Select(r => new StatisticsCaseRow(
                 PublicId.FromBytes(r.PublicId), r.CaseCode, r.Court, r.Lawyer, r.Status,
                 DateTime.SpecifyKind(r.RegisteredAt, DateTimeKind.Utc),
-                r.ClosedAt is { } closed ? DateTime.SpecifyKind(closed, DateTimeKind.Utc) : null))
+                r.ClosedAt is { } closed ? DateTime.SpecifyKind(closed, DateTimeKind.Utc) : null,
+                openable.Contains(PublicId.FromBytes(r.PublicId))))
             .ToList();
         return new StatisticsCasesPage(items, hasMore ? Cursor.Encode("s", (long)ids[^1]) : null, total);
     }
@@ -153,7 +155,13 @@ public sealed class StatisticsQueries(
         p.Add("year", f.Year);
         p.Add("use_snapshot", useSnapshot ? 1 : 0);
         p.Add("office_id", f.OfficeId);
-        p.Add("lawyer_id", f.LawyerId);
+        // task 053h: a set of lawyers (one, or an assistant's linked lawyers); Dapper expands the list
+        p.Add("lawyer_all", f.Lawyers is null ? 1 : 0);
+        p.Add("lawyer_ids", f.Lawyers ?? [0L]);
+        p.Add("scope_inst", f.ScopeInstitutionId);
+        p.Add("scope_inst_children", f.ScopeInstitutionChildren ? 1 : 0);
+        p.Add("f_level", f.CourtLevelCode);
+        p.Add("f_court", f.FilterCourtId);
         p.Add("institution_id", f.InstitutionId);
         p.Add("with_children", f.WithChildren ? 1 : 0);
         p.Add("scope_head", f.ScopeHeadId);

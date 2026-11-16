@@ -408,12 +408,16 @@ public class TransferLawyerTests(MySqlFixture db) : IntegrationTest(db)
     {
         await using var seed = await CaseSeed.CreateAsync(Db.AppConnectionString);
         var s = await ScenarioAsync(seed);
+        // task 053i: a second primary-capable lawyer who is not on the case (the Kryetar holds no lawyer role, and
+        // avokat2 moving up would also end the secondary row — a different outcome per winner)
+        await using var extra = await Seed.CreateAsync(Db.AppConnectionString);
+        var fourth = await extra.UserAsync("av4", "Avokat", "Katër", seed.OfficeTrId, null, "STATE_LAWYER");
         await using var factory = new AshApiFactory(Db);
         var rowVersion = await RowVersion(s.CaseId);
         var bodies = new[]
         {
             new { newPrimaryUserPublicId = await PublicIdOf("users", s.ThirdId), rowVersion },
-            new { newPrimaryUserPublicId = await PublicIdOf("users", s.Id("kryetar")), rowVersion }
+            new { newPrimaryUserPublicId = await PublicIdOf("users", fourth), rowVersion }
         };
         using var a = factory.CreateClient().AsUser(Kryetar);
         using var b = factory.CreateClient().AsUser(Kryetar);

@@ -20,7 +20,11 @@ public sealed record ClosedCasesFilter(
     string? OutcomeGroup,
     int? CourtId,
     Guid? LawyerId,
-    Guid? OfficeId);
+    Guid? OfficeId)
+{
+    /// <summary>Task 053h: the filter builder's filters (CaseReportBuilder), on top of the ones above.</summary>
+    public Builder.ReportCriteria? Criteria { get; init; }
+}
 
 /// <summary>Tabela 3: one row per closed LEVEL. Money and m² separate; the currency per row (never mixed in a total).</summary>
 public sealed record ClosedCaseRow(
@@ -57,8 +61,15 @@ public sealed record ClosedCaseRow(
     bool DecisionReceived,
     DateTime ClosedAt) : IReportRow
 {
+    /// <summary>Task 053h: the user can open the case (else the code is shown without a link).</summary>
+    public bool CanOpen { get; init; } = true;
+
+    /// <summary>Task 053h: "Roli im" — the reader's own role in the case (<see cref="ReportMyRole"/>).</summary>
+    public string? MyRole { get; init; }
+
     public object? Get(string key) => key switch
     {
+        ReportMyRole.ColumnKey => MyRole,
         "caseCode" => CaseCode,
         "actNumber" => ActNumber,
         "courtLevel" => CourtLevel,
@@ -101,7 +112,9 @@ public sealed record ClosedCaseRow(
 /// (v_report_closed_cases takes the latest primary by assigned_at instead; the view is left as it is — see
 /// docs/client-questions.md, report-closed-lawyer.)
 /// </summary>
-public sealed class ClosedCasesReport(ReportingDb db, ReportScope scope, IOfficeDirectory offices, IUserDirectory users)
+public sealed class ClosedCasesReport(
+    ReportingDb db, ReportScope scope, IOfficeDirectory offices, IUserDirectory users, CaseLinks links,
+    Ash.SharedKernel.Identity.ICurrentUser user)
 {
     private const string PrimaryAtClosing =
         "a.case_role = 'PRIMARY_LAWYER' AND a.assigned_at <= c.closed_at AND (a.ended_at IS NULL OR a.ended_at > c.closed_at)";
@@ -110,7 +123,7 @@ public sealed class ClosedCasesReport(ReportingDb db, ReportScope scope, IOffice
 
     private async Task<string?> WhereAsync(ClosedCasesFilter f, DynamicParameters p, CancellationToken ct)
     {
-        var where = new StringBuilder("c.lifecycle_status = 'CLOSED' AND ").Append(scope.Sql(p));
+        var where = new StringBuilder("c.lifecycle_status = 'CLOSED' AND ").Append(await scope.SqlAsync(p, ct));
         if (f.ClosedFrom is { } from)
         {
             p.Add("f_closed_from", TiraneTime.StartOfDayUtc(from));
@@ -165,12 +178,18 @@ public sealed class ClosedCasesReport(ReportingDb db, ReportScope scope, IOffice
             where.Append($" AND EXISTS (SELECT 1 FROM case_assignments a WHERE a.case_id = c.id AND a.user_id = @f_lawyer AND {PrimaryAtClosing})");
         }
 
+        if (f.Criteria is { } criteria)
+        {
+            p.AddDynamicParams(criteria.Parameters);
+            where.Append(criteria.Sql);
+        }
+
         return where.ToString();
     }
 
     public async Task<Result<ReportPage<ClosedCaseRow>>> PageAsync(ClosedCasesFilter f, string? after, int? limit, CancellationToken ct)
     {
-        if (scope.Denied() is { } denied)
+        if (await scope.DeniedAsync(ct) is { } denied)
         {
             return denied;
         }
@@ -193,8 +212,61 @@ public sealed class ClosedCasesReport(ReportingDb db, ReportScope scope, IOffice
         var keys = await KeysAsync(connection, where, p, after, take + 1, false, ct);
         var hasMore = keys.Count > take;
         keys = keys.Take(take).ToList();
-        var rows = await RowsAsync(connection, keys.Select(k => k.Id).ToList(), false, ct);
+        var ids = keys.Select(k => k.Id).ToList();
+        var openable = await links.OpenableAsync(connection, ids, ct);
+        var roles = await ReportMyRole.ForAsync(db, connection, ids, user.UserId, false, ct);
+        var rows = (await RowsAsync(connection, ids, false, ct))
+            .Select(r => r with { CanOpen = openable.Contains(r.CasePublicId), MyRole = roles.GetValueOrDefault(r.CasePublicId) })
+            .ToList();
         return new ReportPage<ClosedCaseRow>(rows, hasMore ? Encode(keys[^1]) : null, total, ReportColumns.Closed);
+    }
+
+    /// <summary>The money columns of the totals row (per currency) and the m² columns (Task 053h).</summary>
+    private static readonly (string Key, string Column, bool Money)[] Summed =
+    [
+        ("wonAmount", "d.won_amount", true), ("wonAreaM2", "d.won_area_m2", false),
+        ("lostAmount", "d.lost_amount", true), ("lostAreaM2", "d.lost_area_m2", false),
+        ("preventedDamageAmount", "d.prevented_damage_amount", true), ("preventedDamageAreaM2", "d.prevented_damage_area_m2", false),
+        ("causedDamageAmount", "d.caused_damage_amount", true), ("causedDamageAreaM2", "d.caused_damage_area_m2", false),
+        ("courtCostsAmount", "d.court_costs_amount", true),
+    ];
+
+    /// <summary>
+    /// Task 053h: the totals row over EVERY row of the filters: the count, each money column per currency (never mixed),
+    /// each m² column. The column list is the constant above — no text from the request.
+    /// </summary>
+    public async Task<ReportTotals> TotalsAsync(ClosedCasesFilter f, CancellationToken ct)
+    {
+        var p = new DynamicParameters();
+        var where = await WhereAsync(f, p, ct);
+        if (where is null)
+        {
+            return new ReportTotals(0, []);
+        }
+
+        await using var connection = await db.OpenAsync(ct);
+        var select = string.Join(", ", Summed.Select(s => $"SUM({s.Column}) AS {s.Key}"));
+        var groups = (await db.QueryAsync<dynamic>(connection,
+            $"SELECT d.currency AS currency, COUNT(*) AS cnt, {select} FROM {From} WHERE {where} GROUP BY d.currency", p, false, ct))
+            .Cast<IDictionary<string, object?>>()
+            .ToList();
+        var sums = new List<ReportTotal>();
+        foreach (var (key, _, money) in Summed)
+        {
+            if (money)
+            {
+                sums.AddRange(groups
+                    .Where(g => g[key] is not null && g["currency"] is not null)
+                    .OrderBy(g => (string)g["currency"]!, StringComparer.Ordinal)
+                    .Select(g => new ReportTotal(key, (string)g["currency"]!, Convert.ToDecimal(g[key], CultureInfo.InvariantCulture))));
+            }
+            else if (groups.Sum(g => g[key] is null ? 0 : Convert.ToDecimal(g[key], CultureInfo.InvariantCulture)) is var area and > 0)
+            {
+                sums.Add(new ReportTotal(key, null, area));
+            }
+        }
+
+        return new ReportTotals(groups.Sum(g => Convert.ToInt32(g["cnt"], CultureInfo.InvariantCulture)), sums);
     }
 
     public async Task<int> CountAsync(ClosedCasesFilter f, CancellationToken ct)
@@ -229,9 +301,11 @@ public sealed class ClosedCasesReport(ReportingDb db, ReportScope scope, IOffice
                 yield break;
             }
 
-            foreach (var row in await RowsAsync(connection, keys.Select(k => k.Id).ToList(), true, ct))
+            var ids = keys.Select(k => k.Id).ToList();
+            var roles = await ReportMyRole.ForAsync(db, connection, ids, user.UserId, true, ct);
+            foreach (var row in await RowsAsync(connection, ids, true, ct))
             {
-                yield return row;
+                yield return row with { MyRole = roles.GetValueOrDefault(row.CasePublicId) };
             }
 
             after = Encode(keys[^1]);

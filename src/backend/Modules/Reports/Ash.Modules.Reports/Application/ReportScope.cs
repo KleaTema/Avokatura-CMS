@@ -7,23 +7,27 @@ using Dapper;
 namespace Ash.Modules.Reports.Application;
 
 /// <summary>
-/// Who may run a report, and on which cases (tasks 042/043). The cases are the user's case scope as Cases decides it
-/// (<see cref="ICaseScope"/> → <see cref="CaseScopeSpec"/>, the same spec the case list renders) — written here as SQL
-/// over the base tables, branch for branch: lawyer / assistant / jurist → a current assignment; Kryetar → the office;
-/// institution user → the linked cases; Monitor / Admin → every case. Without a report.* permission (Protokoll) → 403.
-/// TODO(client-q6): exact report access per role (default: the case list's scope).
+/// Who may run a report (Tabela 1/3), and on which cases. Since task 053h the rules live in <see cref="ReportAudience"/>
+/// (shared with the statistics); this class gives the reports their 403 and their WHERE. Without a report.*
+/// permission (Protokoll) → 403. <see cref="Sql(CaseScopeSpec, DynamicParameters)"/> renders the Kryetar's case scope
+/// (the case list's <see cref="CaseScopeSpec"/>, task 053d) as SQL over the base tables, branch for branch.
 /// </summary>
-public sealed class ReportScope(ICaseScope scope, ICurrentUser user)
+public sealed class ReportScope(ReportAudienceResolver audience)
 {
     public static readonly string[] ReportPermissions = ["report.view_own", "report.view_office", "report.view_all"];
 
-    public Error? Denied() =>
-        ReportPermissions.Any(user.HasPermission)
-            ? null
-            : Error.Forbidden("report.forbidden", "Nuk keni të drejtë të shihni raportet.");
+    public async Task<Error?> DeniedAsync(CancellationToken ct)
+    {
+        var resolved = await audience.ResolveAsync(ct);
+        return resolved.IsFailure ? resolved.Error : null;
+    }
 
-    /// <summary>"(…)" over the alias c (cases), adding its parameters (@scope_*) to <paramref name="p"/>.</summary>
-    public string Sql(DynamicParameters p) => Sql(scope.Current(), p);
+    /// <summary>"(…)" over the alias c (cases), adding its parameters to <paramref name="p"/>; call after DeniedAsync.</summary>
+    public async Task<string> SqlAsync(DynamicParameters p, CancellationToken ct)
+    {
+        var resolved = await audience.ResolveAsync(ct);
+        return resolved.IsSuccess ? resolved.Value.CasesSql(p) : "FALSE";
+    }
 
     public static string Sql(CaseScopeSpec spec, DynamicParameters p)
     {

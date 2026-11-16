@@ -7,8 +7,14 @@
 --   @use_snapshot      1 = read statistics_snapshot_cases of @year, 0 = live
 --   @year              the year (snapshot key)
 --   @office_id         NULL = every office
---   @lawyer_id         NULL = every lawyer; else open measures by the primary at the end point, closed measures by
---                      the primary at closing
+--   @lawyer_all        1 = every lawyer; 0 = only the lawyers of @lawyer_ids (task 053h: one lawyer, or an assistant's
+--                      linked lawyers): open measures by the primary at the end point, closed measures by the primary
+--                      at closing — a case has one primary at a time, so with several lawyers it is never counted twice
+--   @lawyer_ids        the lawyers (a list, expanded by Dapper; empty = no case)
+--   @scope_inst        NULL = no institution scope; else (task 053h, institution user / jurist) only the cases where
+--                      this institution is a party or linked — in Tabela 5 too
+--   @scope_inst_children 1 = @scope_inst is a ministry: its direct agencies count too
+--   @f_level, @f_court  NULL = every court; else the court level (code) / the court of the level (task 053h)
 --   @institution_id    NULL = Tabela 5; else Tabela 6: the institution is a non-deleted party or linked (active link)
 --   @with_children     1 = the institution is a ministry: its direct agencies count too (parent_institution_id, task 015)
 --   @scope_head        NULL = no Kryetar scope; else that Kryetar's cases: @scope_office, supervised, own assignments
@@ -26,17 +32,23 @@ base AS (
 ),
 scoped AS (
   SELECT b.*,
-         (@lawyer_id IS NULL OR b.primary_at_end = @lawyer_id)   AS lawyer_open_ok,
-         (@lawyer_id IS NULL OR b.primary_at_close = @lawyer_id) AS lawyer_closed_ok,
+         (@lawyer_all = 1 OR b.primary_at_end IN @lawyer_ids)   AS lawyer_open_ok,
+         (@lawyer_all = 1 OR b.primary_at_close IN @lawyer_ids) AS lawyer_closed_ok,
          (b.is_delegim = 1 OR b.is_relatim = 1)                  AS is_deleg
     FROM base b
    WHERE (@office_id IS NULL OR b.office_id = @office_id)
+     -- the builder's court level and court (task 053h): the court of each level, as the table's rows
+     AND (@f_level IS NULL OR b.court_id IN (SELECT fc.id FROM courts fc JOIN court_levels fl ON fl.id = fc.court_level_id
+                                             WHERE fl.code = @f_level))
+     AND (@f_court IS NULL OR b.court_id = @f_court)
      -- the Kryetar's case scope (task 053d): own office, supervised (CaseScopeSpec.SupervisedSql, put in by StatisticsSql), own assignment
      AND (@scope_head IS NULL
           OR b.office_id = @scope_office
           OR /*SUPERVISED*/
           OR EXISTS (SELECT 1 FROM case_assignments sc WHERE sc.case_id = b.case_id AND sc.user_id = @scope_head AND sc.ended_at IS NULL
                       AND sc.case_role IN ('PRIMARY_LAWYER', 'SECONDARY_LAWYER', 'LEGAL_ASSISTANT')))
+     -- the institution user's / jurist's scope (task 053h): ReportAudience.InstitutionSql, put in by StatisticsSql
+     AND (@scope_inst IS NULL OR /*INSTITUTION_SCOPE*/)
      AND (@institution_id IS NULL
           OR EXISTS (SELECT 1 FROM case_parties p JOIN institutions i ON i.id = p.institution_id
                       WHERE p.case_id = b.case_id AND p.deleted_at IS NULL

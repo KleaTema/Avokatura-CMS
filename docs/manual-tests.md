@@ -766,6 +766,47 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
 
+## 053h — Report builder (F, P6/P9): scopes, filters, exports, "Raportet e mia"
+**Setup:** run the migrator (script 027), restart the API, `npm run dev`. The ACTIVE test case: avokat1 primary,
+sekondar secondary, ndihmes assistant; the ministry linked MONITORING. Kryetar → *Ndihmësit ligjorë*: link ndihmes
+to avokat1.
+1. **Nothing runs before "Gjenero":**
+   - *Raporte* opens on "Tabela 1 — Aktive" with Zyra, Avokati and Gjykata on top and the note "Zgjidhni filtrat…".
+   - "Gjenero" shows the rows, 25 a page, and a "Gjithsej: N rreshta" row with the claim per currency.
+   - Change a filter → the note "Filtrat kanë ndryshuar…" until "Gjenero" again.
+2. **"+ Shto filtër":**
+   - It lists every other column of the table (Tabela 3: Ankimuar, Dëm i shkaktuar, Data e vendimit…).
+   - An added filter has an ✕ that removes it again.
+3. **Dependent filters (Monitor):**
+   - Choose Shkalla "Apel": Gjykata lists only appeal courts. Choose a court: Gjyqtari lists only its judges.
+   - Change Shkalla: Gjykata and Gjyqtari are cleared.
+   - Zyra → Avokati, Ministria → Institucioni and Kategoria → Lloji work the same way.
+4. **Scope per role:**
+   - avokat1: Zyra lists only TR; the rows are his cases; "Roli im" shows "Avokat primar".
+   - sekondar: Tabela 1/3 show his case with "Avokat sekondar"; Tabela 5/6 → "Nuk keni të drejtë…".
+   - ndihmes: Tabela 5 Avokati lists only avokat1; the numbers equal avokat1's own. Unlink → he disappears.
+   - institucion and jurist: Tabela 1 lists every case where the ministry is a party or linked (its agencies too).
+     A case where the ministry is only a party shows its code without a link. In Tabela 6 the Ministria filter is fixed
+     (🔒). Both users see the same numbers.
+   - kryetar: his office + supervised + own; Monitor/Admin: everything.
+5. **Columns:**
+   - "Kolonat" → untick, reorder with the arrows, "Zbato": the table shows only those, in that order.
+   - The URL holds ?c=; a refresh keeps them.
+6. **Exports ("Eksporto"):**
+   - Excel opens with the header and filters.
+   - CSV opens in Excel with ë/ç correct (UTF-8 BOM, ';', decimal comma).
+   - PDF is A4 landscape with the filters, "Gjeneruar më … nga …", the chosen columns, the totals and page numbers.
+   - More than 5,000 rows to PDF → "…përdorni Excel/CSV".
+   - Each export has a REPORT_EXPORT audit row with its format.
+7. **Shareable link:**
+   - "Kopjo lidhjen" → open it in another browser as another user: the same table and filters, already generated,
+     but only that user's cases.
+8. **"Raportet e mia":**
+   - "Ruaj raportin" with a name → the tab lists it; "Hap" reruns it at once.
+   - Opened from there, "Ruaj raportin" offers "Mbishkruaj „…”" or a new one; the same name twice → "Keni tashmë…".
+   - "Fshi" asks first. Another user never sees it.
+9. **Drill-down (Tabela 5):** click a number → the cases; a case the user cannot open shows its code without a link.
+
 ## 053i — Two lawyer roles: "Avokat Shteti (primar)" and "Avokat sekondar"
 **Setup:** run the migrator (script 026 and LocalScripts 907), restart the API, `npm run dev`. Dev login now also
 offers sekondar@ash.local (SECONDARY_LAWYER only); avokat2 holds both roles; avokat1 only STATE_LAWYER; kryetar only

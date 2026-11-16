@@ -1,14 +1,20 @@
 namespace Ash.Modules.Reports.Application.Statistics;
 
-/// <summary>GET /api/reports/statistics?year=&amp;table=5|6&amp;officeId=&amp;lawyerId=&amp;institutionId=&amp;ministryId= (public ids).</summary>
-public sealed record StatisticsQuery(int? Year, int? Table, Guid? OfficeId, Guid? LawyerId, Guid? InstitutionId, Guid? MinistryId);
+/// <summary>
+/// GET /api/reports/statistics?year=&amp;table=5|6&amp;officeId=&amp;lawyerId=&amp;institutionId=&amp;ministryId= (public ids);
+/// courtLevelCode / filterCourtId: the builder's court level and court (task 053h).
+/// </summary>
+public sealed record StatisticsQuery(
+    int? Year, int? Table, Guid? OfficeId, Guid? LawyerId, Guid? InstitutionId, Guid? MinistryId,
+    string? CourtLevelCode = null, int? FilterCourtId = null);
 
 /// <summary>The drill-down: the cases behind one number (one measure, narrowed like the cell).</summary>
 public sealed record StatisticsCasesQuery(
     int? Year, int? Table, Guid? OfficeId, Guid? LawyerId, Guid? InstitutionId, Guid? MinistryId,
-    string? Measure, int? CourtId, string? Currency, string? ResultCode, Guid? RowLawyerId, string? After, int? Limit)
+    string? Measure, int? CourtId, string? Currency, string? ResultCode, Guid? RowLawyerId, string? After, int? Limit,
+    string? CourtLevelCode = null, int? FilterCourtId = null)
 {
-    public StatisticsQuery Statistics => new(Year, Table, OfficeId, LawyerId, InstitutionId, MinistryId);
+    public StatisticsQuery Statistics => new(Year, Table, OfficeId, LawyerId, InstitutionId, MinistryId, CourtLevelCode, FilterCourtId);
 }
 
 /// <summary>One court row (CourtId null = the TOTAL row "Gjithsej"); Values: measure code → count.</summary>
@@ -45,7 +51,9 @@ public sealed record StatisticsResponse(
     IReadOnlyList<ReportFilterText> Filters);
 
 /// <summary>A case behind a number.</summary>
+/// <param name="CanOpen">Task 053h: the user can open the case (else the code is shown without a link).</param>
 public sealed record StatisticsCaseRow(
-    Guid CasePublicId, string CaseCode, string Court, string? Lawyer, string Status, DateTime RegisteredAt, DateTime? ClosedAt);
+    Guid CasePublicId, string CaseCode, string Court, string? Lawyer, string Status, DateTime RegisteredAt, DateTime? ClosedAt,
+    bool CanOpen);
 
 public sealed record StatisticsCasesPage(IReadOnlyList<StatisticsCaseRow> Items, string? NextCursor, int Total);

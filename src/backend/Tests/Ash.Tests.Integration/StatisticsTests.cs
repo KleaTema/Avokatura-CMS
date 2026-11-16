@@ -339,7 +339,8 @@ public class StatisticsTests(MySqlFixture db) : IntegrationTest(db)
         (await lawyer.GetAsync($"{Stats}?year=2027&lawyerId={avokat2}", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         using var institution = factory.CreateClient().AsUser("institucion@ash.local");
-        (await institution.GetAsync($"{Stats}?year=2027&table=5", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        // task 053h: Tabela 5 too, on the institution's cases (ReportScopeTests checks the numbers)
+        (await institution.GetAsync($"{Stats}?year=2027&table=5", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await institution.GetAsync($"{Stats}?year=2027&table=6", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         using var protokoll = factory.CreateClient().AsUser("protokoll@ash.local");

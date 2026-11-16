@@ -62,6 +62,23 @@ is a MySQL named lock here.
 - **System permission** (from `user_roles` → `role_permissions`): menus and office-wide actions, e.g. `case.assign_lawyer`, `case.view_office`, `case.view_all`.
 - **Case permission** (from view `v_case_permissions`): what a user may do inside one case, decided by their case profile (`PRIMARY_LAWYER`, `SECONDARY_LAWYER`, `LEGAL_ASSISTANT`, `INSTITUTION_MONITORING`, `INSTITUTION_DELEGATED`).
 - `ICaseAccessService.CanView(caseId)` = case profile exists OR `case.view_all` OR (`case.view_office` AND case.office_id = user.office_id) OR (`case.view_supervised` AND the case is under the user's supervision) OR the user is the Protokoll who registered it and it is still `REGISTERED`.
+- **Report builder (task 053h, decisions F, P6/P9).**
+  - **Who sees what:** `ReportAudience` (Reports module) decides it in ONE place for Tabela 1/3 and the statistics.
+    - Kind All / Head (the 053d case scope) / Institution / Lawyers / SecondaryOnly.
+    - `CasesSql` gives the reports' WHERE; StatisticsScope maps the reader to `@lawyer_ids` (a set: one lawyer, or an assistant's current links) and `@scope_inst`.
+    - The institution predicate (`InstitutionSql`) is shared with StatisticsFlags.sql through a placeholder.
+  - **Links:** `CaseLinks` sets `canOpen` per page row with `ICaseAccessService.CanViewAsync`.
+  - **Filters:** `Builder/CaseReportFilters.cs` defines every filter of Tabela 1/3: a predicate over c / d, an options query, a parent.
+    - `CaseReportBuilder` runs the options inside the reader's scope under the ancestors' choices.
+    - `StatisticsBuilder` does the same for Tabela 5/6 (year, zyra → avokati, shkalla → gjykata, ministria → institucioni; locked for an institution).
+    - Values are bound parameters; the SQL text is fixed per filter.
+  - **Endpoints:** `/api/reports/builder/{t}/filters`, `/builder/active|closed`, `/builder/statistics/{5|6}`, `/builder/{t}/export?format=xlsx|csv|pdf&columns=`.
+    - Rows come with a totals row (money per currency, m² apart) and the "Roli im" column.
+    - The old 042–044 endpoints stay.
+  - **Exports:** `CsvReportWriter` (UTF-8 BOM, ';') and `PdfReportWriter` (MigraDoc/PDFsharp 6, MIT, A4 landscape, at most 5,000 rows) next to the xlsx writer; every export is audited with its format.
+    - The PDF needs a TrueType font: Arial on Windows, `fonts-liberation` or `fonts-dejavu-core` on a Linux image.
+  - **Saved reports:** "Raportet e mia" in `saved_reports` (script 027), private to the owner, written through the app connection; audited as REPORT_SAVED.
+  - **UI:** the builder keeps table, filters (?f= JSON), columns (?c=) and "generated" (?run=1) in the URL — the shareable link.
 - **Two lawyer roles (task 053i, client correction 13.11.2026).**
   - "Avokat Shteti (primar)" (`STATE_LAWYER`) and "Avokat sekondar" (`SECONDARY_LAWYER`, script 026, same system permissions) are separate roles; a user may hold both.
   - `OfficeLawyers.ListAsync` is the single list of the pickers and of the assignment / transfer checks; each candidate carries `CanBePrimary` / `CanBeSecondary`, and `OfficeLawyers.PositionError` gives the 400 ("Ky përdorues nuk ka rolin …"), also for the swap. The current user (Kryetar, Monitor) is offered only with one of the roles. Workload stays per position.

@@ -28,6 +28,8 @@
 	<!-- tasks 042/043: read-only report queries (Dapper) and the streamed .xlsx export (OpenXml SAX writer, not ClosedXML) -->
 	<PackageVersion Include="Dapper" Version="2.1.66" />
 	<PackageVersion Include="DocumentFormat.OpenXml" Version="3.3.0" />
+	<!-- task 053h: the PDF export (A4 landscape), MIT licence -->
+	<PackageVersion Include="PDFsharp-MigraDoc" Version="6.1.1" />
 	<!-- task 053c: SMTP e-mail (MIT); Mailpit locally, AKSHI's relay in production -->
 	<PackageVersion Include="MailKit" Version="4.18.2" />
   </ItemGroup>

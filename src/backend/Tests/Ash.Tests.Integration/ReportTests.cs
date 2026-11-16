@@ -232,9 +232,11 @@ public class ReportTests(MySqlFixture db) : IntegrationTest(db)
         var ids = await DashboardSeed.CreateAsync(Db.AppConnectionString, 150, Now);
         await using var factory = Factory();
 
+        // task 053h: the institution user and jurist see every case of the institution, not their case list —
+        // ReportScopeTests checks them
         foreach (var email in new[]
                  {
-                     "avokat1@ash.local", "avokat2@ash.local", "jurist@ash.local", "institucion@ash.local",
+                     "avokat1@ash.local", "avokat2@ash.local",
                      "kryetar@ash.local", "monitor@ash.local", "admin@ash.local", ids.DrKryetarEmail,
                  })
         {
@@ -402,7 +404,8 @@ public class ReportTests(MySqlFixture db) : IntegrationTest(db)
             // the sheet: frozen header, autofilter over the rows
             var sheet = Sheet(doc, "Çështjet aktive");
             sheet.Descendants<Pane>().Single().State!.Value.ShouldBe(PaneStateValues.Frozen);
-            sheet.Descendants<AutoFilter>().Single().Reference!.Value.ShouldBe($"A1:R{data.Count + 1}");
+            // 19 columns: Tabela 1's 18 + "Roli im" (task 053h)
+            sheet.Descendants<AutoFilter>().Single().Reference!.Value.ShouldBe($"A1:S{data.Count + 1}");
 
             // "Filtrat": the report, when, who, the row count
             var filtrat = SheetRows(Sheet(doc, "Filtrat")).Where(r => r.Count > 0).ToDictionary(r => Text(r[0]), r => r.Count > 1 ? r[1] : null);

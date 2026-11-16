@@ -2100,6 +2100,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/builder/{table}/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportBuilderFilters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/builder/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportBuilderActive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/builder/closed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportBuilderClosed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/builder/statistics/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportBuilderStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/builder/{table}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ExportReportBuilder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListSavedReports"];
+        put?: never;
+        post: operations["CreateSavedReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/saved/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["UpdateSavedReport"];
+        post?: never;
+        delete: operations["DeleteSavedReport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat/conversations": {
         parameters: {
             query?: never;
@@ -2256,6 +2368,8 @@ export interface components {
             subcategory: null | string;
             priority: string;
             isSuspended: boolean;
+            canOpen?: boolean;
+            myRole?: null | string;
         };
         AddHearingRequest: {
             at: null | string;
@@ -2369,6 +2483,14 @@ export interface components {
             /** Format: date */
             firstBrokenDay: null | string;
             reason: null | string;
+        };
+        BuilderPageOfActiveCaseRow: {
+            page: components["schemas"]["ReportPageOfActiveCaseRow"];
+            totals: null | components["schemas"]["ReportTotals"];
+        };
+        BuilderPageOfClosedCaseRow: {
+            page: components["schemas"]["ReportPageOfClosedCaseRow"];
+            totals: null | components["schemas"]["ReportTotals"];
         };
         CaseCategoryResponse: {
             code: string;
@@ -2655,6 +2777,8 @@ export interface components {
             decisionReceived: boolean;
             /** Format: date-time */
             closedAt: string;
+            canOpen?: boolean;
+            myRole?: null | string;
         };
         CodeName: {
             code: string;
@@ -3128,6 +3252,7 @@ export interface components {
             outcome: string;
             error: null | string;
         };
+        JsonElement: unknown;
         JsonNode: unknown;
         JudgeAdminResponse: {
             /** Format: int64 */
@@ -3554,6 +3679,36 @@ export interface components {
             width: number | string;
         };
         ReportColumnKind: number;
+        ReportColumnMeta: {
+            key: string;
+            header: string;
+            kind: string;
+            numeric: boolean;
+        };
+        ReportFilterMeta: {
+            key: string;
+            label: string;
+            kind: string;
+            parent: null | string;
+            isDefault: boolean;
+            required: boolean;
+            locked: boolean;
+            options: null | components["schemas"]["ReportFilterOption"][];
+        };
+        ReportFilterOption: {
+            value: string;
+            label: string;
+        };
+        ReportFiltersResponse: {
+            /** Format: int32 */
+            table: number | string;
+            name: string;
+            filters: components["schemas"]["ReportFilterMeta"][];
+            columns: components["schemas"]["ReportColumnMeta"][];
+            fixed: {
+                [key: string]: string;
+            };
+        };
         ReportFilterText: {
             label: string;
             value: string;
@@ -3572,6 +3727,17 @@ export interface components {
             total: number | string;
             columns: components["schemas"]["ReportColumn"][];
         };
+        ReportTotal: {
+            key: string;
+            currency: null | string;
+            /** Format: double */
+            value: number | string;
+        };
+        ReportTotals: {
+            /** Format: int32 */
+            rows: number | string;
+            sums: components["schemas"]["ReportTotal"][];
+        };
         RoleRef: {
             code: string;
             name: string;
@@ -3583,6 +3749,25 @@ export interface components {
             code: string;
             name: string;
             scope: string;
+        };
+        SavedReportView: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+            /** Format: int32 */
+            table: number | string;
+            tableName: string;
+            filters: components["schemas"]["JsonElement"];
+            columns: string[];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SaveReportRequest: {
+            name: null | string;
+            /** Format: int32 */
+            table: null | number | string;
+            filters: null | components["schemas"]["JsonElement"];
+            columns: null | string[];
         };
         SearchResponse: {
             items: components["schemas"]["SearchResultItem"][];
@@ -3688,6 +3873,7 @@ export interface components {
             registeredAt: string;
             /** Format: date-time */
             closedAt: null | string;
+            canOpen: boolean;
         };
         StatisticsCasesPage: {
             items: components["schemas"]["StatisticsCaseRow"][];
@@ -9347,6 +9533,8 @@ export interface operations {
                 LawyerId?: string;
                 InstitutionId?: string;
                 MinistryId?: string;
+                CourtLevelCode?: string;
+                FilterCourtId?: number | string;
             };
             header?: never;
             path?: never;
@@ -9399,6 +9587,8 @@ export interface operations {
                 RowLawyerId?: string;
                 After?: string;
                 Limit?: number | string;
+                CourtLevelCode?: string;
+                FilterCourtId?: number | string;
             };
             header?: never;
             path?: never;
@@ -9444,6 +9634,8 @@ export interface operations {
                 LawyerId?: string;
                 InstitutionId?: string;
                 MinistryId?: string;
+                CourtLevelCode?: string;
+                FilterCourtId?: number | string;
             };
             header?: never;
             path?: never;
@@ -9469,6 +9661,369 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportBuilderFilters: {
+        parameters: {
+            query?: {
+                filters?: string;
+            };
+            header?: never;
+            path: {
+                table: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportFiltersResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportBuilderActive: {
+        parameters: {
+            query?: {
+                Filters?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderPageOfActiveCaseRow"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportBuilderClosed: {
+        parameters: {
+            query?: {
+                Filters?: string;
+                After?: string;
+                Limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderPageOfClosedCaseRow"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReportBuilderStatistics: {
+        parameters: {
+            query?: {
+                filters?: string;
+            };
+            header?: never;
+            path: {
+                table: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatisticsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ExportReportBuilder: {
+        parameters: {
+            query?: {
+                Format?: string;
+                Filters?: string;
+                Columns?: string;
+            };
+            header?: never;
+            path: {
+                table: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListSavedReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReportView"][];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    CreateSavedReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReportView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UpdateSavedReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveReportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReportView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteSavedReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

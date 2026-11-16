@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Dapper" />
     <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="PDFsharp-MigraDoc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Ash.AspNetCore\Ash.AspNetCore.csproj" />

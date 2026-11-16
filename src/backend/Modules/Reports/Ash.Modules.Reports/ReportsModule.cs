@@ -31,6 +31,11 @@ public static class ReportsModule
 				maxRows ?? ReportingOptions.DefaultMaxExportRows);
 		});
 		services.AddSingleton<ReportingDb>();
+		services.AddScoped<ReportAudienceResolver>(); // task 053h: who sees what, reports and statistics
+		services.AddScoped<CaseLinks>();
+		services.AddScoped<Application.Builder.CaseReportBuilder>();
+		services.AddScoped<Application.Builder.StatisticsBuilder>();
+		services.AddScoped<Application.Builder.SavedReports>();
 		services.AddScoped<ReportScope>();
 		services.AddScoped<ActiveCasesReport>();
 		services.AddScoped<ClosedCasesReport>();
@@ -47,6 +52,6 @@ public static class ReportsModule
 
 	public static IEndpointRouteBuilder MapReportsEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapReports();
+		return endpoints.MapReports().MapReportBuilder(); // task 053h: the report builder
 	}
 }

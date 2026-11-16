@@ -77,7 +77,7 @@ function NumberCell({ value, onOpen, label }: { value: number; onOpen: () => voi
 }
 
 /** The cells drilled into: what to show in the drawer's title and what to ask the API. */
-interface OpenCell {
+export interface OpenCell {
   cell: DrillCell
   measureName: string
   where: string
@@ -271,7 +271,7 @@ function YearBadge({ s, year }: { s: StatisticsResponse; year: number }) {
   return year === Number(todayInTirane().slice(0, 4)) ? <Chip icon={<RefreshCw size={16} />} variant="outlined" label={t.currentYear} /> : null
 }
 
-function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; year: number; onOpen: (cell: OpenCell) => void }) {
+export function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; year: number; onOpen: (cell: OpenCell) => void }) {
   const currencies = [...new Set(s.money.map((m) => m.currency).filter((c): c is string => !!c))].sort()
   const moneyOf = (courtId: number | null | undefined, currency: string | null) =>
     s.money.find((m) => (m.courtId ?? null) === (courtId ?? null) && (m.currency ?? null) === currency)
@@ -434,7 +434,7 @@ function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; year: numb
 }
 
 /** The cases behind one number: title "{measure} — {court}", keyset pages of 10, each case a link. */
-function DrillDrawer({ filters, open, onClose }: { filters: StatisticsFilters; open: OpenCell | null; onClose: () => void }) {
+export function DrillDrawer({ filters, open, onClose }: { filters: StatisticsFilters; open: OpenCell | null; onClose: () => void }) {
   const [stack, setStack] = useState<string[]>([])
   const [forCell, setForCell] = useState<OpenCell | null>(null)
   // a new cell starts at its first page
@@ -500,9 +500,16 @@ function DrillDrawer({ filters, open, onClose }: { filters: StatisticsFilters; o
             {items.map((r) => (
               <TableRow key={r.casePublicId}>
                 <TableCell>
-                  <Link component={RouterLink} to={`/cases/${r.casePublicId}`} sx={{ fontFamily: tokens.font.mono, fontWeight: 600 }}>
-                    {r.caseCode}
-                  </Link>
+                  {/* task 053h: a link only when the user can open the case; otherwise the code alone */}
+                  {r.canOpen ? (
+                    <Link component={RouterLink} to={`/cases/${r.casePublicId}`} sx={{ fontFamily: tokens.font.mono, fontWeight: 600 }}>
+                      {r.caseCode}
+                    </Link>
+                  ) : (
+                    <Box component="span" sx={{ fontFamily: tokens.font.mono, fontWeight: 600 }}>
+                      {r.caseCode}
+                    </Box>
+                  )}
                 </TableCell>
                 <TableCell>{r.court}</TableCell>
                 <TableCell>{r.lawyer ?? ''}</TableCell>

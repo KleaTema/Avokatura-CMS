@@ -32,6 +32,7 @@ public sealed class MySqlFixture : IAsyncLifetime
         // task 053g: Organika (the history before the imports it points to)
         "ash_core.user_org_history",
         "ash_core.org_imports",
+        "ash_core.saved_reports", // task 053h
         "ash_core.case_history_events",
         "ash_core.documents",
         "ash_core.case_decisions",

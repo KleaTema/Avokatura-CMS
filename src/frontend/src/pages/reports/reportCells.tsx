@@ -25,7 +25,9 @@ export function reportCell(
 ): ReactNode {
   const value = row[column.key]
   if (column.key === 'caseCode') {
-    return <CaseCode code={String(value)} publicId={typeof row.casePublicId === 'string' ? row.casePublicId : null} />
+    // task 053h: a link only when the user can open the case; otherwise the code alone
+    const linked = row.canOpen !== false && typeof row.casePublicId === 'string'
+    return <CaseCode code={String(value)} publicId={linked ? (row.casePublicId as string) : null} />
   }
 
   if (value === null || value === undefined || value === '') return ''

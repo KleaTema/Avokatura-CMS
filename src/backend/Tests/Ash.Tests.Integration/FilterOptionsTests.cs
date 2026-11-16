@@ -73,7 +73,8 @@ public class FilterOptionsTests(MySqlFixture db) : IntegrationTest(db)
         var ids = options.Lawyers.Select(l => l.Id).ToList();
         ids.ShouldContain(await PublicIdOf("users", s.User("avokat1").Id));
         ids.ShouldContain(await PublicIdOf("users", s.User("avokat2").Id));
-        ids.ShouldContain(await PublicIdOf("users", s.User("kryetar").Id)); // he may assign himself
+        ids.ShouldContain(await PublicIdOf("users", s.User("sekondar").Id));
+        ids.ShouldNotContain(await PublicIdOf("users", s.User("kryetar").Id)); // task 053i: OFFICE_HEAD alone is not a lawyer
         ids.ShouldNotContain(await PublicIdOf("users", s.User("drlawyer").Id));
     }
 

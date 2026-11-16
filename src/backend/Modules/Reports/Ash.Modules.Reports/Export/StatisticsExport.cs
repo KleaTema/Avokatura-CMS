@@ -17,8 +17,16 @@ namespace Ash.Modules.Reports.Export;
 /// </summary>
 public sealed class StatisticsExport(StatisticsQueries statistics, IAuditLog audit, ICurrentUser user, IUserDirectory users, IClock clock)
 {
-    public async Task<IResult> RunAsync(StatisticsQuery q, CancellationToken ct)
+    /// <param name="format">Task 053h: xlsx (the three sheets), csv or pdf (the court table).</param>
+    /// <param name="columnKeys">Task 053h: the chosen measure columns, in the chosen order (null = all).</param>
+    public async Task<IResult> RunAsync(StatisticsQuery q, CancellationToken ct, string format = ExportFormats.Xlsx,
+        IReadOnlyList<string>? columnKeys = null)
     {
+        if (!ExportFormats.IsKnown(format))
+        {
+            return ExportFormats.Unknown.ToProblem();
+        }
+
         var result = await statistics.GetAsync(q, ct, export: true);
         if (result.IsFailure)
         {
@@ -30,6 +38,8 @@ public sealed class StatisticsExport(StatisticsQueries statistics, IAuditLog aud
         audit.Record(AuditActions.ReportExport, "REPORT", details: new
         {
             report = name,
+            format,
+            columns = columnKeys,
             filters = s.Filters.ToDictionary(f => f.Label, f => f.Value),
             rows = s.Courts.Count,
             frozen = s.Frozen,
@@ -37,7 +47,41 @@ public sealed class StatisticsExport(StatisticsQueries statistics, IAuditLog aud
 
         var currencies = s.Money.Select(m => m.Currency).OfType<string>().Distinct().Order(StringComparer.Ordinal).ToList();
         var columns = new List<ReportColumn> { new("court", "Gjykata", ReportColumnKind.Text, 34) };
-        columns.AddRange(s.Measures.Select(m => new ReportColumn(m.Code, m.Name, ReportColumnKind.Integer, 14)));
+        var measures = columnKeys is null
+            ? s.Measures
+            : columnKeys.Select(k => s.Measures.FirstOrDefault(m => m.Code == k)).OfType<StatisticsMeasure>().ToList();
+        columns.AddRange(measures.Select(m => new ReportColumn(m.Code, m.Name, ReportColumnKind.Integer, 14)));
+        var info0 = new ExportInfo(name, clock.UtcNow, await ReportNames.UserAsync(users, user.PublicId, ct),
+            s.Warning is null ? s.Filters : [.. s.Filters, new ReportFilterText("Kujdes", s.Warning)]);
+        if (format != ExportFormats.Xlsx)
+        {
+            // csv / pdf: the court table (the TOTAL row is its last row)
+            var flat = new FileStream(Path.Combine(Path.GetTempPath(), $"ash-statistics-{Guid.NewGuid():N}.{format}"), FileMode.CreateNew,
+                FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+            try
+            {
+                var rows = Rows(s.Courts.Select(c => CourtValues(c, s.Money, currencies)));
+                if (format == ExportFormats.Csv)
+                {
+                    await CsvReportWriter.WriteAsync(flat, columns, rows, ct);
+                }
+                else
+                {
+                    await PdfReportWriter.WriteAsync(flat, columns, rows, info0, null, ct);
+                }
+
+                flat.Position = 0;
+            }
+            catch
+            {
+                await flat.DisposeAsync();
+                throw;
+            }
+
+            return Results.File(flat, ExportFormats.ContentType(format),
+                $"raporti-statistikat-{s.Year}-{TiraneTime.DateOf(clock.UtcNow):yyyy-MM-dd}.{format}");
+        }
+
         foreach (var currency in currencies)
         {
             columns.Add(new($"prevented:{currency}", $"Dëm i parandaluar ({currency})", ReportColumnKind.Decimal, 18));

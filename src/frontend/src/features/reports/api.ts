@@ -40,6 +40,9 @@ export interface StatisticsFilters {
   lawyerId: string
   institutionId: string
   ministryId: string
+  /** task 053h: the builder's court level and court (the statistics tab leaves them out) */
+  courtLevelCode?: string
+  filterCourtId?: string
 }
 
 /** Only the set filters, as query parameters (the API reads an empty value as "not set" anyway). */
@@ -118,6 +121,9 @@ const statisticsQuery = (f: StatisticsFilters) => ({
   LawyerId: f.lawyerId || undefined,
   InstitutionId: f.institutionId || undefined,
   MinistryId: f.ministryId || undefined,
+  // task 053h: the builder's court level and court
+  CourtLevelCode: f.courtLevelCode || undefined,
+  FilterCourtId: f.filterCourtId ? Number(f.filterCourtId) : undefined,
 })
 
 /** Tabela 5 / 6 of a year. Tabela 6 waits for an institution or a ministry. */
