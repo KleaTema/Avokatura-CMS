@@ -338,7 +338,7 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task First_login_links_by_email_when_subject_is_null_then_resolves_by_subject()
+    public async Task First_login_links_an_identity_by_email_then_resolves_by_provider_and_subject()
     {
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient();
@@ -346,23 +346,27 @@ public class AdminUsersTests(MySqlFixture db) : IntegrationTest(db)
         var email = NewEmail();
         await CreateAsync(client, email, office, null, "MONITOR");
         var subject = $"sub-{Guid.NewGuid():N}";
-        var subjectSql = $"SELECT external_subject FROM users WHERE email = '{email}'";
+        var identitySql = $"SELECT COUNT(*) FROM user_identities i JOIN users u ON u.id = i.user_id WHERE u.email = '{email}'";
 
-        (await ScalarAsync(subjectSql, Db.AppConnectionString)).ShouldBe(DBNull.Value);
+        // task 051: users.external_subject is no longer written; the link is a user_identities row
+        (await ScalarAsync($"SELECT external_subject FROM users WHERE email = '{email}'", Db.AppConnectionString)).ShouldBe(DBNull.Value);
 
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var handler = scope.ServiceProvider.GetRequiredService<ResolveUserHandler>();
-            (await handler.Handle(new ResolveUserRequest(subject, email.ToUpperInvariant()), Ct)).IsSuccess.ShouldBeTrue();
+            (await handler.Handle(new ResolveUserRequest("b2c", subject, email.ToUpperInvariant()), Ct)).IsSuccess.ShouldBeTrue();
         }
 
-        (await ScalarAsync(subjectSql, Db.AppConnectionString)).ShouldBe(subject);
+        (await ScalarAsync(identitySql, Db.AppConnectionString)).ShouldBe(1L);
 
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var handler = scope.ServiceProvider.GetRequiredService<ResolveUserHandler>();
-            (await handler.Handle(new ResolveUserRequest(subject, null), Ct)).IsSuccess.ShouldBeTrue();
-            (await handler.Handle(new ResolveUserRequest("other-subject", email), Ct)).IsSuccess.ShouldBeFalse();
+            // later: by subject only (no e-mail needed, a changed e-mail does not matter)
+            (await handler.Handle(new ResolveUserRequest("b2c", subject, null), Ct)).IsSuccess.ShouldBeTrue();
+            (await handler.Handle(new ResolveUserRequest("b2c", subject, "changed@example.test"), Ct)).IsSuccess.ShouldBeTrue();
+            // another account of the same provider with the same e-mail: refused (one identity per provider)
+            (await handler.Handle(new ResolveUserRequest("b2c", "other-subject", email), Ct)).IsSuccess.ShouldBeFalse();
         }
     }
 

@@ -33,6 +33,7 @@ public static class IdentityModule
 		services.AddScoped<SetUserActiveHandler>();
 		services.AddScoped<GrantRoleHandler>();
 		services.AddScoped<RevokeRoleHandler>();
+		services.AddScoped<UserIdentityHandlers>(); // task 051
 		services.AddScoped<ListRolesHandler>();
 		services.AddScoped<ListOfficesAdminHandler>();
 		services.AddScoped<CreateOfficeHandler>();

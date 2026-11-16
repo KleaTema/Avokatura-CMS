@@ -13,6 +13,10 @@ public static class AuditActions
     /// <summary>A document was removed (soft delete, task 034).</summary>
     public const string DocumentDelete = "DOCUMENT_DELETE";
     public const string ReportExport = "REPORT_EXPORT";
+    /// <summary>Task 051: the first login at a provider linked an identity to the user (by e-mail).</summary>
+    public const string IdentityLinked = "IDENTITY_LINKED";
+    /// <summary>Task 051: the administrator unlinked a sign-in identity ("Shkëput").</summary>
+    public const string IdentityUnlinked = "IDENTITY_UNLINKED";
     /// <summary>"Raportet e mia": a saved report was created, changed or deleted (task 053h).</summary>
     public const string ReportSaved = "REPORT_SAVED";
     public const string AdminChange = "ADMIN_CHANGE";

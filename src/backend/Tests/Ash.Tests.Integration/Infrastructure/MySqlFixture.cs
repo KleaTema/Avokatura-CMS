@@ -33,6 +33,7 @@ public sealed class MySqlFixture : IAsyncLifetime
         "ash_core.user_org_history",
         "ash_core.org_imports",
         "ash_core.saved_reports", // task 053h
+        "ash_core.user_identities", // task 051
         "ash_core.case_history_events",
         "ash_core.documents",
         "ash_core.case_decisions",

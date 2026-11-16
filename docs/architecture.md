@@ -58,6 +58,20 @@ is a MySQL named lock here.
 | `partition-check` | Notifications | 03:00 Tirane | p_max holding rows / next month's partition missing → admins |
 | `audit-digest` | Audit | 02:00 Tirane | SHA-256 chain per Tirane day into `audit_daily_digests` (own account `ash_audit_digest`) |
 
+## Authentication (task 051)
+- **Providers:** production signs in through one or more providers (`Auth:Providers[]`: Azure AD B2C and / or Entra ID).
+  - One JwtBearer scheme per enabled provider; a policy scheme picks it by the token's `iss`.
+  - Entra ID tokens only from `AllowedTenantIds`.
+  - Setup: docs/deploy/identity.md.
+- **Users:** a user is found through `user_identities` (provider, subject).
+  - The first login at a provider links by e-mail.
+  - At most one identity per provider; never auto-created.
+- **`users.external_subject` is deprecated**, replaced by `user_identities` (task 051): kept in the table, no longer read
+  or written; drop it in a cleanup script only after the first production release.
+- **Development-only features:** the X-Dev-User header, the job-run endpoint and the NoOp scanner exist only in
+  Development; `DevFeatures.AssertSafe` refuses to start otherwise.
+- **Security items:** docs/security-checklist.md.
+
 ## Access model (two layers)
 - **System permission** (from `user_roles` → `role_permissions`): menus and office-wide actions, e.g. `case.assign_lawyer`, `case.view_office`, `case.view_all`.
 - **Case permission** (from view `v_case_permissions`): what a user may do inside one case, decided by their case profile (`PRIMARY_LAWYER`, `SECONDARY_LAWYER`, `LEGAL_ASSISTANT`, `INSTITUTION_MONITORING`, `INSTITUTION_DELEGATED`).

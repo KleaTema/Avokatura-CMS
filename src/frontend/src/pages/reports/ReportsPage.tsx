@@ -39,11 +39,12 @@ export function ReportsPage() {
         ))}
       </Tabs>
       <Stack spacing={2} role="tabpanel" aria-label={t.builder.tabs[tab]}>
-        {/* the key restarts the builder when the URL's table changes (a saved report, another tab) */}
+        {/* the key restarts the builder when the URL's table or filters change (a saved report opened, another tab);
+            saving only names the report (?saved=), so it keeps the builder and its message */}
         {tab === 'mine' ? (
           <SavedReportsTab />
         ) : (
-          <ReportBuilder key={`${tab}|${params.get('saved') ?? ''}|${params.get('f') ?? ''}`} table={TABLE_OF[tab]} />
+          <ReportBuilder key={`${tab}|${params.get('f') ?? ''}`} table={TABLE_OF[tab]} />
         )}
       </Stack>
     </Stack>

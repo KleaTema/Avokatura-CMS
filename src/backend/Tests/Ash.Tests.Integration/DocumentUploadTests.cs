@@ -478,7 +478,8 @@ public class DocumentUploadTests(MySqlFixture db, MinioFixture minio) : Integrat
 
         var error = Should.Throw<InvalidOperationException>(() => factory.CreateClient());
 
-        error.Message.ShouldContain("NoOp is allowed only in Development");
+        // task 051: the single startup assertion of the development-only features refuses it first
+        error.Message.ShouldContain("Scanner:Mode=NoOp");
     }
 
     // ---------------------------------------------------------------- fakes

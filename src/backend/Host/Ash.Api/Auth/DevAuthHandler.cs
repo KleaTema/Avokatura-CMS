@@ -18,6 +18,10 @@ public sealed class DevAuthHandler(
     public const string QueryName = "dev_user";
     public const string EmailClaim = "ash_dev_email";
 
+    /// <summary>The request carries a dev credential (the header, or dev_user on a hub).</summary>
+    public static bool HasCredentials(HttpRequest request) =>
+        request.Headers.ContainsKey(HeaderName) || (HubQuery.IsHubRequest(request) && request.Query.ContainsKey(QueryName));
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var email = Request.Headers[HeaderName].ToString().Trim();

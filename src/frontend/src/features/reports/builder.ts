@@ -161,7 +161,11 @@ export const useSaveReport = () => {
 export const useDeleteSavedReport = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.DELETE('/api/reports/saved/{id}', { params: { path: { id } } }).then(unwrap),
+    // 204 has no body: success is the status, not the data
+    mutationFn: async (id: string) => {
+      const result = await api.DELETE('/api/reports/saved/{id}', { params: { path: { id } } })
+      if (!result.response.ok) unwrap(result)
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: builderKeys.saved }),
   })
 }

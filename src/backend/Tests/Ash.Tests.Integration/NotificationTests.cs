@@ -258,6 +258,7 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
     public async Task The_kryetar_assigning_himself_gets_no_notification()
     {
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await s.GrantRoleAsync("kryetar", "STATE_LAWYER"); // task 053i: assigning himself needs the lawyer role
         await using var factory = Factory();
         using var kryetar = factory.CreateClient().AsUser("kryetar@ash.local");
 

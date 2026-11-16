@@ -42,7 +42,7 @@ public class ProfileTests(MySqlFixture db) : IntegrationTest(db)
         using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
         var p = await GetProfile(lawyer);
         p.GetProperty("email").GetString().ShouldBe("avokat1@ash.local");
-        Roles(p).ShouldBe(["Avokat Shteti"]);
+        Roles(p).ShouldBe(["Avokat Shteti (primar)"]); // task 053i: the role's new name
         p.GetProperty("office").GetProperty("name").GetString().ShouldNotBeNullOrEmpty();
         p.GetProperty("institution").ValueKind.ShouldBe(JsonValueKind.Null);
         p.GetProperty("headOf").ValueKind.ShouldBe(JsonValueKind.Null);

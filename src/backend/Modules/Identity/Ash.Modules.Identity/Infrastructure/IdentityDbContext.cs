@@ -6,6 +6,7 @@ namespace Ash.Modules.Identity.Infrastructure;
 public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase(unitOfWork)
 {
     public DbSet<UserRecord> Users => Set<UserRecord>();
+    public DbSet<UserIdentityRecord> UserIdentities => Set<UserIdentityRecord>();
     public DbSet<OfficeRecord> Offices => Set<OfficeRecord>();
     public DbSet<InstitutionRecord> Institutions => Set<InstitutionRecord>();
     public DbSet<RoleRecord> Roles => Set<RoleRecord>();
@@ -62,13 +63,28 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.UpdatedBy).HasColumnName("updated_by");
         });
 
+        // task 051 (script 028): the sign-in identities of a user, one per provider and subject
+        modelBuilder.Entity<UserIdentityRecord>(b =>
+        {
+            b.ToTable("user_identities");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.ProviderName).HasColumnName("provider_name");
+            b.Property(x => x.Subject).HasColumnName("subject");
+            b.Property(x => x.EmailAtLink).HasColumnName("email_at_link");
+            b.Property(x => x.LinkedAt).HasColumnName("linked_at");
+            b.Property(x => x.LastLoginAt).HasColumnName("last_login_at");
+        });
+
         modelBuilder.Entity<UserRecord>(b =>
         {
             b.ToTable("users");
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
             b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
-            b.Property(x => x.ExternalSubject).HasColumnName("external_subject");
+            // users.external_subject is deprecated (task 051): replaced by user_identities, no longer read or written
             b.Property(x => x.Email).HasColumnName("email");
             b.Property(x => x.FirstName).HasColumnName("first_name");
             b.Property(x => x.LastName).HasColumnName("last_name");
@@ -129,11 +145,23 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
     }
 }
 
+/// <summary>A sign-in identity (task 051): the user at one provider, found by (ProviderName, Subject).</summary>
+public sealed class UserIdentityRecord
+{
+    public ulong Id { get; set; }
+    public Guid PublicId { get; set; }
+    public uint UserId { get; set; }
+    public string ProviderName { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string? EmailAtLink { get; set; }
+    public DateTime LinkedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+}
+
 public sealed class UserRecord
 {
     public uint Id { get; set; }
     public Guid PublicId { get; set; }
-    public string? ExternalSubject { get; set; }
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;

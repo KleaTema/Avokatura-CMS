@@ -1,7 +1,7 @@
 namespace Ash.Modules.Identity.Application.ResolveUser;
 
 /// <summary>
-/// Subject (production, OIDC sub claim) and/or Email. Production sends both: the user is found by subject first, then by email
-/// (first-login linking). Development sends only the email (X-Dev-User header).
+/// Production (task 051): Provider (Auth:Providers[].Name) + Subject (the mapped oid / sub) + Email (the mapped e-mail,
+/// for the first login only). Development: only the Email of the X-Dev-User header (Provider null).
 /// </summary>
-public sealed record ResolveUserRequest(string? Subject, string? Email);
+public sealed record ResolveUserRequest(string? Provider, string? Subject, string? Email);

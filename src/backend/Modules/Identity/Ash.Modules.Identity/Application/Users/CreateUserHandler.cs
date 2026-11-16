@@ -8,8 +8,8 @@ public sealed record CreateUserRequest(
     string Email, string FirstName, string LastName, Guid? OfficeId, Guid? InstitutionId, IReadOnlyList<string>? Roles);
 
 /// <summary>
-/// TODO(client-q): the admin creates the user BEFORE the first login. external_subject stays NULL until the first
-/// production login, when ResolveUserHandler links the account by (lower-case) email.
+/// The admin creates the user BEFORE the first login (users are never created by a login). The first login at a
+/// provider links an identity by (lower-case) email — ResolveUserHandler, user_identities (task 051).
 /// </summary>
 public sealed class CreateUserHandler(IdentityDbContext db, UserAdminSupport support)
 {
@@ -55,7 +55,6 @@ public sealed class CreateUserHandler(IdentityDbContext db, UserAdminSupport sup
         var user = new UserRecord
         {
             PublicId = Guid.NewGuid(),
-            ExternalSubject = null,
             Email = email,
             FirstName = req.FirstName.Trim(),
             LastName = req.LastName.Trim(),

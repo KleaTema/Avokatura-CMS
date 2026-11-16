@@ -17,17 +17,23 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         string environment = "Development",
         Action<IServiceCollection>? configureServices = null,
         string? auditConnection = null,
-        string authority = "https://idp.example.test",
-        string audience = "ash-api",
         StorageOptions? storage = null,
-        string? scannerMode = null)
+        string? scannerMode = null,
+        TestIdentity.Providers? providers = null,
+        IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
         _environment = environment;
-        _configureServices = configureServices;
+        // task 051: the test identity providers (test signing key, no network) — in every environment
+        _configureServices = services =>
+        {
+            TestIdentity.UseTestKeys(services);
+            configureServices?.Invoke(services);
+        };
+        TestIdentity.Configure(providers ?? TestIdentity.Providers.Both);
+        Environment.SetEnvironmentVariable("DevFeatures__HeaderAuth", null);
+        Environment.SetEnvironmentVariable("DevFeatures__JobRunEndpoint", null);
         Environment.SetEnvironmentVariable("ConnectionStrings__App", db.AppConnectionString);
         Environment.SetEnvironmentVariable("ConnectionStrings__Audit", auditConnection ?? db.AuditConnectionString);
-        Environment.SetEnvironmentVariable("Auth__Authority", authority);
-        Environment.SetEnvironmentVariable("Auth__Audience", audience);
         // object storage (task 032): a MinIO container when given, otherwise not configured
         Environment.SetEnvironmentVariable("Storage__ServiceUrl", storage?.ServiceUrl ?? string.Empty);
         Environment.SetEnvironmentVariable("Storage__AccessKey", storage?.AccessKey);
@@ -41,6 +47,11 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Email__Enabled", "false");
         Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", db.AuditDigestConnectionString);
         Environment.SetEnvironmentVariable("ConnectionStrings__Chat", db.ChatConnectionString);
+        // a test's own variables last, so they win over the defaults above
+        foreach (var (name, value) in environmentVariables ?? new Dictionary<string, string?>())
+        {
+            Environment.SetEnvironmentVariable(name, value);
+        }
     }
 
     /// <summary>

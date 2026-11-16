@@ -76,6 +76,27 @@ public static class AdminUserEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("RevokeAdminUserRole");
 
+        // task 051: the user's sign-in identities, and "Shkëput"
+        group.MapGet("/{id:guid}/identities", async (Guid id, UserIdentityHandlers handlers, CancellationToken ct) =>
+            {
+                var r = await handlers.ListAsync(id, ct);
+                return r.IsSuccess ? Results.Ok(r.Value) : r.Error!.ToProblem();
+            })
+            .RequirePermission(Permission)
+            .Produces<IReadOnlyList<UserIdentityView>>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("ListAdminUserIdentities");
+
+        group.MapDelete("/{id:guid}/identities/{identityId:guid}", async (Guid id, Guid identityId, UserIdentityHandlers handlers, CancellationToken ct) =>
+            {
+                var r = await handlers.UnlinkAsync(id, identityId, ct);
+                return r.IsSuccess ? Results.NoContent() : r.Error!.ToProblem();
+            })
+            .RequirePermission(Permission)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("UnlinkAdminUserIdentity");
+
         endpoints.MapGet("/api/identity/admin/roles", async (ListRolesHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(ct)))
             .RequirePermission(Permission)

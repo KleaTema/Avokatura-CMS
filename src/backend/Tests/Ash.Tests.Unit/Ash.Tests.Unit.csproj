@@ -17,5 +17,6 @@
     <ProjectReference Include="..\..\BuildingBlocks\Ash.SharedKernel\Ash.SharedKernel.csproj" />
     <ProjectReference Include="..\..\Modules\Cases\Ash.Modules.Cases\Ash.Modules.Cases.csproj" />
     <ProjectReference Include="..\..\Modules\Reports\Ash.Modules.Reports\Ash.Modules.Reports.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Ash.Modules.Identity\Ash.Modules.Identity.csproj" />
   </ItemGroup>
 </Project>

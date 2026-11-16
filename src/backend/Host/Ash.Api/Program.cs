@@ -37,6 +37,9 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .WriteTo.Console()
     .WriteTo.File("logs/ash-.log", rollingInterval: RollingInterval.Day));
 
+// task 051: outside Development no development-only feature may be switched on — refuse to start
+DevFeatures.AssertSafe(builder.Configuration, builder.Environment);
+
 var connectionString = builder.Configuration.GetConnectionString("App")
     ?? throw new InvalidOperationException(
         "ConnectionStrings:App is missing. Set it with: dotnet user-secrets set \"ConnectionStrings:App\" \"<value>\"");
@@ -89,11 +92,17 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
     app.MapScalarApiReference().AllowAnonymous();
-    // task 041: run a background job by hand (manual tests); never mapped outside Development
+}
+
+// task 041: run a background job by hand (manual tests); never mapped outside Development (task 051: DevFeatures)
+if (DevFeatures.JobRunEndpointEnabled(app.Configuration, app.Environment))
+{
     app.MapJobRunEndpoint();
 }
 
 app.MapHealthChecks("/health").AllowAnonymous();
+// task 051: how the login page signs in (anonymous: read before the login)
+app.MapAuthConfig(DevFeatures.HeaderAuthEnabled(app.Configuration, app.Environment));
 
 app.MapIdentityEndpoints();
 app.MapReferenceEndpoints();
