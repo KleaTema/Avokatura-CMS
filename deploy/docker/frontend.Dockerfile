@@ -19,6 +19,8 @@ RUN node --input-type=module -e "import { buildCsp } from './tools/security/csp.
 FROM nginxinc/nginx-unprivileged:1.29.3-alpine@sha256:5aea7cc516b419e3526f47dd1531be31a56a046cfe44754d94f9383e13e2ee99 AS runtime
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.title="ash-frontend" org.opencontainers.image.version="${VERSION}"
+# the base image runs as 101; the files below are installed root-owned (read-only for nginx), then back to 101
+USER root
 COPY --from=build /src/src/frontend/dist /usr/share/nginx/html
 # the dev defaults of public/config.json never ship: /config.json is generated at start
 RUN rm -f /usr/share/nginx/html/config.json
