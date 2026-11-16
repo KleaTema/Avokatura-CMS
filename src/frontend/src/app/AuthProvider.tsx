@@ -2,31 +2,31 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { setUnauthorizedHandler } from '../api/client'
 import { AuthContext, type AuthState } from './authContext'
-import { authMode, clearDevUser, getDevUser, setDevUser, userManager } from './authConfig'
+import {
+  authMode,
+  clearDevUser,
+  clearOidcSession,
+  getDevUser,
+  isOidcSignedIn,
+  loginWith,
+  logoutProvider,
+  setDevUser,
+} from './authConfig'
 
+/**
+ * The session (task 051). Dev mode: the dev user in sessionStorage. Provider mode: the remembered provider's MSAL
+ * account (initAuth already finished a redirect before the first render). A 401 forgets the local session (back to the
+ * login); "Dil" and the idle logout also end the provider's session (its logout page).
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
-  const [isAuthenticated, setAuthenticated] = useState(() => authMode === 'dev' && getDevUser() !== null)
-  const [isLoading, setLoading] = useState(authMode === 'oidc')
-
-  useEffect(() => {
-    if (authMode !== 'oidc') return
-    let active = true
-    const load = async () => {
-      const user = await userManager?.getUser()
-      if (!active) return
-      setAuthenticated(Boolean(user && !user.expired))
-      setLoading(false)
-    }
-    void load()
-    return () => {
-      active = false
-    }
-  }, [])
+  const [isAuthenticated, setAuthenticated] = useState(() =>
+    authMode === 'dev' ? getDevUser() !== null : isOidcSignedIn(),
+  )
 
   const clearSession = useCallback(() => {
     clearDevUser()
-    void userManager?.removeUser()
+    if (authMode === 'oidc') void clearOidcSession()
     setAuthenticated(false)
     queryClient.clear()
   }, [queryClient])
@@ -39,22 +39,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthState>(
     () => ({
       isAuthenticated,
-      isLoading,
+      isLoading: false,
       loginDev: (email) => {
         queryClient.clear()
         setDevUser(email)
         setAuthenticated(true)
       },
-      loginOidc: async () => {
-        await userManager?.signinRedirect()
+      loginWith: async (provider) => {
+        await loginWith(provider)
       },
       logout: async () => {
-        const oidc = authMode === 'oidc' && userManager
-        clearSession()
-        if (oidc) await userManager?.signoutRedirect()
+        const oidc = authMode === 'oidc'
+        clearDevUser()
+        setAuthenticated(false)
+        queryClient.clear()
+        if (oidc) await logoutProvider()
       },
     }),
-    [isAuthenticated, isLoading, queryClient, clearSession],
+    [isAuthenticated, queryClient],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

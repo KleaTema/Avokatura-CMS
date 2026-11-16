@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetAuthConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/me": {
         parameters: {
             query?: never;
@@ -863,6 +879,38 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["RevokeAdminUserRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/users/{id}/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAdminUserIdentities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/users/{id}/identities/{identityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["UnlinkAdminUserIdentity"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2483,6 +2531,18 @@ export interface components {
             /** Format: date */
             firstBrokenDay: null | string;
             reason: null | string;
+        };
+        AuthConfigResponse: {
+            mode: string;
+            providers: components["schemas"]["AuthProviderView"][];
+        };
+        AuthProviderView: {
+            name: string;
+            kind: string;
+            displayName: string;
+            authority: string;
+            clientId: string;
+            scopes: string[];
         };
         BuilderPageOfActiveCaseRow: {
             page: components["schemas"]["ReportPageOfActiveCaseRow"];
@@ -4115,6 +4175,16 @@ export interface components {
             scanStatus: string;
             warnings: components["schemas"]["DocumentWarning"][];
         };
+        UserIdentityView: {
+            /** Format: uuid */
+            publicId: string;
+            provider: string;
+            emailAtLink: null | string;
+            /** Format: date-time */
+            linkedAt: string;
+            /** Format: date-time */
+            lastLoginAt: null | string;
+        };
         UserResponse: {
             /** Format: uuid */
             publicId: string;
@@ -4172,6 +4242,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetAuthConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfigResponse"];
                 };
             };
         };
@@ -6341,6 +6431,67 @@ export interface operations {
             };
             /** @description Bad Request */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListAdminUserIdentities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserIdentityView"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UnlinkAdminUserIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                identityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

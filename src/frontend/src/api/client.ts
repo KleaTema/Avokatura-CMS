@@ -1,6 +1,6 @@
 import createClient from 'openapi-fetch'
 import type { components, paths } from './schema'
-import { authMode, getDevUser, userManager } from '../app/authConfig'
+import { accessToken, authMode, getDevUser } from '../app/authConfig'
 
 export type ProblemDetails = components['schemas']['ProblemDetails'] & {
   code?: string
@@ -38,8 +38,8 @@ export async function authHeaders(): Promise<Record<string, string>> {
     return email ? { 'X-Dev-User': email } : {}
   }
 
-  const user = await userManager?.getUser()
-  return user && !user.expired ? { Authorization: `Bearer ${user.access_token}` } : {}
+  const token = await accessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 /** For requests made outside openapi-fetch: the same 401 handling (back to the login). */

@@ -18,6 +18,7 @@ import { useUrlSearch } from '../../lib/useUrlSearch'
 import { UsersCreateDialog } from './UsersCreateDialog'
 import { UsersDeactivateDialog } from './UsersDeactivateDialog'
 import { UsersRolesDialog } from './UsersRolesDialog'
+import { UsersIdentitiesDialog } from './UsersIdentitiesDialog'
 
 const t = sq.adminUsers
 
@@ -37,6 +38,7 @@ export function UsersPage() {
   const activate = useActivateUser()
   const [creating, setCreating] = useState(false)
   const [rolesFor, setRolesFor] = useState<AdminUser | null>(null)
+  const [identitiesFor, setIdentitiesFor] = useState<AdminUser | null>(null)
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null)
 
   const rows = users.data?.items ?? []
@@ -173,6 +175,9 @@ export function UsersPage() {
                     <Button size="small" onClick={() => setRolesFor(u)} aria-label={`${t.roles.manage}: ${fullName}`}>
                       {t.roles.manage}
                     </Button>
+                    <Button size="small" onClick={() => setIdentitiesFor(u)} aria-label={`${t.identities.manage}: ${fullName}`}>
+                      {t.identities.manage}
+                    </Button>
                     {u.isActive ? (
                       <Button
                         size="small"
@@ -203,6 +208,7 @@ export function UsersPage() {
 
       <UsersCreateDialog open={creating} onClose={() => setCreating(false)} />
       {rolesFor && <UsersRolesDialog user={rolesFor} onClose={() => setRolesFor(null)} />}
+      {identitiesFor && <UsersIdentitiesDialog user={identitiesFor} onClose={() => setIdentitiesFor(null)} />}
       {deactivating && <UsersDeactivateDialog user={deactivating} onClose={() => setDeactivating(null)} />}
     </Box>
   )

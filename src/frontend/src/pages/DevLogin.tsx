@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { useAuth } from '../app/authContext'
-import { authMode, devUsers, oidcConfigured, userManager } from '../app/authConfig'
+import { authConfigError, authMode, authProviders, devUsers, isOidcSignedIn } from '../app/authConfig'
 import { BrandImage } from '../app/shell/BrandImage'
 import { sq } from '../i18n/sq'
 import { tokens } from '../theme/tokens'
@@ -11,11 +11,17 @@ import { tokens } from '../theme/tokens'
 const normalizeEmail = (value: string) => value.trim().toLowerCase()
 
 export function DevLogin() {
-  const { isAuthenticated, isLoading, loginDev, loginOidc } = useAuth()
+  const { isAuthenticated, isLoading, loginDev, loginWith } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState(devUsers[0])
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+
+  // task 051: with a single provider there is nothing to choose — go to its sign-in page at once
+  const single = authMode === 'oidc' && !isAuthenticated && authProviders.length === 1 ? authProviders[0].name : null
+  useEffect(() => {
+    if (single) void loginWith(single)
+  }, [single, loginWith])
 
   if (isLoading) return <CircularProgress />
   if (isAuthenticated) return <Navigate to="/" replace />
@@ -140,32 +146,42 @@ export function DevLogin() {
               {sq.login.submit}
             </Button>
           </form>
-        ) : oidcConfigured ? (
-          <Button variant="contained" color="secondary" size="large" fullWidth onClick={() => void loginOidc()}>
-            {sq.login.oidcSubmit}
-          </Button>
-        ) : (
+        ) : authConfigError ? (
+          <Alert severity="error">{sq.errors.network}</Alert>
+        ) : authProviders.length === 0 ? (
           <Alert severity="error">{sq.login.oidcNotConfigured}</Alert>
+        ) : authProviders.length === 1 ? (
+          <Typography>{sq.login.redirecting}</Typography>
+        ) : (
+          // task 051: one button per enabled provider, the first one gold (the only gold button)
+          <Stack spacing={1.5}>
+            {authProviders.map((p, i) => (
+              <Button
+                key={p.name}
+                variant={i === 0 ? 'contained' : 'outlined'}
+                color={i === 0 ? 'secondary' : 'primary'}
+                size="large"
+                fullWidth
+                onClick={() => void loginWith(p.name)}
+              >
+                {p.displayName}
+              </Button>
+            ))}
+          </Stack>
         )}
       </Paper>
     </Box>
   )
 }
 
+/**
+ * The providers' redirect target (/auth/callback): initAuth already completed the sign-in before the first render, so
+ * this only goes on — into the app when signed in, back to the login otherwise. A full reload starts the session clean.
+ */
 export function OidcCallback() {
-  const navigate = useNavigate()
-
   useEffect(() => {
-    const finish = async () => {
-      try {
-        await userManager?.signinRedirectCallback()
-        window.location.replace('/')
-      } catch {
-        void navigate('/login', { replace: true })
-      }
-    }
-    void finish()
-  }, [navigate])
+    window.location.replace(isOidcSignedIn() ? '/' : '/login')
+  }, [])
 
   return <Typography sx={{ m: 4 }}>{sq.login.redirecting}</Typography>
 }

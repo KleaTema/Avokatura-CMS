@@ -1,5 +1,5 @@
 import { Box, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Navigate, Outlet, ScrollRestoration } from 'react-router'
 import { ApiError } from '../api/client'
 import { useMe } from '../features/identity/api'
@@ -7,6 +7,7 @@ import { sq } from '../i18n/sq'
 import { ForbiddenPage, GenericErrorPage } from '../pages/ErrorPages'
 import { tokens } from '../theme/tokens'
 import { useAuth } from './authContext'
+import { IdleLogout } from './IdleLogout'
 import { NotificationsProvider } from './NotificationsProvider'
 import { AppHeader } from './shell/AppHeader'
 import { Sidebar } from './shell/Sidebar'
@@ -31,6 +32,7 @@ export function Layout() {
   const drawer = useMediaQuery(theme.breakpoints.down('md')) // < 900 px
   const collapsed = useMediaQuery(theme.breakpoints.down('lg')) // < 1200 px
   const [menuOpen, setMenuOpen] = useState(false)
+  const logoutNow = useCallback(() => void logout(), [logout])
 
   if (isLoading) return <CircularProgress aria-label={sq.errors.loading} />
   if (!isAuthenticated) return <Navigate to="/login" replace />
@@ -82,6 +84,8 @@ export function Layout() {
       </Box>
       {/* Back/Forward return to the same scroll position (e.g. the case list, whose pages stay cached) */}
       <ScrollRestoration />
+      {/* task 051: 30 minutes idle → a 60-second warning → logout (through the provider) */}
+      <IdleLogout onLogout={logoutNow} />
     </Box>
     </ChatProvider>
     </NotificationsProvider>

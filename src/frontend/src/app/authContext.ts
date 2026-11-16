@@ -4,7 +4,8 @@ export interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   loginDev: (email: string) => void
-  loginOidc: () => Promise<void>
+  /** task 051: sign in through the named provider (Auth:Providers[].Name) */
+  loginWith: (provider: string) => Promise<void>
   logout: () => Promise<void>
 }
 

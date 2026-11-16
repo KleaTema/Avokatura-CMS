@@ -454,9 +454,15 @@ export const sq = {
     unknownUser: 'Përdoruesi nuk ekziston ose është çaktivizuar.',
     user: 'Përdoruesi',
     submit: 'Hyr',
-    oidcSubmit: 'Hyr me llogarinë institucionale',
     oidcNotConfigured: 'Hyrja institucionale nuk është konfiguruar.',
     redirecting: 'Po ju ridrejtojmë…',
+  },
+  /** task 051: the idle logout */
+  idle: {
+    title: 'Jeni ende aty?',
+    text: (seconds: number) => `Për siguri do të dilni nga sistemi pas ${seconds} sekondash për shkak të mosveprimit.`,
+    stay: 'Vazhdo punën',
+    logout: 'Dil tani',
   },
   topBar: {
     menu: 'Menyja',
@@ -836,6 +842,17 @@ export const sq = {
       lastNameRequired: 'Mbiemri është i detyrueshëm (deri në 100 shkronja).',
       officeRequired: 'Zgjidhni zyrën.',
       institutionRequired: 'Zgjidhni institucionin.',
+    },
+    // task 051: the sign-in identities
+    identities: {
+      manage: 'Identitetet',
+      title: (name: string) => `Identitetet e hyrjes — ${name}`,
+      hint: 'Llogaritë me të cilat përdoruesi ka hyrë në sistem (një për çdo ofrues). Lidhen me email-in në hyrjen e parë.',
+      none: 'Përdoruesi nuk ka hyrë ende me asnjë ofrues.',
+      line: (email: string, linked: string, last: string) => `Email-i në lidhje: ${email} · Lidhur më: ${linked} · Hyrja e fundit: ${last}`,
+      unlink: 'Shkëput',
+      confirm: (provider: string, name: string) => `Të shkëputet llogaria „${provider}” e ${name}?`,
+      confirmText: 'Hyrja e radhës me këtë ofrues do ta lidhë sërish llogarinë me email-in, nëse përdoruesi është aktiv.',
     },
     roles: {
       title: 'Rolet e përdoruesit',

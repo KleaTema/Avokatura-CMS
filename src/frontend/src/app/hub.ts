@@ -1,10 +1,11 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from '@microsoft/signalr'
-import { authMode, getDevUser, userManager } from './authConfig'
+import { accessToken, authMode, getDevUser } from './authConfig'
 
 /**
  * The SignalR connections of the app (task 040 notifications, task 050 chat) are built the same way. In Development the
  * dev user travels in the query string (a browser WebSocket cannot send the X-Dev-User header; the API accepts
- * `dev_user` on /hubs/* only and never logs it). With OIDC the token comes from accessTokenFactory instead.
+ * `dev_user` on /hubs/* only and never logs it). With a provider (task 051) the token comes from accessTokenFactory
+ * (the API accepts ?access_token= on /hubs/* only).
  */
 export function hubUrl(path: string): string {
   if (authMode !== 'dev') return path
@@ -13,9 +14,8 @@ export function hubUrl(path: string): string {
 }
 
 export async function hubAccessToken(): Promise<string> {
-  if (authMode === 'dev') return ''
-  const user = await userManager?.getUser()
-  return user && !user.expired ? user.access_token : ''
+  // task 051: the remembered provider's token, renewed silently (MSAL)
+  return authMode === 'dev' ? '' : accessToken()
 }
 
 export const buildHub = (path: string): HubConnection =>

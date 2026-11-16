@@ -134,6 +134,30 @@ export const useRevokeRole = () => {
   })
 }
 
+// ---------------------------------------------------------------- sign-in identities (task 051)
+
+export type UserIdentity = components['schemas']['UserIdentityView']
+
+export const useUserIdentities = (id: string) =>
+  useQuery({
+    queryKey: ['admin', 'users', id, 'identities'],
+    queryFn: () => api.GET('/api/identity/admin/users/{id}/identities', { params: { path: { id } } }).then(unwrap),
+  })
+
+export const useUnlinkIdentity = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    // 204 has no body: success is the status
+    mutationFn: async ({ id, identityId }: { id: string; identityId: string }) => {
+      const result = await api.DELETE('/api/identity/admin/users/{id}/identities/{identityId}', {
+        params: { path: { id, identityId } },
+      })
+      if (!result.response.ok) unwrap(result)
+    },
+    onSuccess: (_, { id }) => qc.invalidateQueries({ queryKey: ['admin', 'users', id, 'identities'] }),
+  })
+}
+
 export const useDeactivateUser = () => {
   const qc = useQueryClient()
   return useMutation({

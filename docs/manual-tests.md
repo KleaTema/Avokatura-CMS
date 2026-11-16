@@ -766,6 +766,27 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 6. From a new registration with an act number that exists (duplicate dialog) → "Vazhdo…" opens the search with the
    act number filled.
 
+## 051 — Security hardening: sign-in (phases 1–2)
+**Setup:** run the migrator (script 028), restart the API, `npm run dev`.
+1. **Development:**
+   - The login page is the dev login (choose a user).
+   - `GET /api/auth/config` answers `"mode":"dev"`.
+2. **Production configuration check (no real tenant needed):** start the API with `ASPNETCORE_ENVIRONMENT=Production`.
+   - Without an enabled `Auth:Providers` entry → it refuses to start and names the missing settings.
+   - With `DevFeatures:HeaderAuth=true` or `Scanner:Mode=NoOp` → it refuses to start ("Development-only features…").
+3. **With a real tenant (when AKSHI sends the configuration, docs/deploy/identity.md):**
+   - The login page shows one button per enabled provider. With one provider it goes straight to its page.
+   - Sign in with an e-mail an administrator created: you are in. *Administrimi → Përdoruesit → Identitetet* shows the
+     provider and "Lidhur më …".
+   - Sign in with an e-mail nobody created → you stay out (401); no user appears.
+   - Same person through the other provider → a second identity row.
+   - "Dil" → the provider's sign-out page, then the login; Back does not return into the app.
+   - "Shkëput" an identity → the next sign-in links it again by e-mail.
+4. **Idle logout:**
+   - Leave the app 30 minutes untouched → "Jeni ende aty?" with a countdown from 60.
+   - "Vazhdo punën" keeps you in.
+   - Let it reach 0 → logged out, through the provider when one is used.
+
 ## 053h — Report builder (F, P6/P9): scopes, filters, exports, "Raportet e mia"
 **Setup:** run the migrator (script 027), restart the API, `npm run dev`. The ACTIVE test case: avokat1 primary,
 sekondar secondary, ndihmes assistant; the ministry linked MONITORING. Kryetar → *Ndihmësit ligjorë*: link ndihmes
