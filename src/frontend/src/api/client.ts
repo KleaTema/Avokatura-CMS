@@ -1,6 +1,7 @@
 import createClient from 'openapi-fetch'
 import type { components, paths } from './schema'
 import { accessToken, authMode, getDevUser } from '../app/authConfig'
+import { runtimeConfig } from '../app/runtimeConfig'
 
 export type ProblemDetails = components['schemas']['ProblemDetails'] & {
   code?: string
@@ -48,6 +49,11 @@ export const notifyUnauthorized = () => unauthorizedHandler?.()
 api.use({
   async onRequest({ request }) {
     for (const [name, value] of Object.entries(await authHeaders())) request.headers.set(name, value)
+    // task 052: the API on another base path (runtime /config.json); '' = same origin, the request as it is
+    if (runtimeConfig.apiBasePath) {
+      const url = new URL(request.url)
+      return new Request(`${runtimeConfig.apiBasePath}${url.pathname}${url.search}`, request)
+    }
     return request
   },
   onResponse({ response }) {

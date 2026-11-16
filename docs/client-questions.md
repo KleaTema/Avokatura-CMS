@@ -145,6 +145,20 @@ Until answered: no production provider is enabled. The system needs configuratio
 | idp-invitations | Kush i fton përdoruesit e jashtëm (institucionet jo-qeveritare) në B2C ose si mysafirë B2B në Entra ID: AKSHI apo administratori i sistemit? | Who invites external users (non-government institutions) — B2C local accounts or Entra B2B guests: AKSHI or the system's administrator? | The system's administrator creates the user here; the account at the provider is created by AKSHI. |
 | idp-email-claim | Entra ID: a mund të shtohet pretendimi opsional `email` në token-in e aksesit? | Entra ID: can the optional claim `email` be added to the access token? | Expected; otherwise `preferred_username` when it looks like an e-mail (warning logged). |
 
+## AKSHI questions — deployment (task 052)
+
+Until answered, the reference deployment is `deploy/docker-compose.production.yml` and `deploy/README.md`.
+
+| Id | Question (sq) | Question (en) | Default until answered |
+|---|---|---|---|
+| akshi-q-hosting | Ku do të ekzekutohet sistemi: Kubernetes (cili?), makina virtuale me Docker apo tjetër? Sa instanca API? | Where does the system run: Kubernetes (which), VMs with Docker, other? How many API instances? | VMs with Docker Compose, one API instance (`TODO(akshi-q-hosting)`). |
+| akshi-q-registry | Në cilin regjistër imazhesh duhet të publikohen imazhet (`ash-api`, `ash-migrator`, `ash-frontend`)? | Which container registry receives the images? | GHCR of the repository owner; another registry by the `REGISTRY` variable (`TODO(akshi-q-registry)`). |
+| akshi-q-ingress | Kush e mbyll TLS (ingress / reverse proxy i AKSHI)? Nga cili rrjet (CIDR) vjen? A e dërgon ai HSTS? | Who terminates TLS (AKSHI's ingress)? From which network (CIDR) does it connect? Does it send HSTS? | The ingress terminates TLS; `ASH_PROXY_NETWORK` names its network; nginx sends HSTS unless `ASH_HSTS=off`. |
+| akshi-q-redis | A ofron AKSHI Redis të menaxhuar (i nevojshëm vetëm për më shumë se një instancë API)? | Does AKSHI offer a managed Redis (needed only with more than one API instance)? | A Redis container (compose profile `redis`) when needed (`TODO(akshi-q-redis)`). |
+| akshi-q-backups | Sistemi i kopjeve rezervë: kush i bën, sa kohë ruhen, ku ruhet kopja jashtë sajtit, kush provon restaurimin? | Backups: who runs them, retention, off-site copy, who tests the restore? | Nightly full + 14 days of binlogs, restore test quarterly (`TODO(akshi-q-backups)`). |
+| akshi-q-uat-login | Si hyjnë testuesit në UAT: tenant B2C i veçantë për UAT, apo i njëjti tenant me rrjedhë tjetër? | How do testers sign in to UAT: a separate B2C tenant, or the same tenant with another user flow? | Its own B2C configuration; the development login is never allowed outside Development (`TODO(akshi-q-uat-login)`). |
+| akshi-org | A do të kalojë depoja e kodit në një organizatë GitHub të AKSHI? | Will the repository move to an AKSHI GitHub organisation? | Stays; image names follow the owner (`TODO(akshi)`). |
+
 ## Open — for tasks not built yet
 
 No code yet; the default is decided when the task is implemented.

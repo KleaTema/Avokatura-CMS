@@ -1,0 +1,90 @@
+# Task 052 (optional) — the Playwright end-to-end tests every night against a throw-away stack on the runner:
+# MySQL (service container, the dev settings of docs/sql/mysql_server.cnf that the search needs), the migrator WITH
+# the local seed (--local: dev users, courts), the API in Development (dev login) and the Vite dev server.
+# Never against a shared database. Run by hand: Actions → nightly-e2e → Run workflow.
+name: nightly-e2e
+
+on:
+  schedule:
+    - cron: "30 1 * * *"   # 01:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24.21.0"
+  DOTNET_VERSION: "10.0.401"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: e2e-root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pe2e-root"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      # a throw-away runner database: root for every connection (never like this anywhere else)
+      ConnectionStrings__Migrator: "Server=127.0.0.1;Port=3306;User ID=root;Password=e2e-root;SslMode=Preferred"
+      ConnectionStrings__App: "Server=127.0.0.1;Port=3306;Database=ash_core;User ID=root;Password=e2e-root;SslMode=Preferred"
+      ConnectionStrings__Audit: "Server=127.0.0.1;Port=3306;Database=ash_audit;User ID=root;Password=e2e-root;SslMode=Preferred"
+      ConnectionStrings__AuditDigest: "Server=127.0.0.1;Port=3306;Database=ash_audit;User ID=root;Password=e2e-root;SslMode=Preferred"
+      ConnectionStrings__Chat: "Server=127.0.0.1;Port=3306;Database=ash_chat;User ID=root;Password=e2e-root;SslMode=Preferred"
+      Storage__AccessKey: e2e_minio
+      Storage__SecretKey: e2e_minio_pw
+      Email__Enabled: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - name: MySQL settings the search needs (as docs/sql/mysql_server.cnf)
+        run: |
+          mysql -h 127.0.0.1 -uroot -pe2e-root -e "SET PERSIST innodb_ft_enable_stopword=OFF; SET PERSIST event_scheduler=ON; SET PERSIST time_zone='+00:00';"
+          # ngram_token_size is read-only at runtime; the MySQL default (2) is what the search uses
+      - name: Object storage (MinIO, the dev buckets of docker-compose.yml)
+        run: |
+          docker run -d --name e2e-minio -p 9000:9000 -e MINIO_ROOT_USER=e2e_minio -e MINIO_ROOT_PASSWORD=e2e_minio_pw \
+            cgr.dev/chainguard/minio:latest server /data
+          export AWS_ACCESS_KEY_ID=e2e_minio AWS_SECRET_ACCESS_KEY=e2e_minio_pw AWS_DEFAULT_REGION=us-east-1
+          timeout 60 bash -c 'until aws --endpoint-url http://localhost:9000 s3api list-buckets > /dev/null 2>&1; do sleep 2; done'
+          aws --endpoint-url http://localhost:9000 s3api create-bucket --bucket ash-uploads-quarantine
+          aws --endpoint-url http://localhost:9000 s3api create-bucket --bucket ash-documents --object-lock-enabled-for-bucket
+          aws --endpoint-url http://localhost:9000 s3api create-bucket --bucket ash-chat-files
+      - name: Migrate with the local seed
+        run: dotnet run --project src/backend/Database/Ash.Database -- --local
+      - name: Start the API (:5004)
+        run: |
+          nohup dotnet run --project src/backend/Host/Ash.Api --urls http://localhost:5004 > api.log 2>&1 &
+          timeout 180 bash -c 'until curl -sf http://localhost:5004/health/live; do sleep 3; done'
+      - name: Start the frontend (:5173)
+        working-directory: src/frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          nohup npm run dev -- --port 5173 --strictPort > ../../vite.log 2>&1 &
+          timeout 120 bash -c 'until curl -sf http://localhost:5173 > /dev/null; do sleep 2; done'
+      - name: Playwright
+        working-directory: src/frontend
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-results
+          path: |
+            src/frontend/e2e/test-results
+            api.log
+            vite.log
+          retention-days: 7

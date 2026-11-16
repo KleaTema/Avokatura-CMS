@@ -1,0 +1,127 @@
+# =====================================================================
+# ASH — reference deployment (task 052). TODO(akshi-q-hosting): AKSHI's platform decides the real form
+# (Kubernetes, VMs + compose, …); this file shows WHAT runs and HOW it is wired. Read deploy/README.md first.
+#
+# NOT here, provided by AKSHI: MySQL 8 (deploy/mysql/), the S3-compatible object storage, the SMTP relay, the TLS
+# ingress / reverse proxy in front of "web", the B2C tenant, backups.
+#
+#   cp .env.example .env            # fill it in; secrets as files under ./secrets (never in git)
+#   docker compose -f docker-compose.production.yml --env-file .env run --rm migrator
+#   docker compose -f docker-compose.production.yml --env-file .env up -d
+# =====================================================================
+name: ash-${ASH_ENVIRONMENT_SLUG:-prod}
+
+x-hardened: &hardened
+  read_only: true
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  logging:
+    driver: json-file
+    options: { max-size: "50m", max-file: "5" }
+
+services:
+  # run once before every start of a new version (deploy/README.md, Upgrade); exits 0 when done
+  migrator:
+    image: ${ASH_REGISTRY}/ash-migrator:${ASH_VERSION}
+    profiles: ["migrate"]
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      ConnectionStrings__Migrator: ${ASH_DB_MIGRATOR}
+    restart: "no"
+
+  api:
+    <<: *hardened
+    image: ${ASH_REGISTRY}/ash-api:${ASH_VERSION}
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASH_ENVIRONMENT}
+      ConnectionStrings__App: ${ASH_DB_APP}
+      ConnectionStrings__Audit: ${ASH_DB_AUDIT}
+      ConnectionStrings__AuditDigest: ${ASH_DB_AUDIT_DIGEST}
+      ConnectionStrings__Chat: ${ASH_DB_CHAT}
+      ConnectionStrings__Reporting: ${ASH_DB_REPORTING}
+      Storage__ServiceUrl: ${ASH_STORAGE_URL}
+      Storage__PublicServiceUrl: ${ASH_STORAGE_PUBLIC_URL}
+      Storage__AccessKey: ${ASH_STORAGE_ACCESS_KEY}
+      Storage__SecretKey: ${ASH_STORAGE_SECRET_KEY}
+      Storage__Buckets__Quarantine: ${ASH_BUCKET_QUARANTINE}
+      Storage__Buckets__Documents: ${ASH_BUCKET_DOCUMENTS}
+      Storage__Buckets__Chat: ${ASH_BUCKET_CHAT}
+      Scanner__Mode: ClamAv
+      Scanner__ClamAv__Host: clamav
+      Scanner__ClamAv__Port: "3310"
+      Email__Enabled: ${ASH_EMAIL_ENABLED}
+      Email__SmtpHost: ${ASH_SMTP_HOST}
+      Email__SmtpPort: ${ASH_SMTP_PORT}
+      Email__SmtpSecurity: ${ASH_SMTP_SECURITY}
+      Email__SmtpUser: ${ASH_SMTP_USER}
+      Email__SmtpPassword: ${ASH_SMTP_PASSWORD}
+      Email__FromAddress: ${ASH_SMTP_FROM}
+      Auth__Providers__0__Name: b2c
+      Auth__Providers__0__Kind: B2C
+      Auth__Providers__0__Enabled: "true"
+      Auth__Providers__0__Authority: ${ASH_B2C_AUTHORITY}
+      Auth__Providers__0__ClientId: ${ASH_B2C_SPA_CLIENT_ID}
+      Auth__Providers__0__Audience: ${ASH_B2C_API_AUDIENCE}
+      Auth__Providers__0__Scopes__0: ${ASH_B2C_API_SCOPE}
+      Auth__Providers__1__Name: entra
+      Auth__Providers__1__Enabled: "false"
+      # the proxy in front of "web" — only its X-Forwarded-For / -Proto are believed
+      ReverseProxy__KnownNetworks__0: ${ASH_PROXY_NETWORK}
+      Ash__Instances: ${ASH_API_INSTANCES}
+      Ash__Redis__ConnectionString: ${ASH_REDIS}
+    depends_on:
+      clamav: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { memory: 2g }
+    networks: [backend]
+
+  web:
+    <<: *hardened
+    image: ${ASH_REGISTRY}/ash-frontend:${ASH_VERSION}
+    environment:
+      ASH_API_UPSTREAM: http://api:8080
+      ASH_ENVIRONMENT: ${ASH_ENVIRONMENT}
+      ASH_IDP_HOSTS: ${ASH_IDP_HOSTS}
+      ASH_MAX_UPLOAD_MB: ${ASH_MAX_UPLOAD_MB}
+      ASH_HSTS: ${ASH_HSTS}
+    ports:
+      # only the ingress / reverse proxy reaches this port (TODO(akshi-q-hosting): ingress, TLS)
+      - "${ASH_WEB_BIND:-127.0.0.1:8080}:8080"
+    depends_on: [api]
+    networks: [backend, edge]
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
+      - ./clamav/clamd-ash.conf:/etc/clamav/clamd.conf:ro
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10m
+      retries: 5
+    networks: [backend]
+
+  # only when Ash__Instances > 1 (the SignalR backplane): docker compose --profile redis up -d
+  # TODO(akshi-q-redis): AKSHI's managed Redis instead, if there is one
+  redis:
+    image: redis:7.4-alpine
+    profiles: ["redis"]
+    <<: *hardened
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--requirepass", "${ASH_REDIS_PASSWORD}"]
+    networks: [backend]
+
+volumes:
+  clamav-db:
+
+networks:
+  backend:
+    internal: false   # the API reaches MySQL, storage and SMTP outside
+  edge:

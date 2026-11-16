@@ -3,6 +3,7 @@ import {
   PublicClientApplication,
   type AccountInfo,
 } from '@azure/msal-browser'
+import { hostsMissingFromCsp, loadRuntimeConfig, runtimeConfig } from './runtimeConfig'
 
 /**
  * How the app signs in (task 051), decided by the API (GET /api/auth/config) before the first render:
@@ -18,6 +19,8 @@ export interface AuthProviderInfo {
   kind: string
   displayName: string
   authority: string
+  policy: string | null
+  knownAuthorities: string[]
   clientId: string
   scopes: string[]
 }
@@ -47,6 +50,11 @@ export let authMode: AuthMode = 'oidc'
 export let authProviders: AuthProviderInfo[] = []
 /** initAuth could not read the configuration (the API is down): the login page says so. */
 export let authConfigError = false
+/**
+ * Task 052: the identity hosts the API names that the frontend's CSP does not allow (the B2C host given to nginx
+ * differs from Auth:Providers) — the login would fail silently, so the login page shows an administrator error.
+ */
+export let cspMismatch: string[] = []
 
 const clients = new Map<string, PublicClientApplication>()
 
@@ -61,8 +69,8 @@ function createClient(provider: AuthProviderInfo) {
     auth: {
       clientId: provider.clientId,
       authority: provider.authority,
-      // B2C: its b2clogin.com host must be trusted explicitly; harmless for Entra ID
-      knownAuthorities: [new URL(provider.authority).host],
+      // B2C: its b2clogin.com host must be trusted explicitly (from the API); harmless for Entra ID
+      knownAuthorities: provider.knownAuthorities.length > 0 ? provider.knownAuthorities : [new URL(provider.authority).host],
       redirectUri: `${window.location.origin}/auth/callback`,
       postLogoutRedirectUri: `${window.location.origin}/login`,
       navigateToLoginRequestUrl: false,
@@ -76,8 +84,9 @@ function createClient(provider: AuthProviderInfo) {
  * Called once before the first render (main.tsx).
  */
 export async function initAuth(): Promise<void> {
+  await loadRuntimeConfig()
   try {
-    const response = await fetch('/api/auth/config')
+    const response = await fetch(`${runtimeConfig.apiBasePath}/api/auth/config`)
     if (!response.ok) throw new Error(String(response.status))
     const config = (await response.json()) as { mode: string; providers: AuthProviderInfo[] }
     authMode = config.mode === 'dev' ? 'dev' : 'oidc'
@@ -88,6 +97,8 @@ export async function initAuth(): Promise<void> {
   }
 
   if (authMode !== 'oidc') return
+  cspMismatch = hostsMissingFromCsp([...new Set(authProviders.flatMap((p) => p.knownAuthorities))])
+  if (cspMismatch.length > 0) return
   for (const provider of authProviders) {
     try {
       const client = createClient(provider)

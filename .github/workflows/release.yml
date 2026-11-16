@@ -1,0 +1,87 @@
+# Task 052 — a release: pushing the tag vX.Y.Z builds the three images with that version, scans them, pushes them to
+# the registry and creates the GitHub release with the deployment bundle and the SBOMs.
+#   git tag v1.2.3 && git push origin v1.2.3
+# TODO(akshi-q-registry): the registry. Default GHCR (ghcr.io/<owner>/ash-*), with the workflow's own GITHUB_TOKEN.
+#   For another registry set the repository VARIABLE REGISTRY (e.g. registry.akshi.gov.al/ash) and the environment
+#   SECRETS REGISTRY_USERNAME / REGISTRY_PASSWORD in the "release" environment (never repository-wide secrets).
+# TODO(akshi): move the repository to an AKSHI organisation; the image names follow the owner.
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write   # the GitHub release
+  packages: write   # GHCR
+
+env:
+  NODE_VERSION: "24.21.0"
+  DOTNET_VERSION: "10.0.401"
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version and registry
+        id: meta
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          registry="${{ vars.REGISTRY }}"
+          if [ -z "$registry" ]; then registry="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+      - name: Log in (GHCR)
+        if: vars.REGISTRY == ''
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Log in (AKSHI registry)
+        if: vars.REGISTRY != ''
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: echo "$REGISTRY_PASSWORD" | docker login "${{ vars.REGISTRY }}" -u "$REGISTRY_USERNAME" --password-stdin
+      - name: Build
+        run: |
+          for image in api migrator frontend; do
+            docker build -f "deploy/docker/$image.Dockerfile" --build-arg "VERSION=${{ steps.meta.outputs.version }}" \
+              -t "${{ steps.meta.outputs.registry }}/ash-$image:${{ steps.meta.outputs.version }}" .
+          done
+      - name: Trivy api
+        uses: aquasecurity/trivy-action@0.28.0
+        with: { image-ref: "${{ steps.meta.outputs.registry }}/ash-api:${{ steps.meta.outputs.version }}", severity: "HIGH,CRITICAL", ignore-unfixed: true, exit-code: "1" }
+      - name: Trivy migrator
+        uses: aquasecurity/trivy-action@0.28.0
+        with: { image-ref: "${{ steps.meta.outputs.registry }}/ash-migrator:${{ steps.meta.outputs.version }}", severity: "HIGH,CRITICAL", ignore-unfixed: true, exit-code: "1" }
+      - name: Trivy frontend
+        uses: aquasecurity/trivy-action@0.28.0
+        with: { image-ref: "${{ steps.meta.outputs.registry }}/ash-frontend:${{ steps.meta.outputs.version }}", severity: "HIGH,CRITICAL", ignore-unfixed: true, exit-code: "1" }
+      - name: Push (immutable version tags; no "latest")
+        run: |
+          for image in api migrator frontend; do
+            docker push "${{ steps.meta.outputs.registry }}/ash-$image:${{ steps.meta.outputs.version }}"
+          done
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: SBOMs and the deployment bundle
+        run: |
+          mkdir -p dist
+          dotnet tool install --global CycloneDX --version 5.5.0
+          dotnet-CycloneDX src/backend/Ash.sln --output dist --filename ash-backend.cdx.json --json
+          (cd src/frontend && npm ci && npx --yes @cyclonedx/cyclonedx-npm@4.0.3 --omit dev --output-file ../../dist/ash-frontend.cdx.json)
+          # the bundle names the exact images of this release
+          sed -i "s/^ASH_VERSION=.*/ASH_VERSION=${{ steps.meta.outputs.version }}/; s#^ASH_REGISTRY=.*#ASH_REGISTRY=${{ steps.meta.outputs.registry }}#" deploy/.env.example
+          tar -czf "dist/ash-deploy-${{ steps.meta.outputs.version }}.tar.gz" --exclude=deploy/docker deploy
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --title "ASH ${{ steps.meta.outputs.version }}"
+          --notes "Images: ${{ steps.meta.outputs.registry }}/ash-{api,migrator,frontend}:${{ steps.meta.outputs.version }}. Install / upgrade: deploy/README.md."

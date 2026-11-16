@@ -6,7 +6,10 @@ export const sq = {
     emblemAlt: 'Stema e Republikës së Shqipërisë',
   },
   shell: {
-    search: 'Kërko çështje (kodi, nr. i aktit, pala)…',
+    // task 052: the footer — release and (outside Production) the environment
+    version: (version: string) => `Versioni ${version}`,
+    environment: (name: string) => `Mjedisi: ${name}`,
+    search:'Kërko çështje (kodi, nr. i aktit, pala)…',
     searchLabel: 'Kërko çështje',
     userMenu: 'Menyja e përdoruesit',
     profile: 'Profili',
@@ -455,6 +458,9 @@ export const sq = {
     user: 'Përdoruesi',
     submit: 'Hyr',
     oidcNotConfigured: 'Hyrja institucionale nuk është konfiguruar.',
+    cspMismatch: 'Konfigurimi i hyrjes nuk përputhet me CSP',
+    cspMismatchHosts: (hosts: string) =>
+      `Ofruesi i identitetit (${hosts}) nuk lejohet nga politika e sigurisë së faqes. Njoftoni administratorin: ASH_IDP_HOSTS i frontend-it duhet të përmbajë këtë host.`,
     redirecting: 'Po ju ridrejtojmë…',
   },
   /** task 051: the idle logout */

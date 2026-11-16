@@ -9,6 +9,7 @@ import { tokens } from '../theme/tokens'
 import { useAuth } from './authContext'
 import { IdleLogout } from './IdleLogout'
 import { NotificationsProvider } from './NotificationsProvider'
+import { runtimeConfig } from './runtimeConfig'
 import { AppHeader } from './shell/AppHeader'
 import { Sidebar } from './shell/Sidebar'
 import { ChatProvider } from '../features/chat/ChatProvider'
@@ -81,6 +82,14 @@ export function Layout() {
         }}
       >
         <Box sx={{ p: tokens.layout.pagePadding, '@media print': { p: 0 } }}>{content}</Box>
+        {/* task 052: the release (support) and, outside Production, the environment */}
+        <Box
+          component="footer"
+          sx={{ px: tokens.layout.pagePadding, pb: 2, color: 'text.secondary', typography: 'caption', '@media print': { display: 'none' } }}
+        >
+          {sq.shell.version(runtimeConfig.version)}
+          {runtimeConfig.environment !== 'Production' && ` · ${sq.shell.environment(runtimeConfig.environment)}`}
+        </Box>
       </Box>
       {/* Back/Forward return to the same scroll position (e.g. the case list, whose pages stay cached) */}
       <ScrollRestoration />

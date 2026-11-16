@@ -1,0 +1,86 @@
+# Task 052 — the frontend's site. A TEMPLATE: docker-entrypoint.sh fills the ${…} values from the environment at start
+# (envsubst with an explicit variable list, so nginx's own $variables stay) and writes /tmp/ash/site.conf.
+#   ${ASH_API_UPSTREAM}   the API, e.g. http://api:8080 (one instance, or a load balancer / service in front of several)
+#   ${ASH_CSP}            the Content-Security-Policy (tools/security/csp.mjs at build time + ASH_IDP_HOSTS at start)
+#   ${ASH_MAX_BODY}       the largest upload + 1 MB, e.g. 51m (the API's own limits stay the real check)
+#   ${ASH_HSTS}           the Strict-Transport-Security value, or empty when TLS ends at AKSHI's ingress (it sends HSTS)
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    # the security headers of every answer (the API adds its own on /api)
+    add_header Content-Security-Policy "${ASH_CSP}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Strict-Transport-Security "${ASH_HSTS}" always;
+    add_header X-Request-Id $request_id always;
+
+    # the build's hashed files never change: cached for a year
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Content-Security-Policy "${ASH_CSP}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Strict-Transport-Security "${ASH_HSTS}" always;
+        try_files $uri =404;
+    }
+
+    # the runtime configuration (generated at start, never cached)
+    location = /config.json {
+        alias /tmp/ash/config.json;
+        default_type application/json;
+        add_header Cache-Control "no-cache, no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # the API and the hubs on the same origin (no CORS); the client's address and scheme forwarded
+    location /api/ {
+        proxy_pass ${ASH_API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
+        # exports of a whole office take time
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        # uploads go straight through (no buffering to disk), up to the largest allowed file
+        client_max_body_size ${ASH_MAX_BODY};
+        proxy_request_buffering off;
+    }
+
+    location /hubs/ {
+        proxy_pass ${ASH_API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # WebSockets stay open: SignalR pings every 15 s
+        proxy_read_timeout 120s;
+        proxy_buffering off;
+    }
+
+    # the health of the frontend container itself (the API has /health/ready)
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    # the SPA: every other path is index.html, never cached (a new release takes effect at once)
+    location / {
+        add_header Cache-Control "no-cache" always;
+        add_header Content-Security-Policy "${ASH_CSP}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Strict-Transport-Security "${ASH_HSTS}" always;
+        try_files $uri /index.html;
+    }
+}

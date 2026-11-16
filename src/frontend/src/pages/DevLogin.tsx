@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { useAuth } from '../app/authContext'
-import { authConfigError, authMode, authProviders, devUsers, isOidcSignedIn } from '../app/authConfig'
+import { authConfigError, authMode, authProviders, cspMismatch, devUsers, isOidcSignedIn } from '../app/authConfig'
 import { BrandImage } from '../app/shell/BrandImage'
 import { sq } from '../i18n/sq'
 import { tokens } from '../theme/tokens'
@@ -148,6 +148,13 @@ export function DevLogin() {
           </form>
         ) : authConfigError ? (
           <Alert severity="error">{sq.errors.network}</Alert>
+        ) : cspMismatch.length > 0 ? (
+          // task 052: the providers the API names are not allowed by the frontend's CSP — tell the administrator
+          <Alert severity="error">
+            <strong>{sq.login.cspMismatch}</strong>
+            <br />
+            {sq.login.cspMismatchHosts(cspMismatch.join(', '))}
+          </Alert>
         ) : authProviders.length === 0 ? (
           <Alert severity="error">{sq.login.oidcNotConfigured}</Alert>
         ) : authProviders.length === 1 ? (

@@ -999,3 +999,34 @@ restart the API, `npm run dev`.
    - The closing succeeds.
    - `email_outbox` keeps the mail PENDING with `attempts` and `last_error`.
    - Start Mailpit again: the mail arrives at its next attempt (within minutes).
+
+## 052 — Deployment (images, configuration, health)
+
+Build the images from the repository root (`deploy/docker/*.Dockerfile`). The full smoke checklist for a real
+environment is in `deploy/README.md`.
+
+1. **Footer:** in `npm run dev`, the bottom of every page reads "Versioni dev · Mjedisi: Development".
+   - In a Production image, only "Versioni 1.2.3" shows.
+2. **CSP guard:** start `ash-frontend` with `ASH_IDP_HOSTS=other.b2clogin.com` while the API's B2C authority is on
+   another host. The login page shows "Konfigurimi i hyrjes nuk përputhet me CSP" and names the missing host.
+   - With the right host, the warning is gone.
+3. **Missing configuration:** start `ash-api` with `ASPNETCORE_ENVIRONMENT=Production` and no settings.
+   - It exits.
+   - The log lists every missing setting in one message (connections, storage, ClamAV, e-mail, identity).
+4. **Dev login refused:** run `ash-api` in `Uat` with `DevFeatures__HeaderAuth=true`. It refuses to start.
+5. **Health:**
+   - `/health/live` returns 200 even with MySQL stopped.
+   - `/health/ready` returns 503 with MySQL stopped and 200 again once it is back.
+   - `/api/version` without login returns 401; after login it returns the version and environment.
+6. **MySQL settings:** run the API against a MySQL with `innodb_ft_enable_stopword=ON`.
+   - The API still starts.
+   - The log warns "MySQL server setting: innodb_ft_enable_stopword must be OFF".
+   - `/health/ready` returns 503.
+7. **Real client IP:**
+   - behind the proxy listed in `ReverseProxy__KnownNetworks__0`, the audit log shows the browser's IP;
+   - remove the setting and it shows the proxy's IP.
+8. **Containers:**
+   - `docker exec <api> id -u` is not 0;
+   - writing to `/app` fails (read-only);
+   - `date` follows Europe/Tirane in the app (case deadlines);
+   - Albanian month names appear in the PDF export.

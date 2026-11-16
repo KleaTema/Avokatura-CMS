@@ -35,7 +35,7 @@ public class EndpointAuthorizationTests(MySqlFixture db) : IntegrationTest(db)
     /// <summary>Anonymous by design: the health check, the login page's configuration, the API description in Development.</summary>
     private static readonly string[] AnonymousAllowList =
     [
-        "/health", "/api/auth/config", "/openapi/{documentName}.json",
+        "/health", "/health/live", "/health/ready", "/api/auth/config", "/openapi/{documentName}.json",
         "/scalar/{documentName?}", "/scalar/favicon.svg", "/scalar/scalar.aspnetcore.js", "/scalar/scalar.js",
     ];
 

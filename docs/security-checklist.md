@@ -73,3 +73,15 @@ Each item: what is required, how it is enforced, and the test that proves it. Fi
 | 12 | Dependency scan: `dotnet list package --vulnerable --include-transitive` + `npm audit --omit=dev --audit-level=high`; high / critical → exit 1 | `tools/security/scan-deps.ps1` (CI: task 052) | run 2026-11-16: 0 high/critical in NuGet and npm |
 | 12 | Licences of every production dependency (NuGet without test projects, npm without dev), from the local caches; non-permissive flagged | `tools/security/third-party-notices.mjs` → `THIRD-PARTY-NOTICES.md` | 230 packages, 6 to review (see the file) |
 | 13 | OWASP ZAP baseline (passive), authenticated with the dev header through a ZAP replacer rule, Development only (the script checks `/api/auth/config`) | `tools/security/zap-baseline.ps1` → `docs/security/zap-baseline.html` | to be run (Docker) — findings: pending the report |
+
+## Task 052 — deployment
+
+| # | Item | How it is enforced | Test |
+|---|---|---|---|
+| D1 | Containers run non-root with a read-only root filesystem, no capabilities, no-new-privileges | `deploy/docker/*.Dockerfile` (`USER`), `deploy/docker-compose.production.yml` | container check (final run) |
+| D2 | Configuration only from the environment; every missing setting listed at once; no secret in `appsettings.Production.json` | `Configuration/StartupValidator` | `The_startup_validator_lists_every_missing_setting_at_once`, `AppSettings_Production_holds_no_secret` |
+| D3 | X-Forwarded-For / -Proto believed only from the configured proxies | `Security/ReverseProxy` | `Forwarded_headers_are_used_from_a_known_proxy_and_ignored_from_anyone_else` |
+| D4 | The anonymous login configuration holds public values only | `Auth/AuthConfigEndpoint` | `The_anonymous_login_configuration_holds_public_values_only` |
+| D5 | CSP with the identity host from the environment; the app warns when it differs from the API's providers | `deploy/frontend/docker-entrypoint.sh`, `app/runtimeConfig.ts` | container check, manual test 052.2 |
+| D6 | Images scanned (Trivy HIGH/CRITICAL with a fix fail), SBOMs per build, secrets only as environment secrets | `.github/workflows/ci.yml`, `release.yml` | CI |
+| D7 | `/api/version` needs a login; only the health probes are anonymous | `Configuration/AppVersion` | `Version_needs_a_login_and_the_health_probes_do_not` |

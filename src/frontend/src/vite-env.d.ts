@@ -1,11 +1,4 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_AUTH_MODE?: 'dev' | 'oidc'
-  readonly VITE_OIDC_AUTHORITY?: string
-  readonly VITE_OIDC_CLIENT_ID?: string
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
+// Task 052: no build-time configuration — the app reads /config.json (runtimeConfig.ts) and the identity providers
+// from the API (GET /api/auth/config) at start, so ONE build serves every environment.

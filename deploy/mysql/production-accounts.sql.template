@@ -1,0 +1,39 @@
+-- =====================================================================
+-- ASH — the production database accounts (task 052). A TEMPLATE for the DBA: run it as root ONCE per environment,
+-- AFTER the first migrator run (script 001 creates the schemas and the accounts at host '10.%' with a placeholder
+-- password, 008/016/019 add the table grants).
+--
+-- Replace before running (never commit the filled-in file):
+--   {{APP_HOST}}    the API servers' host pattern, e.g. '10.20.30.%'      (TODO(akshi-q-hosting))
+--   {{BACKUP_HOST}} where the backup runs, e.g. 'localhost'
+--   {{*_PASSWORD}}  from the secrets store — long random values, one per account
+--
+-- Why: script 001 names the subnet '10.%' and a placeholder password. This file
+--   1) sets the REAL passwords on every account (the placeholder must never stay),
+--   2) when the API servers are NOT in 10.% : renames the accounts to the real host pattern (grants follow),
+--   3) keeps REQUIRE SSL on every network account.
+-- The least-privilege grants themselves come from the migration scripts (checked by DatabasePrivilegeTests).
+-- =====================================================================
+
+-- 1) the real passwords (all accounts)
+ALTER USER 'ash_migrator'@'10.%'      IDENTIFIED BY '{{MIGRATOR_PASSWORD}}'     REQUIRE SSL;
+ALTER USER 'ash_app'@'10.%'           IDENTIFIED BY '{{APP_PASSWORD}}'          REQUIRE SSL;
+ALTER USER 'ash_chat_app'@'10.%'      IDENTIFIED BY '{{CHAT_PASSWORD}}'         REQUIRE SSL;
+ALTER USER 'ash_audit_writer'@'10.%'  IDENTIFIED BY '{{AUDIT_WRITER_PASSWORD}}' REQUIRE SSL;
+ALTER USER 'ash_audit_digest'@'10.%'  IDENTIFIED BY '{{AUDIT_DIGEST_PASSWORD}}' REQUIRE SSL;
+ALTER USER 'ash_reporting'@'10.%'     IDENTIFIED BY '{{REPORTING_PASSWORD}}'    REQUIRE SSL;
+ALTER USER 'ash_backup'@'localhost'   IDENTIFIED BY '{{BACKUP_PASSWORD}}';
+
+-- 2) only when the API servers are NOT in 10.% — move every network account to the real host pattern
+--    (RENAME USER keeps the grants). Delete this block when 10.% is right.
+RENAME USER 'ash_migrator'@'10.%'     TO 'ash_migrator'@'{{APP_HOST}}';
+RENAME USER 'ash_app'@'10.%'          TO 'ash_app'@'{{APP_HOST}}';
+RENAME USER 'ash_chat_app'@'10.%'     TO 'ash_chat_app'@'{{APP_HOST}}';
+RENAME USER 'ash_audit_writer'@'10.%' TO 'ash_audit_writer'@'{{APP_HOST}}';
+RENAME USER 'ash_audit_digest'@'10.%' TO 'ash_audit_digest'@'{{APP_HOST}}';
+RENAME USER 'ash_reporting'@'10.%'    TO 'ash_reporting'@'{{APP_HOST}}';
+-- NOTE: the migration scripts grant to '10.%'. After a rename, a LATER script that grants to '10.%' fails until the
+-- DBA re-applies it to the new host — ask the developers for such scripts' grants (docs: deploy/README.md, Upgrade).
+
+-- 3) check: no account with the placeholder password, every network account REQUIRE SSL
+SELECT user, host, ssl_type FROM mysql.user WHERE user LIKE 'ash\_%' ORDER BY user;

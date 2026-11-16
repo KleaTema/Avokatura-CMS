@@ -53,6 +53,16 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Email__Enabled", "false");
         Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", Ssl(db.AuditDigestConnectionString));
         Environment.SetEnvironmentVariable("ConnectionStrings__Chat", Ssl(db.ChatConnectionString));
+        // task 052: outside Development the startup validator wants every required setting — a test host without a
+        // MinIO gets a placeholder endpoint (never contacted by those tests) and the reporting connection
+        var production = environment != "Development";
+        Environment.SetEnvironmentVariable("ConnectionStrings__Reporting", production ? Ssl(db.AppConnectionString) : null);
+        if (production && storage is null)
+        {
+            Environment.SetEnvironmentVariable("Storage__ServiceUrl", "http://storage.test.invalid");
+            Environment.SetEnvironmentVariable("Storage__AccessKey", "test");
+            Environment.SetEnvironmentVariable("Storage__SecretKey", "test");
+        }
         // task 051: tests are not throttled (they run many calls in a second) — HardeningTests sets its own small limits
         foreach (var policy in new[] { "upload", "export", "search", "crossOffice", "notify", "handoff", "hub" })
         {

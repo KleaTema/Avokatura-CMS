@@ -21,6 +21,18 @@ The schema is owned by DbUp scripts in `src/backend/Database/Ash.Database/Script
 11. Grants: if a new table must be read by `ash_chat_app` or `ash_reporting`, add the GRANT in the same script.
 12. Routines/triggers use `DELIMITER $$ … $$ DELIMITER ;` exactly like scripts 004 and 006.
 13. Adding a NOT NULL column whose default is non-deterministic (UUID(), NOW()) to a table that may have rows: ADD it NULL → UPDATE existing rows → MODIFY to NOT NULL DEFAULT (...). A one-step ALTER fails with error 1674 when binary logging is on (MySQL 8 default).
+14. **Expand, then contract (task 052).** The migrator runs BEFORE the new API version starts, and during a rolling
+    upgrade or a rollback the OLD API version runs against the NEW schema. So every script must keep the previous
+    release working:
+    - *Expand* (this release): add tables / columns (NULL or DEFAULT), add views, add grants. Never rename or drop
+      in the same release that stops using something; never make an existing column NOT NULL that the old version
+      does not write.
+    - *Contract* (a LATER release, once no running version uses it): drop the old column / table / grant, tighten
+      constraints. Write a note in the expand script's header naming the release that may contract it.
+    - A rename is add-new + copy + (later) drop-old. A rollback of the API never needs a "down" script.
+15. Grants name the host `'10.%'` like script 001. A DBA who renamed the accounts to another host
+    (`deploy/mysql/production-accounts.sql.template`) re-applies a new script's GRANT lines to that host — list them
+    in the release notes.
 
 ## After writing the script
 - Run `dotnet run --project src/backend/Database/Ash.Database -- --local` against the local Docker MySQL; it must apply only the new script and exit 0.

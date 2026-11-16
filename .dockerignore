@@ -1,0 +1,17 @@
+# Task 052: the build context is the repository root (the frontend build reads tools/security/csp.mjs)
+.git
+.github
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+**/logs
+**/*.user
+**/.vs
+**/.vscode
+**/.idea
+src/backend/Tests
+docs
+*.pdf

@@ -1,0 +1,48 @@
+# =====================================================================
+# ASH — MySQL 8 server settings for production (task 052; from docs/sql/mysql_server.cnf).
+# Put in /etc/mysql/mysql.conf.d/ash.cnf on the primary AND the replica, then restart MySQL.
+# The API checks the starred (*) settings at every start: a wrong one is a warning in its log and a failing
+# /health/ready (never a crash) — fix it here.
+# Sizes assume a dedicated 16 GB database server: scale with the real machine.
+# =====================================================================
+[mysqld]
+# --- correctness ------------------------------------------------------
+default-time-zone            = '+00:00'          # * every DATETIME column is UTC
+character-set-server         = utf8mb4           # * Albanian text
+collation-server             = utf8mb4_0900_ai_ci
+sql_mode                     = ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+transaction_isolation        = READ-COMMITTED    # fewer gap locks / deadlocks under concurrent case edits
+event_scheduler              = ON                # * partition rotation (ash_ops.ev_rotate_partitions)
+innodb_ft_enable_stopword    = OFF               # * the ngram search: an English stopword list drops Albanian
+                                                 #   substrings; also read when an index is rebuilt
+ngram_token_size             = 2                 # * the search relies on it (2-character queries)
+
+# --- durability: these are legal records -------------------------------
+innodb_flush_log_at_trx_commit = 1
+sync_binlog                    = 1
+binlog_format                  = ROW
+binlog_expire_logs_seconds     = 1209600         # 14 days of binlogs => the point-in-time recovery window
+gtid_mode                      = ON
+enforce_gtid_consistency       = ON              # required for the read replica (reports)
+
+# --- performance ------------------------------------------------------
+innodb_buffer_pool_size        = 10G             # ~60-70% of RAM
+innodb_buffer_pool_instances   = 8
+innodb_redo_log_capacity       = 2G
+innodb_io_capacity             = 2000            # SSD / NVMe
+max_connections                = 300             # each API instance pools ~20-50 connections
+innodb_print_all_deadlocks     = ON
+slow_query_log                 = ON
+long_query_time                = 0.5
+
+# --- security ---------------------------------------------------------
+require_secure_transport       = ON              # * TLS for every client connection (Production)
+tls_version                    = TLSv1.2,TLSv1.3
+local_infile                   = OFF
+skip_name_resolve              = ON
+# Encryption at rest: enable after installing a keyring component (component_keyring_file, or a KMIP / Vault
+# keyring if AKSHI provides one):
+# default_table_encryption     = ON
+# binlog_encryption            = ON
+# innodb_redo_log_encrypt      = ON
+# innodb_undo_log_encrypt      = ON

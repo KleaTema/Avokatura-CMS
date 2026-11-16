@@ -1,5 +1,6 @@
 import { HubConnectionBuilder, LogLevel, type HubConnection } from '@microsoft/signalr'
 import { accessToken, authMode, getDevUser } from './authConfig'
+import { runtimeConfig } from './runtimeConfig'
 
 /**
  * The SignalR connections of the app (task 040 notifications, task 050 chat) are built the same way. In Development the
@@ -7,7 +8,9 @@ import { accessToken, authMode, getDevUser } from './authConfig'
  * `dev_user` on /hubs/* only and never logs it). With a provider (task 051) the token comes from accessTokenFactory
  * (the API accepts ?access_token= on /hubs/* only).
  */
-export function hubUrl(path: string): string {
+export function hubUrl(hubPath: string): string {
+  // task 052: the API's base path from /config.json ('' = same origin)
+  const path = `${runtimeConfig.apiBasePath}${hubPath}`
   if (authMode !== 'dev') return path
   const email = getDevUser()
   return email ? `${path}?dev_user=${encodeURIComponent(email)}` : path

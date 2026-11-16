@@ -1,0 +1,123 @@
+# Task 052 — continuous integration: every push and pull request to main.
+# Backend (warnings are errors: Directory.Build.props), all backend tests (integration: Testcontainers MySQL on the
+# runner's Docker), frontend lint/build/Vitest, the dependency scan, SBOMs (CycloneDX) and the three images (built,
+# never pushed here) scanned with Trivy. Releases: release.yml. No secret is needed by this workflow.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  NODE_VERSION: "24.21.0"
+  DOTNET_VERSION: "10.0.401"
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Restore
+        run: dotnet restore src/backend/Ash.sln
+      - name: Build (TreatWarningsAsErrors)
+        run: dotnet build src/backend/Ash.sln -c Release --no-restore
+      - name: Test (unit, architecture, integration with Testcontainers)
+        # every hanging test is stopped and reported (a dump) instead of blocking the runner
+        run: >
+          dotnet test src/backend/Ash.sln -c Release --no-build
+          --blame-hang-timeout 5m
+          --logger "trx;LogFilePrefix=test"
+          --results-directory test-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: test-results
+          retention-days: 14
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+
+  scan-deps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: dotnet restore src/backend/Ash.sln
+      - run: npm ci
+        working-directory: src/frontend
+      - name: High / critical vulnerabilities (NuGet + npm production)
+        shell: pwsh
+        run: ./tools/security/scan-deps.ps1
+      - name: SBOMs (CycloneDX)
+        run: |
+          mkdir -p sbom
+          dotnet tool install --global CycloneDX --version 5.5.0
+          dotnet-CycloneDX src/backend/Ash.sln --output sbom --filename ash-backend.cdx.json --json
+          (cd src/frontend && npx --yes @cyclonedx/cyclonedx-npm@4.0.3 --omit dev --output-file ../../sbom/ash-frontend.cdx.json)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom
+          retention-days: 30
+
+  images:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, migrator, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ash-${{ matrix.image }}
+        run: >
+          docker build -f deploy/docker/${{ matrix.image }}.Dockerfile
+          --build-arg VERSION=0.0.0-ci.${{ github.run_number }}
+          -t ash-${{ matrix.image }}:ci .
+      - name: Trivy (HIGH / CRITICAL with a fix fail the build)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ash-${{ matrix.image }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
