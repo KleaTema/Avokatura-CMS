@@ -67,6 +67,11 @@ builder.Services.TryAddSingleton<IClock, SystemClock>();
 builder.Services.AddAshAuthentication(builder.Configuration, builder.Environment);
 // task 051: CORS only for the configured frontend origin(s) — none when same-origin (production)
 builder.Services.AddAshCors(builder.Configuration);
+// task 051: rate limits per user (anonymous per IP) on the expensive / cross-office endpoints
+builder.Services.AddAshRateLimiting(builder.Configuration);
+// task 051: body 1 MB (upload and Organika excepted), JSON depth 32, multipart limits
+builder.Services.AddAshRequestLimits();
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = RequestLimits.DefaultMaxBodyBytes);
 builder.Services.AddHsts(o =>
 {
     o.MaxAge = TimeSpan.FromDays(365);
@@ -95,6 +100,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors(Ash.Api.Security.CorsSetup.PolicyName);
+// task 051: the body limit of the matched route (routing runs first: the endpoint is known here)
+app.UseMiddleware<RequestLimitsMiddleware>();
 app.UseMiddleware<AuditMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -102,6 +109,8 @@ app.UseMiddleware<UnitOfWorkMiddleware>();
 app.UseAuthentication();
 // fills ICurrentUser before permission policies are evaluated
 app.UseMiddleware<CurrentUserMiddleware>();
+// task 051: after the user is known (limits are per user), before the endpoint runs
+app.UseRateLimiter();
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())

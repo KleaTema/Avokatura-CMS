@@ -27,6 +27,8 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         _configureServices = services =>
         {
             TestIdentity.UseTestKeys(services);
+            // task 051: every log event of the run, for the secrets scan (SecretsTests)
+            services.AddSingleton<Serilog.Core.ILogEventSink>(SuiteLogSink.Instance);
             configureServices?.Invoke(services);
         };
         TestIdentity.Configure(providers ?? TestIdentity.Providers.Both);
@@ -47,6 +49,13 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Email__Enabled", "false");
         Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", db.AuditDigestConnectionString);
         Environment.SetEnvironmentVariable("ConnectionStrings__Chat", db.ChatConnectionString);
+        // task 051: tests are not throttled (they run many calls in a second) — HardeningTests sets its own small limits
+        foreach (var policy in new[] { "upload", "export", "search", "crossOffice", "notify", "handoff", "hub" })
+        {
+            Environment.SetEnvironmentVariable($"RateLimits__{policy}__PermitLimit", "100000");
+            Environment.SetEnvironmentVariable($"RateLimits__{policy}__WindowSeconds", "60");
+        }
+
         // a test's own variables last, so they win over the defaults above
         foreach (var (name, value) in environmentVariables ?? new Dictionary<string, string?>())
         {

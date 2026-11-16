@@ -257,7 +257,7 @@ public class AuthenticationTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task The_admin_lists_and_unlinks_identities_and_the_next_login_links_again_by_email()
+    public async Task The_admin_lists_identities_and_unlinking_blocks_that_account()
     {
         await using var factory = CreateFactory("Production");
         using var client = factory.CreateClient();
@@ -276,10 +276,15 @@ public class AuthenticationTests(MySqlFixture db) : IntegrationTest(db)
         var unlink = new HttpRequestMessage(HttpMethod.Delete, $"/api/identity/admin/users/{userId}/identities/{identity.GetProperty("publicId").GetGuid()}");
         unlink.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin);
         (await client.SendAsync(unlink, Ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        (await Scalar($"SELECT COUNT(*) FROM user_identities WHERE subject = '{oid}'")).ShouldBe(0L);
 
-        // the same account signs in again: linked again by e-mail (a new row)
-        (await WhoAmI(client, TestIdentity.B2C(oid, "avokat2@ash.local"))).ShouldBe("avokat2@ash.local");
+        // task 051 item 8 (decision 16.11.2026): "Shkëput" blocks that account — the row stays as a tombstone, the list
+        // shows it blocked, and the same account is refused (never re-linked by e-mail); HardeningTests covers "Lejo sërish"
+        (await Scalar($"SELECT COUNT(*) FROM user_identities WHERE subject = '{oid}' AND blocked_at IS NOT NULL")).ShouldBe(1L);
+        var again = new HttpRequestMessage(HttpMethod.Get, $"/api/identity/admin/users/{userId}/identities");
+        again.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin);
+        (await (await client.SendAsync(again, Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct))
+            .EnumerateArray().Single().GetProperty("blockedAt").ValueKind.ShouldBe(JsonValueKind.String);
+        (await WhoAmI(client, TestIdentity.B2C(oid, "avokat2@ash.local"))).ShouldBeNull();
     }
 
     [Fact]

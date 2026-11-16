@@ -97,6 +97,19 @@ public static class AdminUserEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("UnlinkAdminUserIdentity");
 
+        group.MapPost("/{id:guid}/identities/{identityId:guid}/allow", async (Guid id, Guid identityId, AllowIdentityRequest req,
+                UserIdentityHandlers handlers, CancellationToken ct) =>
+            {
+                var r = await handlers.AllowAsync(id, identityId, req, ct);
+                return r.IsSuccess ? Results.NoContent() : r.Error!.ToProblem();
+            })
+            .RequirePermission(Permission)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("AllowAdminUserIdentity");
+
         endpoints.MapGet("/api/identity/admin/roles", async (ListRolesHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(ct)))
             .RequirePermission(Permission)

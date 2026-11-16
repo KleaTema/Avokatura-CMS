@@ -32,6 +32,12 @@ public sealed class ResolveUserHandler(IdentityDbContext db, IMemoryCache cache,
             var (provider, subject) = (req.Provider, req.Subject);
             var identity = await db.UserIdentities.AsNoTracking()
                 .SingleOrDefaultAsync(i => i.ProviderName == provider && i.Subject == subject, ct);
+            if (identity is { BlockedAt: not null })
+            {
+                // "Shkëput" (task 051): this account is blocked — 401, and never re-linked by e-mail
+                return Unknown();
+            }
+
             if (identity is not null)
             {
                 user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == identity.UserId, ct);

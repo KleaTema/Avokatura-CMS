@@ -76,6 +76,8 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.EmailAtLink).HasColumnName("email_at_link");
             b.Property(x => x.LinkedAt).HasColumnName("linked_at");
             b.Property(x => x.LastLoginAt).HasColumnName("last_login_at");
+            b.Property(x => x.BlockedAt).HasColumnName("blocked_at");
+            b.Property(x => x.BlockedBy).HasColumnName("blocked_by");
         });
 
         modelBuilder.Entity<UserRecord>(b =>
@@ -156,6 +158,9 @@ public sealed class UserIdentityRecord
     public string? EmailAtLink { get; set; }
     public DateTime LinkedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    /// <summary>Task 051: "Shkëput" — this account may not sign in and is never re-linked by e-mail.</summary>
+    public DateTime? BlockedAt { get; set; }
+    public uint? BlockedBy { get; set; }
 }
 
 public sealed class UserRecord

@@ -33,7 +33,10 @@ public sealed class StatisticsQueries(
         }
 
         var f = resolved.Value;
-        if (f.IsCurrentYear && cache.TryGetValue(f.CacheKey, out StatisticsResponse? cached) && cached is not null)
+        // task 051 (item 8): a Kryetar's answer depends on which cases he supervises NOW — not cached, so an ended
+        // supervision leaves his numbers at once (the key holds his id, not the supervised set)
+        var cacheable = f.IsCurrentYear && f.ScopeHeadId is null;
+        if (cacheable && cache.TryGetValue(f.CacheKey, out StatisticsResponse? cached) && cached is not null)
         {
             return cached;
         }
@@ -82,7 +85,7 @@ public sealed class StatisticsQueries(
             !f.IsCurrentYear && snapshot is null ? NotFrozenWarning : null,
             StatisticsMeasures.Counts, StatisticsMeasures.DamageMeasure, StatisticsMeasures.InHandMeasure,
             table, money, results, inHand, await DescribeAsync(connection, f, ct));
-        if (f.IsCurrentYear)
+        if (cacheable)
         {
             cache.Set(f.CacheKey, response, CacheFor);
         }

@@ -26,7 +26,7 @@ public static class CsvReportWriter
         var count = 0;
         await foreach (var row in rows.WithCancellation(ct))
         {
-            await writer.WriteLineAsync(string.Join(Separator, columns.Select(c => Quote(Format(c, row.Get(c.Key))))));
+            await writer.WriteLineAsync(string.Join(Separator, columns.Select(c => Quote(Cell(c, row.Get(c.Key))))));
             count++;
         }
 
@@ -51,7 +51,22 @@ public static class CsvReportWriter
     private static DateTime Tirane(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), TiraneTime.Zone);
 
-    /// <summary>RFC 4180: a field with the separator, a quote or a line break goes in quotes, quotes doubled.</summary>
+    /// <summary>
+    /// RFC 4180: a field with the separator, a quote or a line break goes in quotes, quotes doubled. Task 051 (CSV
+    /// injection): a text that starts with = + - @ TAB or CR gets a leading single quote, so Excel shows it as text and
+    /// never runs it as a formula (a party named =HYPERLINK(…)). Numbers are written by <see cref="Format"/> and never
+    /// pass through here with such a start, except a negative amount — which stays a number (see <see cref="Cell"/>).
+    /// </summary>
     private static string Quote(string text) =>
         text.IndexOfAny([Separator, '"', '\n', '\r']) >= 0 ? $"\"{text.Replace("\"", "\"\"")}\"" : text;
+
+    private static readonly char[] FormulaStarts = ['=', '+', '-', '@', '\t', '\r'];
+
+    /// <summary>The text of a cell as written to the file: formula-like TEXT neutralised, numbers untouched.</summary>
+    public static string Cell(ReportColumn column, object? value)
+    {
+        var text = Format(column, value);
+        var numeric = value is decimal or int or long or double;
+        return !numeric && text.Length > 0 && FormulaStarts.Contains(text[0]) ? "'" + text : text;
+    }
 }

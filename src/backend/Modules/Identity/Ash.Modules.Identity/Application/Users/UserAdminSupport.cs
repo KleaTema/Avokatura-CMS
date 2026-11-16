@@ -25,7 +25,8 @@ public sealed record UserResponse(
 
 /// <summary>Shared rules and helpers of the user administration use cases.</summary>
 public sealed class UserAdminSupport(
-    IdentityDbContext db, IMemoryCache cache, IAuditLog audit, ICaseAssignmentCounts assignments, ICurrentUser currentUser)
+    IdentityDbContext db, IMemoryCache cache, IAuditLog audit, ICaseAssignmentCounts assignments, ICurrentUser currentUser,
+    Ash.Infrastructure.Persistence.IUnitOfWork unitOfWork)
 {
     public const string AdminRole = "ADMIN";
 
@@ -162,7 +163,16 @@ public sealed class UserAdminSupport(
     }
 
     /// <summary>Role and status changes must apply immediately, so drop the 60-second access cache of the user.</summary>
-    public void InvalidateAccess(uint userId) => cache.Remove($"identity:access:{userId}");
+    /// <summary>
+    /// The user's cached roles and permissions go now AND again after the commit (task 051, item 8): a request of that
+    /// user arriving between the two would otherwise cache the old roles for another minute.
+    /// </summary>
+    public void InvalidateAccess(uint userId)
+    {
+        var key = $"identity:access:{userId}";
+        cache.Remove(key);
+        unitOfWork.OnCommitted(() => cache.Remove(key));
+    }
 
     public void AuditChange(uint userId, string action, object? oldValues, object? newValues) =>
         audit.Record(AuditActions.AdminChange, "USER", userId,

@@ -79,13 +79,15 @@ internal sealed class UploadDocumentHandler(
 
         if (!MediaTypeHeaderValue.TryParse(request.ContentType, out var mediaType)
             || !mediaType.MediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
-            || HeaderUtilities.RemoveQuotes(mediaType.Boundary).Value is not { Length: > 0 } boundary)
+            // task 051: RFC 2046 boundaries are at most 70 characters
+            || HeaderUtilities.RemoveQuotes(mediaType.Boundary).Value is not { Length: > 0 and <= 70 } boundary)
         {
             return Error.Validation("document.not_multipart", "Dërgoni dokumentin si multipart/form-data.");
         }
 
         // 2. the fields, then the file section
-        var reader = new MultipartReader(boundary, request.Body) { HeadersLengthLimit = 16 * 1024 };
+        // task 051: at most 16 headers per section (the form's own limit, FormOptions, does not reach MultipartReader)
+        var reader = new MultipartReader(boundary, request.Body) { HeadersLengthLimit = 16 * 1024, HeadersCountLimit = 16 };
         var fields = new Dictionary<string, string>(StringComparer.Ordinal);
         MultipartSection? file = null;
         string? rawFileName = null;

@@ -25,6 +25,19 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
                 Status = ex.Error.Type.ToStatusCode(),
                 Title = ex.Error.Message
             },
+            // task 051: a body that cannot be read (bad / too deep JSON, too large, wrong content type) — its own status
+            // (400 / 413 / 415), never a 500, and never the parser's message
+            BadHttpRequestException ex => new ProblemDetails
+            {
+                Status = ex.StatusCode,
+                Title = ex.StatusCode switch
+                {
+                    StatusCodes.Status413PayloadTooLarge => "Kërkesa është shumë e madhe.",
+                    StatusCodes.Status415UnsupportedMediaType => "Lloji i përmbajtjes nuk pranohet.",
+                    _ => "Kërkesa nuk është e vlefshme.",
+                },
+                Extensions = { ["code"] = "request.invalid" },
+            },
             _ => null
         };
 

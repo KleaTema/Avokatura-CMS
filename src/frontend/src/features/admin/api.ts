@@ -158,6 +158,21 @@ export const useUnlinkIdentity = () => {
   })
 }
 
+/** "Lejo sërish": lift the block of a sign-in account, with a reason (task 051). */
+export const useAllowIdentity = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, identityId, reason }: { id: string; identityId: string; reason: string }) => {
+      const result = await api.POST('/api/identity/admin/users/{id}/identities/{identityId}/allow', {
+        params: { path: { id, identityId } },
+        body: { reason },
+      })
+      if (!result.response.ok) unwrap(result)
+    },
+    onSuccess: (_, { id }) => qc.invalidateQueries({ queryKey: ['admin', 'users', id, 'identities'] }),
+  })
+}
+
 export const useDeactivateUser = () => {
   const qc = useQueryClient()
   return useMutation({

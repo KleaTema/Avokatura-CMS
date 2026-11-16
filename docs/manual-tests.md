@@ -793,6 +793,16 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
    - `npm run build`, then `npx vite preview` → open http://localhost:4173.
    - The page's response has the `Content-Security-Policy` header.
    - Go through the screens (open a PDF preview, the agenda, the chat, an export): the console shows no "Refused to …".
+7. **Rate limits (phase 4):**
+   - In the header search, type quickly more than 60 searches in a minute → the message "Shumë kërkesa. Provoni pas pak.".
+   - After a minute it works again; another user is not affected.
+8. **"Shkëput" / "Lejo sërish"** (needs a real provider):
+   - *Përdoruesit → Identitetet → Shkëput* on one account → that account cannot sign in any more ("E shkëputur më …").
+   - The user's other account still works.
+   - "Lejo sërish" asks for a reason; afterwards the account signs in again.
+9. **Immediate effect:**
+   - Remove a role, or deactivate a user, while that user has a page open.
+   - Their next click → no access (no waiting a minute).
 
 ## 053h — Report builder (F, P6/P9): scopes, filters, exports, "Raportet e mia"
 **Setup:** run the migrator (script 027), restart the API, `npm run dev`. The ACTIVE test case: avokat1 primary,

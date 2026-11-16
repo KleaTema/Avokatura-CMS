@@ -851,8 +851,15 @@ export const sq = {
       none: 'Përdoruesi nuk ka hyrë ende me asnjë ofrues.',
       line: (email: string, linked: string, last: string) => `Email-i në lidhje: ${email} · Lidhur më: ${linked} · Hyrja e fundit: ${last}`,
       unlink: 'Shkëput',
+      blockExplained:
+        '„Shkëput” bllokon vetëm këtë llogari hyrjeje: nga kërkesa e radhës ajo nuk hyn më dhe nuk lidhet më me email-in. Llogaritë e tjera të përdoruesit vazhdojnë të punojnë. Për ta bllokuar personin plotësisht, çaktivizoni përdoruesin.',
+      blocked: (since: string) => `E shkëputur më ${since}`,
       confirm: (provider: string, name: string) => `Të shkëputet llogaria „${provider}” e ${name}?`,
-      confirmText: 'Hyrja e radhës me këtë ofrues do ta lidhë sërish llogarinë me email-in, nëse përdoruesi është aktiv.',
+      confirmText: 'Kjo llogari nuk do të hyjë më në sistem (nga kërkesa e radhës). Mund ta lejoni sërish më vonë, me arsye.',
+      allow: 'Lejo sërish',
+      allowTitle: (provider: string, name: string) => `Të lejohet sërish llogaria „${provider}” e ${name}?`,
+      allowText: 'Hyrja e radhës me këtë llogari do ta lidhë sërish me përdoruesin sipas email-it.',
+      reason: 'Arsyeja',
     },
     roles: {
       title: 'Rolet e përdoruesit',
