@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "playwright test -c e2e/playwright.config.ts",
+    "e2e:csp": "playwright test -c e2e/csp.config.ts",
     "gen:api": "openapi-typescript http://localhost:5004/openapi/v1.json -o src/api/schema.d.ts"
   },
   "dependencies": {

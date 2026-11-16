@@ -1,3 +1,5 @@
+// task 051: first of all — zod without its eval probe (the CSP forbids eval)
+import './app/zodConfig'
 // Inter, self-hosted (no font CDN): the weights the theme uses
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'

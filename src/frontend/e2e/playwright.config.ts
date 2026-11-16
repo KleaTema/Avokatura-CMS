@@ -7,6 +7,8 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
+  // task 051: the CSP check needs the built app with the production headers — its own config (npm run e2e:csp)
+  testIgnore: 'csp.spec.ts',
   outputDir: './test-results',
   timeout: 60_000,
   expect: { timeout: 10_000 },

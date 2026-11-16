@@ -22,7 +22,7 @@ public sealed record SavedReportView(
 /// someone else's id → 404. Running a saved report applies the reader's scope at that moment (the filters are only
 /// filters). Written through the app connection — the reporting account is read-only.
 /// </summary>
-public sealed class SavedReports(PersistenceOptions persistence, ICurrentUser user, IAuditLog audit)
+public sealed class SavedReports(PersistenceOptions persistence, IUnitOfWork unitOfWork, ICurrentUser user, IAuditLog audit)
 {
     public const int MaxPerUser = 100;
     private static readonly Error NotFound = Error.NotFound("report.saved_not_found", "Raporti i ruajtur nuk u gjet.");
@@ -177,11 +177,44 @@ public sealed class SavedReports(PersistenceOptions persistence, ICurrentUser us
     private const string Select =
         "SELECT public_id AS PublicId, name AS Name, report_table AS ReportTable, filters AS Filters, columns AS Columns, updated_at AS UpdatedAt FROM saved_reports";
 
-    private async Task<MySqlConnection> OpenAsync(CancellationToken ct)
+    /// <summary>
+    /// The request's own connection and transaction (task 051 fix): a separate connection deadlocked on the user's row —
+    /// the first request of the hour updates users.last_login_at inside the request transaction, and the INSERT's
+    /// foreign key to users then waited for that lock while the request waited for the INSERT. Outside a request
+    /// transaction (none active): an own connection.
+    /// </summary>
+    private async Task<Session> OpenAsync(CancellationToken ct)
     {
+        if (unitOfWork.HasActiveTransaction)
+        {
+            await using var probe = unitOfWork.CreateCommand("SELECT 1");
+            return new Session(unitOfWork.Connection, probe.Transaction, owned: false);
+        }
+
         var connection = new MySqlConnection(persistence.ConnectionString);
         await connection.OpenAsync(ct);
-        return connection;
+        return new Session(connection, null, owned: true);
+    }
+
+    /// <summary>A connection (+ the request transaction) that is closed at the end only when this class opened it.</summary>
+    private sealed class Session(MySqlConnection connection, MySqlTransaction? transaction, bool owned) : IAsyncDisposable
+    {
+        public Task<IEnumerable<T>> QueryAsync<T>(CommandDefinition c) =>
+            connection.QueryAsync<T>(With(c));
+
+        public Task<T?> QuerySingleOrDefaultAsync<T>(CommandDefinition c) =>
+            connection.QuerySingleOrDefaultAsync<T>(With(c));
+
+        public Task<T?> ExecuteScalarAsync<T>(CommandDefinition c) =>
+            connection.ExecuteScalarAsync<T>(With(c));
+
+        public Task<int> ExecuteAsync(CommandDefinition c) =>
+            connection.ExecuteAsync(With(c));
+
+        private CommandDefinition With(CommandDefinition c) =>
+            new(c.CommandText, c.Parameters, transaction, cancellationToken: c.CancellationToken);
+
+        public ValueTask DisposeAsync() => owned ? connection.DisposeAsync() : ValueTask.CompletedTask;
     }
 
     private static SavedReportView View(Row r)

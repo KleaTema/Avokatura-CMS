@@ -3,6 +3,7 @@ using Ash.Api.Errors;
 using Ash.Api.Health;
 using Ash.Api.Middleware;
 using Ash.Api.Persistence;
+using Ash.Api.Security;
 using Ash.Api.Jobs;
 using Ash.Infrastructure;
 using Ash.Infrastructure.Jobs;
@@ -64,6 +65,13 @@ builder.Services.AddHealthChecks()
     .AddCheck<JobsHealthCheck>("jobs");
 builder.Services.TryAddSingleton<IClock, SystemClock>();
 builder.Services.AddAshAuthentication(builder.Configuration, builder.Environment);
+// task 051: CORS only for the configured frontend origin(s) — none when same-origin (production)
+builder.Services.AddAshCors(builder.Configuration);
+builder.Services.AddHsts(o =>
+{
+    o.MaxAge = TimeSpan.FromDays(365);
+    o.IncludeSubDomains = true;
+});
 
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddReferenceModule(builder.Configuration);
@@ -79,6 +87,14 @@ var app = builder.Build();
 // RequestPath only — never the query string (task 040: hub credentials travel there)
 app.UseSerilogRequestLogging(o => o.MessageTemplate =
     "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms");
+// task 051: security headers on every response; HSTS only outside Development (and only over HTTPS)
+app.UseMiddleware<Ash.Api.Security.SecurityHeadersMiddleware>();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+app.UseCors(Ash.Api.Security.CorsSetup.PolicyName);
 app.UseMiddleware<AuditMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();

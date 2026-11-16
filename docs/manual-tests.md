@@ -786,6 +786,13 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
    - Leave the app 30 minutes untouched → "Jeni ende aty?" with a countdown from 60.
    - "Vazhdo punën" keeps you in.
    - Let it reach 0 → logged out, through the provider when one is used.
+5. **Headers (phase 3):** browser dev tools → Network → any `/api/...` response:
+   - `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`.
+   - `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
+6. **Frontend CSP:**
+   - `npm run build`, then `npx vite preview` → open http://localhost:4173.
+   - The page's response has the `Content-Security-Policy` header.
+   - Go through the screens (open a PDF preview, the agenda, the chat, an export): the console shows no "Refused to …".
 
 ## 053h — Report builder (F, P6/P9): scopes, filters, exports, "Raportet e mia"
 **Setup:** run the migrator (script 027), restart the API, `npm run dev`. The ACTIVE test case: avokat1 primary,
