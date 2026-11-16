@@ -40,6 +40,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 // task 051: outside Development no development-only feature may be switched on — refuse to start
 DevFeatures.AssertSafe(builder.Configuration, builder.Environment);
+// task 051: and every database connection encrypted (SslMode=Required or stricter)
+DatabaseSecurity.AssertSsl(builder.Configuration, builder.Environment);
 
 var connectionString = builder.Configuration.GetConnectionString("App")
     ?? throw new InvalidOperationException(

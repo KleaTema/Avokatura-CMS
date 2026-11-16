@@ -803,6 +803,11 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 9. **Immediate effect:**
    - Remove a role, or deactivate a user, while that user has a page open.
    - Their next click → no access (no waiting a minute).
+10. **Dependencies (phase 5):**
+    - `.\tools\security\scan-deps.ps1` → "Dependency scan passed." (needs the network).
+    - `node tools\security\third-party-notices.mjs` regenerates THIRD-PARTY-NOTICES.md; review the "Review needed" list.
+11. **ZAP baseline:** API on :5004 (Development), then in `src/frontend`: `npm run build` and `npx vite preview --port 4173`.
+    Run `.\tools\security\zap-baseline.ps1`; the report is `docs/security/zap-baseline.html`.
 
 ## 053h — Report builder (F, P6/P9): scopes, filters, exports, "Raportet e mia"
 **Setup:** run the migrator (script 027), restart the API, `npm run dev`. The ACTIVE test case: avokat1 primary,

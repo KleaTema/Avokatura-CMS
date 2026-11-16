@@ -34,8 +34,12 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         TestIdentity.Configure(providers ?? TestIdentity.Providers.Both);
         Environment.SetEnvironmentVariable("DevFeatures__HeaderAuth", null);
         Environment.SetEnvironmentVariable("DevFeatures__JobRunEndpoint", null);
-        Environment.SetEnvironmentVariable("ConnectionStrings__App", db.AppConnectionString);
-        Environment.SetEnvironmentVariable("ConnectionStrings__Audit", auditConnection ?? db.AuditConnectionString);
+        // task 051: outside Development the API demands encrypted connections (the test MySQL 8 has SSL on)
+        string Ssl(string connection) => environment == "Development"
+            ? connection
+            : new MySql.Data.MySqlClient.MySqlConnectionStringBuilder(connection) { SslMode = MySql.Data.MySqlClient.MySqlSslMode.Required }.ConnectionString;
+        Environment.SetEnvironmentVariable("ConnectionStrings__App", Ssl(db.AppConnectionString));
+        Environment.SetEnvironmentVariable("ConnectionStrings__Audit", Ssl(auditConnection ?? db.AuditConnectionString));
         // object storage (task 032): a MinIO container when given, otherwise not configured
         Environment.SetEnvironmentVariable("Storage__ServiceUrl", storage?.ServiceUrl ?? string.Empty);
         Environment.SetEnvironmentVariable("Storage__AccessKey", storage?.AccessKey);
@@ -47,8 +51,8 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Jobs__Enabled", "false");
         // e-mail (task 053c) stays in email_outbox: a test runs EmailDispatcher.RunOnceAsync with a fake sender
         Environment.SetEnvironmentVariable("Email__Enabled", "false");
-        Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", db.AuditDigestConnectionString);
-        Environment.SetEnvironmentVariable("ConnectionStrings__Chat", db.ChatConnectionString);
+        Environment.SetEnvironmentVariable("ConnectionStrings__AuditDigest", Ssl(db.AuditDigestConnectionString));
+        Environment.SetEnvironmentVariable("ConnectionStrings__Chat", Ssl(db.ChatConnectionString));
         // task 051: tests are not throttled (they run many calls in a second) — HardeningTests sets its own small limits
         foreach (var policy in new[] { "upload", "export", "search", "crossOffice", "notify", "handoff", "hub" })
         {
