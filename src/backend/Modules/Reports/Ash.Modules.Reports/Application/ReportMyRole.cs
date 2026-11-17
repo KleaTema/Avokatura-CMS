@@ -18,7 +18,7 @@ public static class ReportMyRole
         ["PRIMARY_LAWYER"] = "Avokat primar",
         ["SECONDARY_LAWYER"] = "Avokat sekondar",
         ["LEGAL_ASSISTANT"] = "Ndihmës ligjor",
-        ["INSTITUTION_JURIST"] = "Jurist i institucionit",
+        ["INSTITUTION_JURIST"] = "Juristi i institucionit",
     };
 
     public static async Task<IReadOnlyDictionary<Guid, string>> ForAsync(

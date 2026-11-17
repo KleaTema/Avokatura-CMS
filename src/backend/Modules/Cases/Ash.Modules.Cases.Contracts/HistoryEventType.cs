@@ -29,6 +29,8 @@ public enum HistoryEventType
     /// <summary>INSTITUTION_UNLINKED (task 017): a MONITORING link ended when the institution's last party was removed.</summary>
     InstitutionUnlinked,
     JuristAssigned,
+    /// <summary>JURIST_REMOVED (task 053k): the case was delegated — it belongs to "Institucioni me delegim", not to the jurist.</summary>
+    JuristRemoved,
     JudgeChanged,
     ObjectChanged,
     PartyAdded,

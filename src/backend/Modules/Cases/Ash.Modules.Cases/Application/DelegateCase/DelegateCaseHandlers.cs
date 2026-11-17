@@ -115,6 +115,20 @@ internal sealed class DelegateCaseHandler(
             });
             c.CategoryId = category.Id;
             c.SubcategoryId = null;
+            // task 053k: a delegated case belongs to "Institucioni me delegim" — the institution's jurist leaves it
+            var jurists = await db.CaseAssignments
+                .Where(a => a.CaseId == c.Id && a.CaseRole == CaseAssignmentRow.InstitutionJurist && a.EndedAt == null)
+                .ToListAsync(ct);
+            foreach (var jurist in jurists)
+            {
+                jurist.EndedAt = now;
+                jurist.EndedBy = me;
+                jurist.EndReason = CaseAssignmentRow.Removed;
+                history.Add((long)c.DossierId, (long)c.Id, HistoryEventType.JuristRemoved,
+                    "Juristi i institucionit u hoq: çështja iu delegua institucionit.",
+                    old: new { UserId = jurist.UserId }, @new: null);
+            }
+
             var relates = category.Code != "DELEGIM";
             history.Add((long)c.DossierId, (long)c.Id, HistoryEventType.Delegated,
                 relates

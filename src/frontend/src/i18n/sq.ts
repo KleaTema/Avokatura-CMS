@@ -26,8 +26,10 @@ export const sq = {
     SECONDARY_LAWYER: 'Avokat sekondar',
     LEGAL_ASSISTANT: 'Ndihmës ligjor',
     MONITOR: 'Monitorues',
-    INSTITUTION_USER: 'Përdorues i institucionit',
-    INSTITUTION_JURIST: 'Jurist i institucionit',
+    // task 053k: the client's names
+    INSTITUTION_USER: 'Institucioni',
+    INSTITUTION_JURIST: 'Juristi i institucionit',
+    INSTITUTION_DELEGATE: 'Institucioni me delegim',
   } as Record<string, string>,
   dashboard: {
     greeting: (firstName: string) => `Mirëdita, ${firstName}`,
@@ -616,7 +618,7 @@ export const sq = {
       PRIMARY_LAWYER: 'Avokat primar',
       SECONDARY_LAWYER: 'Avokat dytësor',
       LEGAL_ASSISTANT: 'Ndihmës ligjor',
-      INSTITUTION_JURIST: 'Jurist i institucionit',
+      INSTITUTION_JURIST: 'Juristi i institucionit',
       INSTITUTION_USER: 'Institucioni',
       // task 053g (client decision E)
       PROTOCOL: 'Protokolli (regjistroi çështjen)',
@@ -1224,7 +1226,7 @@ export const sq = {
           PRIMARY_LAWYER: 'Avokat primar',
           SECONDARY_LAWYER: 'Avokat sekondar',
           LEGAL_ASSISTANT: 'Ndihmës ligjor',
-          INSTITUTION_JURIST: 'Jurist i institucionit',
+          INSTITUTION_JURIST: 'Juristi i institucionit',
         } as Record<string, string>,
         modes: { MONITORING: 'Monitorim', DELEGATED: 'Delegim' } as Record<string, string>,
       },

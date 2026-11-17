@@ -373,7 +373,8 @@ public class CaseDetailTests(MySqlFixture db) : IntegrationTest(db)
             ["actDate"] = today.AddDays(-5).ToString("yyyy-MM-dd"),
             ["receivedDate"] = today.ToString("yyyy-MM-dd"),
             ["courtLevelCode"] = "FIRST_INSTANCE",
-            ["courtId"] = await seed.CourtAsync("Gjykata e Shkallës së Parë Tiranë"),
+            // task 053j: the court must be covered by an office (TR)
+            ["courtId"] = await OfficeCourtsTestData.MapAsync(Db.AppConnectionString, OfficeCourtsTestData.FirstInstanceTirana),
             ["judgeId"] = await seed.JudgeAsync("Ilir", "Gjyqtari"),
             ["objectText"] = "Kërkesë për shpërblim",
             ["firstHearing"] = new { at = DateTime.UtcNow.AddDays(14).ToString("yyyy-MM-ddTHH:mm:ssZ") },

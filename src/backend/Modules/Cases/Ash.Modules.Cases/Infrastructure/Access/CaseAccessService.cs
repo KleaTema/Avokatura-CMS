@@ -189,7 +189,10 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
         // institution.assign_jurist acts only on cases its user's institution is linked to (task 027)
         var institutionLinked = user.InstitutionId is { } institutionId && user.HasPermission(AssignJuristPermission)
             && await db.CaseInstitutions.AnyAsync(
-                l => l.CaseId == id && l.EndedAt == null && l.InstitutionId == (uint)institutionId, cancellationToken);
+                // task 053k: "Institucioni" assigns the jurist on MONITORING cases only (a delegated case belongs to
+                // "Institucioni me delegim")
+                l => l.CaseId == id && l.EndedAt == null && l.InstitutionId == (uint)institutionId
+                     && l.LinkMode == CaseInstitution.Monitoring, cancellationToken);
 
         // a DELEGIM / RELATIM category belongs to the delegation (task 027): is_delegation from the lookup table
         var delegatedCategory = first.CategoryId is { } categoryId

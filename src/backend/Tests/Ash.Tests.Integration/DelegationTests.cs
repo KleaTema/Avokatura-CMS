@@ -123,11 +123,21 @@ public class DelegationTests(MySqlFixture db) : IntegrationTest(db)
         announced.InstitutionPublicId.ShouldBe(ministry);
         announced.Mode.ShouldBe("DELEGIM");
 
-        // the delegated profile: the jurist records the decision, changes the judge
-        var after = await Permissions(jurist, id);
+        // task 053k: the delegated profile belongs to "Institucioni me delegim" — it records the decision, changes the
+        // judge; the jurist leaves the case (JURIST_REMOVED); "Institucioni" only views it now
+        using var delegate_ = factory.CreateClient().AsUser("delegim@ash.local");
+        var after = await Permissions(delegate_, id);
         after.ShouldContain("decision.record");
         after.ShouldContain("case.change_judge");
-        (await Permissions(institution, id)).ShouldContain("decision.record");
+        (await jurist.GetAsync($"/api/cases/{id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {caseId} AND case_role = 'INSTITUTION_JURIST' AND ended_at IS NULL"))
+            .ShouldBe(0L);
+        (await Scalar($"SELECT COUNT(*) FROM case_history_events WHERE case_id = {caseId} AND event_type = 'JURIST_REMOVED'")).ShouldBe(1L);
+        (await Permissions(institution, id)).ShouldBe(["case.view"]);
+        (await Scalar($"""
+            SELECT COUNT(*) FROM notifications n JOIN users u ON u.id = n.user_id
+             WHERE u.email = 'delegim@ash.local' AND n.notification_type = 'CASE_DELEGATED'
+            """)).ShouldBe(1L);
 
         // the category belongs to the delegation now (task 025), and a second delegation is refused
         var category = await primary.PatchAsJsonAsync($"/api/cases/{id}/category",
@@ -148,11 +158,13 @@ public class DelegationTests(MySqlFixture db) : IntegrationTest(db)
         (await CategoryCode(caseId)).ShouldBeNull();
         (await Scalar($"SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.new.reason')) FROM case_history_events WHERE case_id = {caseId} AND event_type = 'UNDELEGATED'"))
             .ShouldBe("Institucioni kërkoi kthimin");
+        // monitoring again: "Institucioni" follows it and assigns a jurist anew; "Institucioni me delegim" only views it
         (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {caseId} AND case_role = 'INSTITUTION_JURIST' AND ended_at IS NULL"))
-            .ShouldBe(1L);
-        var monitoringAgain = await Permissions(jurist, id);
+            .ShouldBe(0L);
+        var monitoringAgain = await Permissions(institution, id);
         monitoringAgain.ShouldNotContain("decision.record");
-        monitoringAgain.ShouldContain("case.view");
+        monitoringAgain.ShouldContain("institution.assign_jurist");
+        (await Permissions(delegate_, id)).ShouldBe(["case.view"]);
 
         // the lawyer sets the category again
         (await primary.PatchAsJsonAsync($"/api/cases/{id}/category",

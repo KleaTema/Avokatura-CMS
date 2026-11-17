@@ -441,7 +441,10 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
         var code = await CaseCode(s.ActiveCaseId);
         var ministryId = s.User("institucion").InstitutionId!.Value;
         var ministry = await PublicIdOf("institutions", ministryId);
-        var expected = (await ActiveEmails("INSTITUTION_USER", ministryId)).Append("jurist@ash.local").OrderBy(x => x).ToList();
+        // task 053k: "Institucioni me delegim" is told too — it acts on the delegated case
+        var expected = (await ActiveEmails("INSTITUTION_USER", ministryId))
+            .Concat(await ActiveEmails("INSTITUTION_DELEGATE", ministryId))
+            .Append("jurist@ash.local").OrderBy(x => x).ToList();
 
         await PublishAsync(factory, new CaseDelegated(casePublicId, ministry, "RELATIM"), s.User("avokat1").Id);
 

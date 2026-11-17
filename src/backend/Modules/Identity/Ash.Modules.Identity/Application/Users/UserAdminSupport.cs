@@ -30,7 +30,8 @@ public sealed class UserAdminSupport(
 {
     public const string AdminRole = "ADMIN";
 
-    public static readonly string[] InstitutionRoles = ["INSTITUTION_USER", "INSTITUTION_JURIST"];
+    // task 053k: "Institucioni", "Juristi i institucionit", "Institucioni me delegim"
+    public static readonly string[] InstitutionRoles = ["INSTITUTION_USER", "INSTITUTION_JURIST", "INSTITUTION_DELEGATE"];
     // task 053i: SECONDARY_LAWYER ("Avokat sekondar") is an office role of its own; a user may hold it with STATE_LAWYER
     public static readonly string[] OfficeRoles = ["ADMIN", "PROTOCOL", "OFFICE_HEAD", "STATE_LAWYER", "SECONDARY_LAWYER", "LEGAL_ASSISTANT", "MONITOR"];
 

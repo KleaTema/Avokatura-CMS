@@ -56,12 +56,13 @@ public sealed class ReportScope(ReportAudienceResolver audience)
 
         if (spec.JuristInstitutionId is { } jurist)
         {
-            // branch 3: a current jurist assignment on a case linked to the jurist's institution
+            // branch 3: a current jurist assignment on a case MONITORED by the jurist's institution (task 053k)
             p.Add("scope_jurist", jurist);
             sql.Append($"""
                  OR EXISTS (SELECT 1 FROM case_assignments a WHERE a.case_id = c.id AND a.user_id = @scope_user AND a.ended_at IS NULL
                              AND a.case_role = '{CaseScopeSpec.InstitutionJurist}'
-                             AND EXISTS (SELECT 1 FROM case_institutions i WHERE i.case_id = c.id AND i.institution_id = @scope_jurist AND i.ended_at IS NULL))
+                             AND EXISTS (SELECT 1 FROM case_institutions i WHERE i.case_id = c.id AND i.institution_id = @scope_jurist
+                                          AND i.ended_at IS NULL AND i.link_mode = 'MONITORING'))
                 """);
         }
 

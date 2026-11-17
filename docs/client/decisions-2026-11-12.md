@@ -130,6 +130,24 @@ d) The court that issued the summons is the court where the case is tried: the c
    change it (audited); a court no office covers requires the choice. "Të regjistruarat nga unë" lists what the user
    registered, whatever the office.
 
+5. Client decisions (task 053k, approved 17.11.2026): the roles — the full matrix is docs/permissions-matrix.md
+- "Avokat Shteti (primar)" and "Avokat sekondar" are separate system roles (task 053i).
+- "Institucioni" (INSTITUTION_USER): the case is followed by the State Lawyer. On a MONITORING case it sees the case, adds
+  hearings, uploads documents, chats, and assigns the institution's jurist. A DELEGATED case of its institution: view only.
+- "Juristi i institucionit" (INSTITUTION_JURIST): the monitoring cases assigned to him, with the monitoring rights. He does
+  NOT record the decision. Nothing on a delegated case: delegating ends his assignment (JURIST_REMOVED).
+- "Institucioni me delegim" (INSTITUTION_DELEGATE, NEW): every user with the role in the institution acts on the cases
+  DELEGATED to it (data, parties, judge, object, hearings, documents, the decision, archive, chat). A monitoring case of
+  its institution: view only.
+- D1 is corrected: "the jurist" who records the decision means the "Institucioni me delegim" role on a delegated case.
+- Case chat: the Protokoll stays in the chat of the cases he registered (P3 / 053g).
+- Reports and statistics: Ndihmësi — the cases where his linked lawyers are primary (lawyer filter limited to them);
+  Juristi and Institucioni me delegim — every case of the institution, like Institucioni (P6); Kryetari — own office,
+  supervised cases and the cases where he holds a lawyer role.
+
+- 053k: Institucioni ndjek çështjet në monitorim dhe cakton juristin; Juristi punon vetëm në monitorim, pa vendim;
+  "Institucioni me delegim" vepron në çështjet e deleguara (edhe vendimin). Matrica: docs/permissions-matrix.md.
+
 - 053j: Përcjellja hiqet. Protokolli është rol qendror dhe sheh të gjitha çështjet e vendit te "Vazhdo çështje
   ekzistuese" (vetëm të dhënat e regjistrimit). Vazhdimi kopjon vetëm objektin, paditësin dhe të paditurin. Çështja i
   shkon zyrës që mbulon gjykatën e fletëthirrjes dhe Kryetarit të saj.

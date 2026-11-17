@@ -33,6 +33,7 @@ internal sealed class CaseEventNotifications(
 {
     public const string InstitutionUserRole = "INSTITUTION_USER";
     public const string InstitutionJuristRole = "INSTITUTION_JURIST";
+    public const string InstitutionDelegateRole = "INSTITUTION_DELEGATE";
     private const string DelegatedMode = "DELEGATED";
     private const string RelatedMode = "RELATIM";
 
@@ -240,10 +241,14 @@ internal sealed class CaseEventNotifications(
     private async Task<string> InstitutionNameAsync(Guid institutionPublicId, CancellationToken ct) =>
         (await institutions.GetByPublicIdsAsync([institutionPublicId], ct)).FirstOrDefault()?.Name ?? "Institucioni";
 
-    /// <summary>The institution's active INSTITUTION_USERs and the case's jurist(s) of that institution.</summary>
+    /// <summary>
+    /// The institution's active INSTITUTION_USERs and INSTITUTION_DELEGATEs ("Institucioni me delegim", task 053k: the
+    /// ones who act on a delegated case) and the case's jurist(s) of that institution.
+    /// </summary>
     private async Task<IEnumerable<long>> InstitutionRecipientsAsync(CaseSummary c, long institutionId, CancellationToken ct)
     {
-        var institutionUsers = await users.GetInstitutionUsersByRoleAsync(institutionId, InstitutionUserRole, ct);
+        var institutionUsers = (await users.GetInstitutionUsersByRoleAsync(institutionId, InstitutionUserRole, ct))
+            .Concat(await users.GetInstitutionUsersByRoleAsync(institutionId, InstitutionDelegateRole, ct));
         var jurists = (await cases.GetTeamAsync(c.Id, ct)).Where(m => m.Role == InstitutionJuristRole).Select(m => m.UserId).ToList();
         var refs = await users.GetRefsAsync(jurists, ct);
         return institutionUsers.Select(u => u.Id)

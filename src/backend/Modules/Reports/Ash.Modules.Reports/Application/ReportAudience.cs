@@ -55,6 +55,7 @@ public sealed record ReportAudience(
     public const string AssistantRole = "LEGAL_ASSISTANT";
     public const string InstitutionUserRole = "INSTITUTION_USER";
     public const string InstitutionJuristRole = "INSTITUTION_JURIST";
+    public const string InstitutionDelegateRole = CaseScopeSpec.InstitutionDelegate;
 
     public static readonly Error ReportsForbidden = Error.Forbidden("report.forbidden", "Nuk keni të drejtë të shihni raportet.");
     public static readonly Error StatisticsForbidden =
@@ -151,8 +152,11 @@ public sealed class ReportAudienceResolver(ICurrentUser user, ICaseScope caseSco
         }
 
         var roles = user.Roles;
+        // decision P6 (053h, confirmed by 053k): every institution role sees EVERY case of its institution (party or
+        // linked), whatever the lawyer — "Institucioni", its jurist and "Institucioni me delegim"
         if (user.InstitutionId is { } institution
-            && (roles.Contains(ReportAudience.InstitutionUserRole) || roles.Contains(ReportAudience.InstitutionJuristRole)))
+            && (roles.Contains(ReportAudience.InstitutionUserRole) || roles.Contains(ReportAudience.InstitutionJuristRole)
+                || roles.Contains(ReportAudience.InstitutionDelegateRole)))
         {
             await using var connection = await db.OpenAsync(ct);
             var type = await db.ScalarAsync<string?>(connection,

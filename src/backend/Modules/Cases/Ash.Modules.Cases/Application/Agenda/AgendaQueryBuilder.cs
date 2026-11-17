@@ -66,7 +66,8 @@ public sealed class AgendaQueryBuilder(CasesDbContext db, CaseAccessService acce
             caseIds = db.CaseAssignments.Where(a => a.UserId == userId && a.EndedAt == null).Select(a => a.CaseId);
         }
 
-        if (user.Roles.Contains(InstitutionUserRole) && user.InstitutionId is { } institution)
+        if ((user.Roles.Contains(InstitutionUserRole) || user.Roles.Contains(Contracts.CaseScopeSpec.InstitutionDelegate))
+            && user.InstitutionId is { } institution)
         {
             var institutionId = (uint)institution;
             var linked = db.CaseInstitutions.Where(i => i.InstitutionId == institutionId && i.EndedAt == null).Select(i => i.CaseId);

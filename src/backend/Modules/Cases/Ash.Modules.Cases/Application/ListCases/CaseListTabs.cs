@@ -89,7 +89,9 @@ public static class CaseListTabs
             tabs.Add(CaseListTab.Supervised);
         }
 
-        if (user.Roles.Contains(InstitutionUserRole) && user.InstitutionId is not null)
+        // "Të institucionit": "Institucioni" and "Institucioni me delegim" (task 053k) see every linked case
+        if ((user.Roles.Contains(InstitutionUserRole) || user.Roles.Contains(Contracts.CaseScopeSpec.InstitutionDelegate))
+            && user.InstitutionId is not null)
         {
             tabs.Add(CaseListTab.Institution);
         }

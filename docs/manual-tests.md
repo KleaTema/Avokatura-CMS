@@ -14,8 +14,9 @@ tests (integration, Vitest); they are run before a task is shown to the client.
 | avokat1@ash.local, avokat2@ash.local | STATE_LAWYER | TR |
 | ndihmes@ash.local | LEGAL_ASSISTANT | TR |
 | monitor@ash.local | MONITOR | TR |
-| institucion@ash.local | INSTITUTION_USER | Ministria e Financave dhe Ekonomisë |
-| jurist@ash.local | INSTITUTION_JURIST | Ministria e Financave dhe Ekonomisë |
+| institucion@ash.local | INSTITUTION_USER ("Institucioni") | Ministria e Financave dhe Ekonomisë |
+| jurist@ash.local | INSTITUTION_JURIST ("Juristi i institucionit") | Ministria e Financave dhe Ekonomisë |
+| delegim@ash.local | INSTITUTION_DELEGATE ("Institucioni me delegim", task 053k) | Ministria e Financave dhe Ekonomisë |
 
 Keep this file up to date in every task (see `.github/skills/ash-task-done-check/SKILL.md`).
 "Expected" lists what to check; any other behaviour is a bug.
@@ -116,8 +117,8 @@ Keep this file up to date in every task (see `.github/skills/ash-task-done-check
 
 ## 027 — Institution jurist and delegation
 1. As institucion on a case linked to the ministry: *Institucionet → Cakto juristin*. → Picker of the ministry's jurists, the current one marked and disabled; choosing another shows "Juristi aktual do të zëvendësohet". Confirm → the old jurist gets 404, the new one sees the case.
-2. As avokat1 (primary, ACTIVE first-instance case with the ministry monitoring): *Delego / Relato*, choose the ministry and Delegim. → Chip *Delegim*; *Kategoria* card shows Delegim read-only with the hint; jurist@ash.local can now record the decision and change the judge.
-3. *Anulo delegimin* with a reason. → Chip *Monitorim*; category empty; the lawyer can set Ndjekje again.
+2. As avokat1 (primary, ACTIVE first-instance case with the ministry monitoring): *Delego / Relato*, choose the ministry and Delegim. → Chip *Delegim*; *Kategoria* card shows Delegim read-only with the hint. Task 053k: **delegim@ash.local** can now record the decision and change the judge; jurist@ash.local loses the case (404; history "Juristi i institucionit u hoq"); institucion@ash.local only views it (no *Cakto juristin*).
+3. *Anulo delegimin* with a reason. → Chip *Monitorim*; category empty; the lawyer can set Ndjekje again. institucion@ash.local assigns a jurist again; delegim@ash.local only views it.
 4. On a case at Gjykata e Lartë: *Delego*. → The API message "Delegimi lejohet vetëm në shkallën e parë dhe të dytë." in the dialog.
 
 ## 028 — Judge and object
@@ -366,8 +367,8 @@ second run says "Scripts applied: 0"). The local MySQL runs with `--innodb-ft-en
 9. Appeal later: PUT `"isAppealed": true` → 200. Continue the dossier at X/2 (*Vazhdo çështje*); then PUT
    `"isFinal": true` (or `"isAppealed": false`) on X/1 → 409 "Kjo çështje ka vazhduar në …/2". On a case without a
    newer level, `"isFinal": true` → 200 with `suggestions` ["ARCHIVE_SUGGESTED"].
-10. A case whose ministry link is DELEGATED: the jurist (`jurist@ash.local`) sees `decision.record` in `permissions`
-    and may close it.
+10. A case whose ministry link is DELEGATED: "Institucioni me delegim" (`delegim@ash.local`, task 053k) sees
+    `decision.record` in `permissions` and may close it; the jurist of a monitoring case never does.
 
 ## 038 — Archive the dossier (API; the screen comes with 039)
 **User:** avokat1, an ACTIVE case of theirs. `GET /api/cases/{id}` → `header.dossierPublicId`, `header.rowVersion`,
@@ -997,6 +998,23 @@ handoff e-mail are gone; the e-mail outbox stays without a producer.
 5. **"Çështjet e mia"** (Protokoll): the cases it registered for office B are listed while they wait for B's Kryetar.
 6. **Admin** (*Administrimi → Listat → Lloji i palës*): "Kopjohet në shkallën e radhës" is Po for Paditës and I paditur,
    Jo for Person i tretë; changing it changes what the next continuation copies.
+
+## 053k — Roles (the matrix: docs/permissions-matrix.md)
+**Setup:** run the migrator (script 031, LocalScripts 908) and restart the API.
+
+1. **Admin** → *Përdoruesit* → *Rolet* of an office user: the dropdown lists Specialist / Protokoll, Kryetari i Zyrës,
+   Avokat Shteti (primar), Avokat sekondar, Ndihmës Ligjor, Monitoruesi, Administratori (those not held yet). An
+   institution user: Institucioni, Juristi i institucionit, Institucioni me delegim.
+2. **Monitoring case** (the ministry monitors, jurist assigned):
+   - institucion: views, adds a hearing, uploads, chats, *Cakto juristin*;
+   - jurist: the same without *Cakto juristin*, and no decision;
+   - delegim: views only (no buttons, not in the chat).
+3. **Delegate it** (avokat1): delegim records the decision, changes the judge, edits parties and data, and chats;
+   the jurist gets 404 (history "Juristi i institucionit u hoq"); institucion views only. delegim gets the "delegated"
+   notification.
+4. **Primar vs sekondar** on the same case: avokat2 (secondary) has no *Fshi* on documents, no *Ndrysho gjyqtarin*,
+   no category / priority / status / *Delego*; both record the decision. sekondar@ash.local → *Statistikat* 403.
+5. **Protokoll**: in the chat of the cases it registered; its corrections only while REGISTERED.
 
 ## 052 — Deployment (images, configuration, health)
 

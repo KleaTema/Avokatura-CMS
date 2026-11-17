@@ -191,7 +191,7 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
         // the team stays: the lawyers still see the closed case
         (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {s.Id} AND ended_at IS NULL")).ShouldBe(teamBefore);
         (await Scalar($"SELECT GROUP_CONCAT(event_type ORDER BY id) FROM case_history_events WHERE case_id = {s.Id}"))
-            .ShouldBe("DECISION_RECORDED,CASE_CLOSED,CASE_HANDED_OFF"); // not final: handed off to the next court (053c)
+            .ShouldBe("DECISION_RECORDED,CASE_CLOSED"); // task 053j: no handoff any more
         var closed = s.Recorder.Events.ShouldHaveSingleItem();
         closed.CasePublicId.ShouldBe(s.Case);
         closed.ResultCode.ShouldBe("HUMBUR");
@@ -483,13 +483,14 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
     {
         await using var s = await SetupAsync();
         await Execute($"UPDATE case_institutions SET link_mode = 'DELEGATED' WHERE case_id = {s.Id}");
-        using var jurist = s.As("jurist@ash.local");
-        (await CaseOf(jurist, s.Case)).GetProperty("permissions").EnumerateArray().Select(p => p.GetString())
+        // task 053k (D1 corrected): "Institucioni me delegim" records it on a delegated case, not the jurist
+        using var delegate_ = s.As("delegim@ash.local");
+        (await CaseOf(delegate_, s.Case)).GetProperty("permissions").EnumerateArray().Select(p => p.GetString())
             .ShouldContain("decision.record");
 
-        await CloseAsync(jurist, s.Case);
+        await CloseAsync(delegate_, s.Case);
 
-        (await Scalar($"SELECT closed_by FROM cases WHERE id = {s.Id}")).ShouldBe((uint)s.Seed.User("jurist").Id);
+        (await Scalar($"SELECT u.email FROM cases c JOIN users u ON u.id = c.closed_by WHERE c.id = {s.Id}")).ShouldBe("delegim@ash.local");
     }
 
     // ---------------------------------------------------------------- 037: complete later

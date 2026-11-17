@@ -25,6 +25,7 @@ public static class HistoryEventCodes
         HistoryEventType.InstitutionLinked => "INSTITUTION_LINKED",
         HistoryEventType.InstitutionUnlinked => "INSTITUTION_UNLINKED",
         HistoryEventType.JuristAssigned => "JURIST_ASSIGNED",
+        HistoryEventType.JuristRemoved => "JURIST_REMOVED",
         HistoryEventType.JudgeChanged => "JUDGE_CHANGED",
         HistoryEventType.ObjectChanged => "OBJECT_CHANGED",
         HistoryEventType.PartyAdded => "PARTY_ADDED",

@@ -142,6 +142,14 @@ The handoff of task 053c ("Përcjellja", `case_handoffs`, "Çështjet e ardhura"
 - **Country-wide lookup.** `GET /api/cases/registration-search` is a table of every dossier (latest level), registration-level data only — never `case.view` (TODO(client-q-protokoll-full-view)). Status `CONTINUABLE` (default: closed, not final, not archived) | `ALL` | `OPEN` | `CLOSED`. Keyset by `(closed_at, id)` on `ix_cases_status_closed` (CONTINUABLE / CLOSED) or by `id` (ALL / OPEN); "is the latest level" through `uq_cases_dossier_level` (EXPLAIN-checked, `ProtokollCentralTests`). Every request is audited (`REGISTRATION_LOOKUP`, the filters used); the `crossOffice` rate limit applies.
 - **"+ Shto filtër".** The report builder's registry (task 053h, `CaseReportFilters.Lookup`: Tabela 3's and Tabela 1's columns plus the registration date, minus the lookup's own filters) is offered through `ICaseFilterCatalog` (Reports.Contracts): `GET …/registration-search/more-filters?more=` gives the filters with their options, and `more=` (the builder's JSON object) on the search adds their predicates over the shown level `c` and its decision `d`. One definition, two uses.
 
+## Institution roles and the permission matrix (task 053k)
+- **The matrix.** `docs/permissions-matrix.md` is the approved matrix. `PermissionsMatrixTests` checks it cell by cell against the API's effective permissions and the chat participants. Change the rule first (script / `CaseAccessService`), then the table.
+- **The profiles.** `v_case_access` (script 031) is the one definition. `CaseScopeQuery` / `ReportScope` render the same branches for the lists and reports.
+  - "Institucioni" (INSTITUTION_USER): MONITORING → `INSTITUTION_MONITORING`; DELEGATED → `INSTITUTION_VIEW` (view only).
+  - "Institucioni me delegim" (INSTITUTION_DELEGATE): DELEGATED → `INSTITUTION_DELEGATED`; MONITORING → `INSTITUTION_VIEW`.
+  - "Juristi i institucionit": `INSTITUTION_MONITORING` only where assigned AND the link is MONITORING.
+- **The jurist.** "Institucioni" assigns it on monitoring cases only (`institution.assign_jurist`). Delegating a case ends the jurist's assignment (`JURIST_REMOVED`). Delegation itself is unchanged (task 027: a link mode).
+
 ## E-mail (task 053c; no producer since task 053j)
 - **Use.** Its only producer was the handoff; since task 053j nothing queues mail. The outbox, the dispatcher and the configuration stay, ready for TODO(client-q-email).
 - **Queuing.** `IEmailOutbox.EnqueueAsync` writes `email_outbox` rows in the caller's transaction. Nothing is sent for an action that rolls back.

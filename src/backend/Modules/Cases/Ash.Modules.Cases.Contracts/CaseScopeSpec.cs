@@ -8,8 +8,8 @@ namespace Ash.Modules.Cases.Contracts;
 /// <item><see cref="All"/>: every case (case.view_all — Monitor, Admin).</item>
 /// <item><see cref="OfficeId"/>: the cases of that office (case.view_office — Kryetar).</item>
 /// <item>always: a current PRIMARY_LAWYER / SECONDARY_LAWYER / LEGAL_ASSISTANT assignment of <see cref="UserId"/>.</item>
-/// <item><see cref="LinkedInstitutionId"/>: an active link of that institution (INSTITUTION_USER).</item>
-/// <item><see cref="JuristInstitutionId"/>: a current INSTITUTION_JURIST assignment on a case linked to that institution.</item>
+/// <item><see cref="LinkedInstitutionId"/>: an active link of that institution (INSTITUTION_USER, INSTITUTION_DELEGATE).</item>
+/// <item><see cref="JuristInstitutionId"/>: a current INSTITUTION_JURIST assignment on a case MONITORED by that institution.</item>
 /// <item>always: a REGISTERED case <see cref="UserId"/> registered (Protokoll, until assigned).</item>
 /// <item><see cref="SupervisorUserId"/>: the cases under that Kryetar's active supervision (task 053d,
 /// case.view_supervised) — a supervised CASE, or a case whose CURRENT primary is a supervised LAWYER.</item>
@@ -36,6 +36,10 @@ public sealed record CaseScopeSpec(
     public const string SecondaryLawyer = "SECONDARY_LAWYER";
     public const string LegalAssistant = "LEGAL_ASSISTANT";
     public const string InstitutionJurist = "INSTITUTION_JURIST";
+    /// <summary>"Institucioni" (task 053k: monitoring, assigns the jurist).</summary>
+    public const string InstitutionUser = "INSTITUTION_USER";
+    /// <summary>"Institucioni me delegim" (task 053k): acts on the cases delegated to its institution.</summary>
+    public const string InstitutionDelegate = "INSTITUTION_DELEGATE";
     public const string Registered = "REGISTERED";
 
     /// <summary>The lawyer roles of v_case_access's first branch.</summary>

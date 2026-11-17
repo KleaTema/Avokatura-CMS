@@ -259,12 +259,14 @@ public class ProtokollCentralTests(MySqlFixture db) : IntegrationTest(db)
             """);
 
         var sql = Ash.Modules.Cases.Application.RegistrationSearch.RegistrationSearchSql.Page(
-            Ash.Modules.Cases.Application.RegistrationSearch.RegistrationSearchSql.Matching([], "CONTINUABLE", string.Empty), "CONTINUABLE");
+            Ash.Modules.Cases.Application.RegistrationSearch.RegistrationSearchSql.Matching([], "CONTINUABLE", string.Empty), "CONTINUABLE")
+            // EXPLAIN takes no user variable in LIMIT (the API binds a parameter there)
+            .Replace("LIMIT @take", "LIMIT 11", StringComparison.Ordinal);
         var plan = new List<(string Table, string Type, string? Key)>();
         await using (var connection = new MySqlConnection(Db.AppConnectionString))
         {
             await connection.OpenAsync(Ct);
-            await using var set = new MySqlCommand("SET @after_key = NULL, @after_id = NULL, @take = 11;", connection);
+            await using var set = new MySqlCommand("SET @after_key = NULL, @after_id = NULL;", connection);
             await set.ExecuteNonQueryAsync(Ct);
             await using var explain = new MySqlCommand("EXPLAIN " + sql, connection);
             await using var reader = await explain.ExecuteReaderAsync(Ct);

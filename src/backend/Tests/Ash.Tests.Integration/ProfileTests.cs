@@ -58,7 +58,7 @@ public class ProfileTests(MySqlFixture db) : IntegrationTest(db)
 
         using var institution = factory.CreateClient().AsUser("institucion@ash.local");
         var i = await GetProfile(institution);
-        Roles(i).ShouldBe(["Institucion"]);
+        Roles(i).ShouldBe(["Institucioni"]); // task 053k: the client's name
         i.GetProperty("office").ValueKind.ShouldBe(JsonValueKind.Null);
         i.GetProperty("institution").GetProperty("name").GetString().ShouldNotBeNullOrEmpty();
     }

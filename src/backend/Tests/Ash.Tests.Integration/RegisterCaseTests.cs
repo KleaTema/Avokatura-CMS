@@ -255,8 +255,16 @@ public class RegisterCaseTests(MySqlFixture db) : IntegrationTest(db)
         await seed.UserAsync("protnohead", "Protokoll", "PaKryetar", office, null, "PROTOCOL");
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser($"protnohead-{seed.Suffix}@ash.test");
+        var body = await ValidBody();
+        // task 053j: the case goes to the office of the court — here the office without a Kryetar
+        await Scalar($"""
+            UPDATE office_courts SET is_active = 0 WHERE court_id = {body["courtId"]};
+            INSERT INTO office_courts (office_id, court_id, is_active, updated_by)
+            VALUES ({office}, {body["courtId"]}, 1, (SELECT MIN(id) FROM users));
+            SELECT 1;
+            """);
 
-        var response = await client.PostAsJsonAsync(Path, await ValidBody(), Ct);
+        var response = await client.PostAsJsonAsync(Path, body, Ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var problem = await Json(response);

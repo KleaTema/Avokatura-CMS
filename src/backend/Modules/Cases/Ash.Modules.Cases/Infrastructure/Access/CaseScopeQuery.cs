@@ -23,7 +23,8 @@ public static class CaseScopeQuery
     public const string ViewAllPermission = "case.view_all";
     public const string ViewOfficePermission = "case.view_office";
     public const string RegisteredStatus = CaseScopeSpec.Registered;
-    public const string InstitutionUserRole = "INSTITUTION_USER";
+    public const string InstitutionUserRole = CaseScopeSpec.InstitutionUser;
+    public const string InstitutionDelegateRole = CaseScopeSpec.InstitutionDelegate;
     public const string InstitutionJuristRole = CaseScopeSpec.InstitutionJurist;
 
     /// <summary>Which branches apply to the user — decided by permissions and the kind of user.</summary>
@@ -32,7 +33,9 @@ public static class CaseScopeQuery
         long? linked = null, jurist = null;
         if (user.InstitutionId is { } institution)
         {
-            if (user.Roles.Contains(InstitutionUserRole))
+            // "Institucioni" and "Institucioni me delegim" (task 053k) both see every active link of the institution;
+            // the link mode decides their profile (v_case_access)
+            if (user.Roles.Contains(InstitutionUserRole) || user.Roles.Contains(InstitutionDelegateRole))
             {
                 linked = institution;
             }
@@ -110,11 +113,13 @@ public static class CaseScopeQuery
 
         if (spec.JuristInstitutionId is { } juristInstitution)
         {
-            // branch 3: a current jurist assignment on a case linked to the jurist's institution
+            // branch 3: a current jurist assignment on a case MONITORED by the jurist's institution (task 053k: a
+            // delegated case belongs to "Institucioni me delegim", not to the jurist)
             var institutionId = (uint)juristInstitution;
             scope = Or(scope, c => db.CaseAssignments.Any(a =>
                 a.CaseId == c.Id && a.UserId == userId && a.EndedAt == null && a.CaseRole == CaseAssignmentRow.InstitutionJurist
-                && db.CaseInstitutions.Any(i => i.CaseId == c.Id && i.InstitutionId == institutionId && i.EndedAt == null)));
+                && db.CaseInstitutions.Any(i => i.CaseId == c.Id && i.InstitutionId == institutionId && i.EndedAt == null
+                                                && i.LinkMode == CaseInstitution.Monitoring)));
         }
 
         if (spec.SupervisorUserId is { } head)
