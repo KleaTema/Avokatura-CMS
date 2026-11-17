@@ -1108,14 +1108,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/identity/admin/organika/template": {
+    "/api/identity/admin/imports/organika/definition": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["GetOrganikaTemplate"];
+        get: operations["GetOrganikaImportDefinition"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1124,7 +1124,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/identity/admin/organika/imports": {
+    "/api/identity/admin/imports/organika/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetOrganikaImportTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/organika": {
         parameters: {
             query?: never;
             header?: never;
@@ -1140,7 +1156,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/identity/admin/organika/imports/{publicId}": {
+    "/api/identity/admin/imports/organika/{publicId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1156,7 +1172,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/identity/admin/organika/imports/{publicId}/apply": {
+    "/api/identity/admin/imports/organika/{publicId}/apply": {
         parameters: {
             query?: never;
             header?: never;
@@ -1166,6 +1182,118 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["ApplyOrganikaImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/organika/{publicId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetOrganikaImportReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/users/definition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetUsersImportDefinition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/users/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetUsersImportTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListUsersImports"];
+        put?: never;
+        post: operations["UploadUsersImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/users/{publicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetUsersImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/users/{publicId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApplyUsersImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/identity/admin/imports/users/{publicId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetUsersImportReport"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3254,6 +3382,89 @@ export interface components {
         };
         /** Format: binary */
         IFormFile: string;
+        ImportCellError: {
+            column: string;
+            message: string;
+        };
+        ImportChange: {
+            column: string;
+            old: null | string;
+            new: null | string;
+        };
+        ImportColumnView: {
+            name: string;
+            requirement: string;
+            requirementText: string;
+            description: string;
+            example: string;
+        };
+        ImportDefinitionView: {
+            kind: string;
+            title: string;
+            purpose: string;
+            formats: string[];
+            columns: components["schemas"]["ImportColumnView"][];
+            rules: string[];
+            /** Format: int32 */
+            maxRows: number | string;
+            /** Format: int32 */
+            maxFileMb: number | string;
+            templateFileName: string;
+        };
+        ImportListItem: {
+            /** Format: uuid */
+            publicId: string;
+            fileName: string;
+            uploadedBy: string;
+            /** Format: date-time */
+            uploadedAt: string;
+            appliedBy: null | string;
+            /** Format: date-time */
+            appliedAt: null | string;
+            /** Format: int32 */
+            appliedCount: null | number | string;
+            summary: components["schemas"]["ImportSummary"];
+        };
+        ImportRowView: {
+            /** Format: int32 */
+            line: number | string;
+            key: null | string;
+            status: string;
+            name: null | string;
+            changes: components["schemas"]["ImportChange"][];
+            errors: components["schemas"]["ImportCellError"][];
+            message: null | string;
+        };
+        ImportSummary: {
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            new: number | string;
+            /** Format: int32 */
+            changed: number | string;
+            /** Format: int32 */
+            unchanged: number | string;
+            /** Format: int32 */
+            exists: number | string;
+            /** Format: int32 */
+            errors: number | string;
+        };
+        ImportView: {
+            /** Format: uuid */
+            publicId: string;
+            kind: string;
+            fileName: string;
+            uploadedBy: string;
+            /** Format: date-time */
+            uploadedAt: string;
+            appliedBy: null | string;
+            /** Format: date-time */
+            appliedAt: null | string;
+            /** Format: int32 */
+            appliedCount: null | number | string;
+            summary: components["schemas"]["ImportSummary"];
+            rows: components["schemas"]["ImportRowView"][];
+        };
         InstitutionAdminResponse: {
             /** Format: uuid */
             publicId: string;
@@ -3476,67 +3687,6 @@ export interface components {
         OpenDirectRequest: {
             /** Format: uuid */
             userId: string;
-        };
-        OrgImportListItem: {
-            /** Format: uuid */
-            publicId: string;
-            fileName: string;
-            uploadedBy: string;
-            /** Format: date-time */
-            uploadedAt: string;
-            appliedBy: null | string;
-            /** Format: date-time */
-            appliedAt: null | string;
-            /** Format: int32 */
-            appliedCount: null | number | string;
-            summary: components["schemas"]["OrgSummary"];
-        };
-        OrgImportView: {
-            /** Format: uuid */
-            publicId: string;
-            fileName: string;
-            uploadedBy: string;
-            /** Format: date-time */
-            uploadedAt: string;
-            appliedBy: null | string;
-            /** Format: date-time */
-            appliedAt: null | string;
-            /** Format: int32 */
-            appliedCount: null | number | string;
-            summary: components["schemas"]["OrgSummary"];
-            rows: components["schemas"]["OrgPreviewRow"][];
-        };
-        OrgPreviewRow: {
-            /** Format: int32 */
-            line: number | string;
-            email: null | string;
-            status: string;
-            userName: null | string;
-            oldPosition: null | string;
-            newPosition: null | string;
-            oldUnit: null | string;
-            newUnit: null | string;
-            oldManager: null | string;
-            newManager: null | string;
-            message: null | string;
-        };
-        OrgSummary: {
-            /** Format: int32 */
-            total: number | string;
-            /** Format: int32 */
-            matched: number | string;
-            /** Format: int32 */
-            changed: number | string;
-            /** Format: int32 */
-            unchanged: number | string;
-            /** Format: int32 */
-            emailNotFound: number | string;
-            /** Format: int32 */
-            duplicate: number | string;
-            /** Format: int32 */
-            managerNotFound: number | string;
-            /** Format: int32 */
-            invalid: number | string;
         };
         PartyInstitutionRef: {
             /** Format: uuid */
@@ -7023,7 +7173,27 @@ export interface operations {
             };
         };
     };
-    GetOrganikaTemplate: {
+    GetOrganikaImportDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportDefinitionView"];
+                };
+            };
+        };
+    };
+    GetOrganikaImportTemplate: {
         parameters: {
             query?: never;
             header?: never;
@@ -7056,7 +7226,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OrgImportListItem"][];
+                    "application/json": components["schemas"]["ImportListItem"][];
                 };
             };
         };
@@ -7080,7 +7250,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OrgImportView"];
+                    "application/json": components["schemas"]["ImportView"];
                 };
             };
             /** @description Bad Request */
@@ -7111,7 +7281,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OrgImportView"];
+                    "application/json": components["schemas"]["ImportView"];
                 };
             };
             /** @description Not Found */
@@ -7142,7 +7312,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OrgImportView"];
+                    "application/json": components["schemas"]["ImportView"];
                 };
             };
             /** @description Not Found */
@@ -7156,6 +7326,226 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetOrganikaImportReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetUsersImportDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportDefinitionView"];
+                };
+            };
+        };
+    };
+    GetUsersImportTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ListUsersImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportListItem"][];
+                };
+            };
+        };
+    };
+    UploadUsersImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["IFormFile"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportView"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    GetUsersImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ApplyUsersImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetUsersImportReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

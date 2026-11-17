@@ -45,6 +45,9 @@ test('the administrator opens Organika', async ({ page }) => {
     buffer: Buffer.from('email;pozicioni;njesia;eprori_email\nnuk.ekziston.e2e@ash.local;Avokat;Sektori A;\n'),
   })
   await expect(page.getByRole('heading', { name: 'Pamja paraprake — organika-e2e.csv' })).toBeVisible()
-  await expect(page.getByText('E-mail i panjohur: 1')).toBeVisible()
+  // task 053l: the shared pipeline — the instructions, the row error on its cell, nothing to apply
+  await expect(page.getByRole('heading', { name: 'Si duhet të jetë skedari' })).toBeVisible()
+  await expect(page.getByText('Me gabime: 1')).toBeVisible()
+  await expect(page.getByText('Nuk ka përdorues me këtë e-mail.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Apliko' })).toBeDisabled()
 })

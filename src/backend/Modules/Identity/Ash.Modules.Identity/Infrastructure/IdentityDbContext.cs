@@ -33,6 +33,9 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.AppliedBy).HasColumnName("applied_by");
             b.Property(x => x.AppliedAt).HasColumnName("applied_at");
             b.Property(x => x.AppliedCount).HasColumnName("applied_count");
+            // task 053l: one table for every import kind, with the result report after "Apliko"
+            b.Property(x => x.Kind).HasColumnName("kind");
+            b.Property(x => x.Result).HasColumnName("result");
         });
 
         modelBuilder.Entity<UserOrgHistoryRecord>(b =>
@@ -222,6 +225,12 @@ public sealed class OrgImportRecord
     public uint? AppliedBy { get; set; }
     public DateTime? AppliedAt { get; set; }
     public uint? AppliedCount { get; set; }
+
+    /// <summary>Task 053l: ORGANIKA | USERS.</summary>
+    public string Kind { get; set; } = "ORGANIKA";
+
+    /// <summary>Task 053l: the rows after "Apliko" (JSON), the result report; null until applied.</summary>
+    public string? Result { get; set; }
 }
 
 public sealed class UserOrgHistoryRecord

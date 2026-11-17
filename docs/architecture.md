@@ -150,6 +150,22 @@ The handoff of task 053c ("Përcjellja", `case_handoffs`, "Çështjet e ardhura"
   - "Juristi i institucionit": `INSTITUTION_MONITORING` only where assigned AND the link is MONITORING.
 - **The jurist.** "Institucioni" assigns it on monitoring cases only (`institution.assign_jurist`). Delegating a case ends the jurist's assignment (`JURIST_REMOVED`). Delegation itself is unchanged (task 027: a link mode).
 
+## Excel / CSV imports (task 053l)
+- **One pipeline.** `ImportPipeline` (Identity) handles every kind; `org_imports` keeps every import with its `kind`, file, by / at, summary and, after "Apliko", the `result` rows. The steps:
+  1. upload (.xlsx first sheet, or .csv UTF-8 with ; or ,; at most 5 MB and 5,000 rows);
+  2. validation with the kind's definition;
+  3. the PREVIEW: NEW / CHANGED / UNCHANGED / EXISTS / ERROR, with the reason per cell; nothing is written;
+  4. "Apliko": a fresh preview, its NEW / CHANGED rows written in the request's ONE transaction (an error status rolls everything back);
+  5. the result report (.xlsx).
+- **One definition.** Each kind is an `IImportKind` with ONE `ImportDefinition`: columns, required / optional, format, example, rules. It drives three things, so they cannot drift:
+  - the parser (headers matched case- and accent-insensitively);
+  - the template (the headers, an example row, and the sheet "Udhëzime");
+  - the page's "Si duhet të jetë skedari" (`GET …/definition`).
+- **Kinds.**
+  - `organika` (admin.org, task 053g): positions, units and managers of existing users.
+  - `users` (admin.users): creates and updates users through the SAME handlers as the page (`CreateUserHandler`, `UpdateUserHandler`, `Grant` / `RevokeRoleHandler`, `SetUserActiveHandler`), so every guard and audit row applies. The preview checks those guards per row.
+- **Adding a kind.** One `IImportKind` class + its line in `ImportEndpoints.Kinds` + a value in `ck_oi_kind`.
+
 ## E-mail (task 053c; no producer since task 053j)
 - **Use.** Its only producer was the handoff; since task 053j nothing queues mail. The outbox, the dispatcher and the configuration stay, ready for TODO(client-q-email).
 - **Queuing.** `IEmailOutbox.EnqueueAsync` writes `email_outbox` rows in the caller's transaction. Nothing is sent for an action that rolls back.

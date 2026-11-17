@@ -1,4 +1,18 @@
-import { Alert, Box, Button, Chip, Stack, TableCell, TableRow, TextField } from '@mui/material'
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  TableCell,
+  TableRow,
+  TextField,
+} from '@mui/material'
+import { ImportPanel } from '../../components/imports/ImportPanel'
 import { InstitutionPicker } from '../../components/InstitutionPicker'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
@@ -37,6 +51,7 @@ export function UsersPage() {
   const offices = useAdminOffices()
   const activate = useActivateUser()
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [rolesFor, setRolesFor] = useState<AdminUser | null>(null)
   const [identitiesFor, setIdentitiesFor] = useState<AdminUser | null>(null)
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null)
@@ -50,9 +65,15 @@ export function UsersPage() {
       <PageHeader
         title={t.title}
         actions={
-          <Button variant="contained" color="secondary" onClick={() => setCreating(true)}>
-            {t.addUser}
-          </Button>
+          <Stack direction="row" spacing={1}>
+            {/* task 053l: the shared import pipeline, with its instructions and template */}
+            <Button variant="outlined" onClick={() => setImporting(true)}>
+              {sq.imports.usersButton}
+            </Button>
+            <Button variant="contained" color="secondary" onClick={() => setCreating(true)}>
+              {t.addUser}
+            </Button>
+          </Stack>
         }
       />
 
@@ -207,6 +228,13 @@ export function UsersPage() {
       </DataTable>
 
       <UsersCreateDialog open={creating} onClose={() => setCreating(false)} />
+      <Dialog open={importing} onClose={() => setImporting(false)} fullWidth maxWidth="lg" aria-labelledby="users-import-title">
+        <DialogTitle id="users-import-title">{sq.imports.usersTitle}</DialogTitle>
+        <DialogContent>{importing && <ImportPanel kind="users" />}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImporting(false)}>{sq.imports.close}</Button>
+        </DialogActions>
+      </Dialog>
       {rolesFor && <UsersRolesDialog user={rolesFor} onClose={() => setRolesFor(null)} />}
       {identitiesFor && <UsersIdentitiesDialog user={identitiesFor} onClose={() => setIdentitiesFor(null)} />}
       {deactivating && <UsersDeactivateDialog user={deactivating} onClose={() => setDeactivating(null)} />}

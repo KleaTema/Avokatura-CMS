@@ -885,13 +885,41 @@ OFFICE_HEAD.
    - Open any case → *Chat* tab: the messages are readable, the admin is not in the participants.
    - Send a message → "Admin … u shtua në bisedë", then the message; the participants list shows "Administratori".
    - The nightly chat-reconcile keeps them.
-4. **Admin → *Administrimi → Organika*:**
-   - "Shkarko shabllonin" → an .xlsx with the four columns.
+4. **Admin → *Administrimi → Organika*** (since 053l on the shared import pipeline — see 053l below):
+   - "Shkarko shabllonin" → an .xlsx: sheet "Organika" with the four columns and an example row, and the sheet "Udhëzime".
    - Fill in: a real user, an unknown e-mail, the same e-mail twice, a row without position, an unknown manager.
-     Upload → the counts and each row's status; nothing changed yet (open the user's profile).
+     Upload → the counts and each row's status, the reason on its cell; nothing changed yet (open the user's profile).
    - "Apliko" → the toast shows the count; the profile now shows the position; *Përdoruesit* has a "Pozicioni" column.
    - The import is in the list ("Aplikuar më … nga …"); applying again is refused.
    - A .pdf or a sheet without the headers → the error message.
+
+## 053l — Imports from Excel / CSV (Organika, users)
+**Setup:** run the migrator (script 032) and restart the API.
+
+1. **The instructions** (Organika and *Përdoruesit → Ngarko përdorues nga Excel*): the card "Si duhet të jetë skedari"
+   shows the purpose, the formats (.xlsx first sheet, CSV UTF-8 with ; or ,), every column with "E detyrueshme",
+   its content and an example, and the rules. "Shkarko shabllonin": the second sheet "Udhëzime" has the SAME text.
+2. **Users, valid file** (from the template): a new office user (zyra_kodi TR, rolet "STATE_LAWYER;Avokat sekondar"),
+   a new institution user (institucioni = the ministry's name or NIPT, rolet "Juristi i institucionit"), an existing
+   e-mail without perditeso → "Ekziston", an existing one with perditeso = PO and a new pozicioni → "Ndryshon".
+   - The preview writes nothing (*Përdoruesit* unchanged).
+   - "Apliko" → the users exist with their roles. The new users sign in through B2C with that e-mail (linked at the
+     first login).
+   - "Shkarko raportin" → every row with its status and message.
+3. **Users, errors** — one row each, the rest import:
+   - no e-mail, a bad e-mail, the same e-mail twice;
+   - no emri;
+   - zyra_kodi AND institucioni, or neither;
+   - an unknown office / institution / role;
+   - INSTITUTION_USER for an office user;
+   - aktiv "ndoshta";
+   - the Kryetar with aktiv JO + perditeso PO;
+   - avokat1 without STATE_LAWYER while primary on open cases.
+
+   Each one shows the reason on its cell.
+4. **Headers** "EMAIL", "Përditëso", "Zyra kodi" are read; a CSV with "," and one with ";" give the same preview.
+5. **Re-import** the same file with perditeso = PO everywhere: every row "Pa ndryshim", nothing to apply.
+6. A file over 5 MB or 5,000 rows → the error before any preview.
 
 ## 053f — Earlier levels read-only (D2)
 **Setup:**

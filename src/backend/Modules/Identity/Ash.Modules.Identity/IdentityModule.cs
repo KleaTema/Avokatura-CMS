@@ -25,7 +25,10 @@ public static class IdentityModule
 		services.AddScoped<ResolveUserHandler>();
 		services.AddScoped<GetMeHandler>();
 		services.AddScoped<ProfileHandlers>();
-		services.AddScoped<Application.Organika.OrgImportHandlers>();
+		// task 053l: the shared import pipeline and its kinds (Organika 053g, users)
+		services.AddScoped<Application.Imports.ImportPipeline>();
+		services.AddScoped<Application.Imports.OrganikaImport>();
+		services.AddScoped<Application.Imports.UsersImport>();
 		services.AddScoped<UserAdminSupport>();
 		services.AddScoped<ListUsersHandler>();
 		services.AddScoped<CreateUserHandler>();
@@ -59,6 +62,6 @@ public static class IdentityModule
 
 	public static IEndpointRouteBuilder MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
 	{
-		return endpoints.MapMe().MapProfile().MapAdminUsers().MapAdminOrg().MapOrganika();
+		return endpoints.MapMe().MapProfile().MapAdminUsers().MapAdminOrg().MapImports();
 	}
 }
