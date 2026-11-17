@@ -66,6 +66,7 @@ services:
       Auth__Providers__0__Authority: ${ASH_B2C_AUTHORITY}
       Auth__Providers__0__ClientId: ${ASH_B2C_SPA_CLIENT_ID}
       Auth__Providers__0__Audience: ${ASH_B2C_API_AUDIENCE}
+      Auth__Providers__0__ValidIssuers__0: ${ASH_B2C_ISSUER}
       Auth__Providers__0__Scopes__0: ${ASH_B2C_API_SCOPE}
       Auth__Providers__1__Name: entra
       Auth__Providers__1__Enabled: "false"

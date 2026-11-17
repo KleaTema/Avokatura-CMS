@@ -13,6 +13,7 @@ server {
     # the security headers of every answer (the API adds its own on /api)
     add_header Content-Security-Policy "${ASH_CSP}" always;
     add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "no-referrer" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "${ASH_HSTS}" always;
@@ -23,6 +24,7 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable" always;
         add_header Content-Security-Policy "${ASH_CSP}" always;
         add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
         add_header Referrer-Policy "no-referrer" always;
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
         add_header Strict-Transport-Security "${ASH_HSTS}" always;
@@ -66,6 +68,15 @@ server {
         proxy_buffering off;
     }
 
+    # the API's probes, for the smoke checklist through the public address (exact paths only; never the SPA)
+    location ~ ^/health/(live|ready)$ {
+        proxy_pass ${ASH_API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        access_log off;
+    }
+
     # the health of the frontend container itself (the API has /health/ready)
     location = /healthz {
         access_log off;
@@ -78,6 +89,7 @@ server {
         add_header Cache-Control "no-cache" always;
         add_header Content-Security-Policy "${ASH_CSP}" always;
         add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
         add_header Referrer-Policy "no-referrer" always;
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
         add_header Strict-Transport-Security "${ASH_HSTS}" always;

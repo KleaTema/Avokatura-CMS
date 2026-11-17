@@ -14,6 +14,9 @@ const provider = (name: string, displayName: string) => ({
   kind: name === 'b2c' ? 'B2C' : 'EntraId',
   displayName,
   authority: AUTHORITY,
+  // task 052: the API's exact shape (DeploymentTests checks the key set)
+  policy: null,
+  knownAuthorities: ['idp.example.test'],
   clientId: `spa-${name}`,
   scopes: ['api://ash-api/access'],
 })
