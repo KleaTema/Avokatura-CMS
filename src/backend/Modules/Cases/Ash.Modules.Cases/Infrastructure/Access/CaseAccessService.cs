@@ -115,7 +115,9 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     private static readonly string[] OfficeDecisionActions = [DecisionRecordPermission, CloseFinalPermission];
 
     public RegistrationLookupScope GetRegistrationLookupScope() =>
-        // All offices: confirmed by the client (Q1a) — a next-level summons may arrive at another office.
+        // All offices of the country: confirmed by the client (Q1a; task 053j b: the Protokoll is a CENTRAL role). A
+        // lookup of registration-level data only — never case.view (the full case page, documents, team, chat, history).
+        // TODO(client-q-protokoll-full-view): whether the Protokoll should also open the full case page.
         user.HasPermission(LinkPreviousPermission) ? RegistrationLookupScope.AllOffices : RegistrationLookupScope.None;
 
     private Task<CaseAccess> GetAsync(long caseId, CancellationToken cancellationToken)
@@ -193,7 +195,8 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
         var delegatedCategory = first.CategoryId is { } categoryId
             && (await reference.ListCaseCategoriesAsync(cancellationToken)).Any(x => x.Id == categoryId && x.IsDelegation);
 
-        var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked, supervised);
+        var effective = Effective(rows.Select(r => r.Permission), first.OfficeId, first.LifecycleStatus, institutionLinked, supervised,
+            first.RegisteredBy == userId);
         // archiving (task 038, client decision A): ArchiveRule — asked only of a user who would hold it
         var archivable = effective.Contains(CloseFinalPermission) && first.LifecycleStatus == Case.Closed
             && await ArchiveRule.IsArchivableAsync(db, documents, await db.Cases.AsNoTracking().SingleAsync(c => c.Id == id, cancellationToken), cancellationToken);
@@ -253,7 +256,8 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
     /// what is in <see cref="ActionsAllowedWhenClosed"/>.
     /// </summary>
     private HashSet<string> Effective(
-        IEnumerable<string?> casePermissions, ushort officeId, string status, bool institutionLinked, bool supervised)
+        IEnumerable<string?> casePermissions, ushort officeId, string status, bool institutionLinked, bool supervised,
+        bool registeredByUser)
     {
         var effective = casePermissions.Where(p => p is not null).Select(p => p!).ToHashSet();
         effective.Add(ViewPermission); // viewing through the office or view_all is still viewing
@@ -277,7 +281,8 @@ public sealed class CaseAccessService(CasesDbContext db, ICurrentUser user, IRef
             return effective;
         }
 
-        if (registeredOffice && status == Case.Registered && user.HasPermission(EditRegistrationPermission))
+        // the desk's corrections: its own office's registrations, and (task 053j) the ones it sent to another office
+        if ((registeredOffice || registeredByUser) && status == Case.Registered && user.HasPermission(EditRegistrationPermission))
         {
             effective.UnionWith(RegistrationDeskActions);
         }

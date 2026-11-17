@@ -58,7 +58,8 @@ internal static partial class RegisterCaseValidator
             errors.Add("actDate", "Data e aktit nuk mund të jetë pas datës së hyrjes.");
         }
 
-        if (withParties)
+        // the next level (task 018) copies its parties; the ones the Protokoll adds there (task 053j) are optional
+        if (withParties || req.Parties is { Count: > 0 })
         {
             ValidateParties(req.Parties, errors);
         }

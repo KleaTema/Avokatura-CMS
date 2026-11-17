@@ -34,6 +34,8 @@ public static class ReportsModule
 		services.AddScoped<ReportAudienceResolver>(); // task 053h: who sees what, reports and statistics
 		services.AddScoped<CaseLinks>();
 		services.AddScoped<Application.Builder.CaseReportBuilder>();
+		// task 053j: the same registry for the Protokoll's "Vazhdo çështje ekzistuese" ("+ Shto filtër")
+		services.AddScoped<Contracts.ICaseFilterCatalog, Application.Builder.CaseFilterCatalog>();
 		services.AddScoped<Application.Builder.StatisticsBuilder>();
 		services.AddScoped<Application.Builder.SavedReports>();
 		services.AddScoped<ReportScope>();

@@ -33,7 +33,8 @@ public sealed class CreatePartyRoleHandler(ReferenceDbContext db, IAuditLog audi
             Name = name,
             ReportGroup = req.ReportGroup.Trim(),
             SortOrder = sortOrder,
-            IsActive = true
+            IsActive = true,
+            CopyToNextLevel = req.CopyToNextLevel
         };
 
         db.PartyRoles.Add(row);

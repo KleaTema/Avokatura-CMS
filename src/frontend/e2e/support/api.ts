@@ -58,6 +58,11 @@ export async function registerCase(): Promise<CreatedCase> {
   if (!court) throw new Error(`Court "${COURT}" not found: is the local seed (LocalScripts/903) applied?`)
   const judges = await ok<{ id: number }[]>('GET', `/api/reference/judges?courtId=${court.id}`, USERS.protokoll)
   const ministry = await ok<{ institution: { publicId: string } }>('GET', '/api/identity/me', USERS.institucion)
+  // task 053j: the case goes to the office of the court; in the dev seed no office may cover it — then the
+  // Protokoll's own office (TR), chosen explicitly
+  const offices = await ok<{ courtOfficePublicId: string | null }>(
+    'GET', `/api/cases/registration/offices?courtId=${court.id}`, USERS.protokoll)
+  const own = await ok<{ office: { publicId: string } }>('GET', '/api/identity/me', USERS.protokoll)
   const actNumber = `E2E-${tag}`.slice(0, 20)
   const created = await ok<{ casePublicId: string; caseCode: string }>('POST', '/api/cases/register', USERS.protokoll, {
     summonsNumber: `E2E-FL-${tag}`.slice(0, 20),
@@ -73,6 +78,7 @@ export async function registerCase(): Promise<CreatedCase> {
       { partyRoleCode: 'PADITES', kind: 'NATURAL', displayName: `E2E Paditës ${tag}` },
       { partyRoleCode: 'I_PADITUR', kind: 'INSTITUTION', institutionPublicId: ministry.institution.publicId },
     ],
+    officePublicId: offices.courtOfficePublicId ?? own.office.publicId,
   })
   return { id: created.casePublicId, code: created.caseCode, actNumber }
 }

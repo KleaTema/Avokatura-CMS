@@ -15,7 +15,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { CloseCaseDialog, type CloseCaseMode } from '../../../components/CloseCaseDialog'
 import { ArchiveDossierDialog, RetrialDialog } from '../../../components/DecisionDialogs'
 import { DocumentPreviewDialog } from '../../../components/documents/DocumentDialogs'
-import { HandoffCard } from '../../../components/HandoffCard'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { SectionCard } from '../../../components/ui/SectionCard'
 import { SuccessToast } from '../../../components/ui/SuccessToast'
@@ -112,8 +111,6 @@ export function DecisionTab({ detail }: { detail: CaseDetail }) {
           >
             <DecisionSummary decision={decision} appealKind={detail.data.appealKind} />
           </SectionCard>
-          {/* task 053c: not final → where the case was handed off (and its correction) */}
-          <HandoffCard caseId={detail.header.publicId} enabled={!decision.isFinal} />
           <SectionCard title={v.values}>
             <ValuesTable decision={decision} />
           </SectionCard>

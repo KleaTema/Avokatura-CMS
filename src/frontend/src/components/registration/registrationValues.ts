@@ -11,7 +11,14 @@ import {
   utcIsoOf,
   type PickerValue,
 } from '../../lib/pickerValues'
-import { draftPartiesSchema, newDraftParty, partyFieldFromServer, toPartyRequest, type DraftParty } from '../draftParty'
+import {
+  draftPartiesSchema,
+  draftPartySchema,
+  newDraftParty,
+  partyFieldFromServer,
+  toPartyRequest,
+  type DraftParty,
+} from '../draftParty'
 import type { PickedJudge } from '../JudgePicker'
 
 const v = sq.cases.register.validation
@@ -56,8 +63,10 @@ export interface RegistrationValues {
   hearingOtherText: string
   /** new mode only */
   objectText: string
-  /** new mode only */
+  /** new mode: the parties (at least one); next mode: the parties ADDED to the copied plaintiff / defendant (task 053j) */
   parties: DraftParty[]
+  /** "Zyra që e ndjek" (task 053j): pre-filled with the office covering the court; '' = none chosen */
+  officePublicId: string
 }
 
 const requiredText = (max: number, message: string) =>
@@ -82,9 +91,10 @@ export const buildRegistrationSchema = (mode: RegistrationMode, isOtherHearingTy
       hearingTime: pickerValue,
       hearingTypeCode: z.string().min(1, v.hearingTypeRequired),
       hearingOtherText: z.string(),
-      // the next level copies the object and the parties from the previous one
+      // the next level copies the object, the plaintiff and the defendant; more parties are optional there
       objectText: mode === 'new' ? requiredText(4000, v.objectRequired) : z.string(),
-      parties: mode === 'new' ? draftPartiesSchema : z.array(z.unknown()),
+      parties: mode === 'new' ? draftPartiesSchema : z.array(draftPartySchema),
+      officePublicId: z.string().min(1, v.officeRequired),
     })
     .superRefine((f, ctx) => {
       const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message })
@@ -108,7 +118,7 @@ export const buildRegistrationSchema = (mode: RegistrationMode, isOtherHearingTy
 
 export type KeptValues = Pick<RegistrationValues, 'courtLevelCode' | 'courtId' | 'receivedDate'>
 
-export const emptyRegistrationValues = (keep?: KeptValues): RegistrationValues => ({
+export const emptyRegistrationValues = (keep?: KeptValues, mode: RegistrationMode = 'new'): RegistrationValues => ({
   summonsNumber: '',
   summonsTypeCode: '',
   actNumber: '',
@@ -123,7 +133,8 @@ export const emptyRegistrationValues = (keep?: KeptValues): RegistrationValues =
   hearingTypeCode: DEFAULT_HEARING_TYPE,
   hearingOtherText: '',
   objectText: '',
-  parties: [newDraftParty()],
+  parties: mode === 'new' ? [newDraftParty()] : [],
+  officePublicId: '',
 })
 
 /** The registration request (task 016 shape). The next level sends the same minus object text and parties. */
@@ -145,6 +156,7 @@ export function toRegisterRequest(f: RegistrationValues, isOtherHearing: boolean
     },
     parties: f.parties.map(toPartyRequest),
     confirmPossibleDuplicate: confirm,
+    officePublicId: f.officePublicId || null,
   }
 }
 
@@ -164,6 +176,7 @@ const SERVER_FIELDS: Record<string, Path<RegistrationValues>> = {
   'firstHearing.hearingTypeCode': 'hearingTypeCode',
   'firstHearing.otherTypeText': 'hearingOtherText',
   parties: 'parties',
+  officePublicId: 'officePublicId',
 }
 
 export function toFormPath(serverKey: string): Path<RegistrationValues> | null {

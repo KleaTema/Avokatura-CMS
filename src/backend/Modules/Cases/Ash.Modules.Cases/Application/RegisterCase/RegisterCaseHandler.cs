@@ -24,7 +24,6 @@ internal sealed class RegisterCaseHandler(
     IUnitOfWork unitOfWork,
     CaseRegistrationSupport support,
     IHistoryWriter history,
-    PartyResolver partyResolver,
     PartyWriter parties,
     IAuditLog audit,
     IEventPublisher events,
@@ -40,7 +39,7 @@ internal sealed class RegisterCaseHandler(
 
         // 2. Lookups (only for the fields that are present)
         var lookups = await support.ResolveLookupsAsync(req, errors, warnings, ct);
-        var newParties = await ResolvePartiesAsync(req.Parties, errors, ct);
+        var newParties = await support.ResolvePartiesAsync(req.Parties, errors, ct);
         if (errors.Any)
         {
             return errors.ToError(CaseRegistrationSupport.InvalidMessage);
@@ -48,14 +47,16 @@ internal sealed class RegisterCaseHandler(
 
         support.WarnIfHearingInPast(hearingUtc, warnings);
 
-        // 3. Office and its head — before create_dossier so no unique code is spent on a refused request
-        var office = await support.CheckOfficeAsync(ct);
+        // 3. "Zyra që e ndjek" (task 053j: the court's office, or the one chosen) and its head — before create_dossier
+        //    so no unique code is spent on a refused request
+        var office = await support.ResolveOfficeAsync(lookups.Court.Id, req.OfficePublicId, ct);
         if (office.IsFailure)
         {
             return office.Error!;
         }
 
-        var (officeId, head) = office.Value;
+        var officeId = office.Value.Office.Id;
+        var head = office.Value.Head;
 
         // 4. Possible duplicate
         var summonsNumber = req.SummonsNumber!.Trim();
@@ -122,37 +123,19 @@ internal sealed class RegisterCaseHandler(
         }
 
         history.Add((long)dossier.Id, caseId, HistoryEventType.SentToHead,
-            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { Name = head.FullName, UserPublicId = head.PublicId });
+            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.",
+            @new: new { Name = head.FullName, UserPublicId = head.PublicId, Office = office.Value.Office.Name });
         await db.SaveChangesAsync(ct);
 
         audit.Record(AuditActions.CaseCreate, "CASE", caseId, caseId, details: new { registered.CaseCode });
+        if (CaseRegistrationSupport.OverrideDetails(office.Value, lookups.Court) is { } overridden)
+        {
+            audit.Record(AuditActions.CaseOfficeOverride, "CASE", caseId, caseId, details: overridden);
+        }
+
         await events.PublishAsync(new CaseRegistered(registered.PublicId, officeId, head.PublicId), ct);
 
         return new RegisterCaseResponse(registered.PublicId, registered.CaseCode, warnings);
-    }
-
-    /// <summary>Roles and institutions must exist and be active; returns the parties ready for <see cref="PartyWriter"/>.</summary>
-    private async Task<List<NewParty>> ResolvePartiesAsync(
-        IReadOnlyList<PartyRequest>? requested, FieldErrors errors, CancellationToken ct)
-    {
-        var result = new List<NewParty>();
-        for (var i = 0; i < (requested?.Count ?? 0); i++)
-        {
-            var p = requested![i];
-            var prefix = $"parties[{i}].";
-            var kind = p?.Kind?.Trim();
-            if (p is null || kind is null || errors.Has($"{prefix}kind"))
-            {
-                continue; // reported by the validator
-            }
-
-            if (await partyResolver.ResolveAsync(p, kind, prefix, errors, ct) is { } party)
-            {
-                result.Add(party);
-            }
-        }
-
-        return result;
     }
 
     /// <summary>create_dossier issues the unique code and inserts the dossier, on the request's connection and transaction.</summary>

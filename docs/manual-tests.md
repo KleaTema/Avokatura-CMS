@@ -962,43 +962,41 @@ restart the API, `npm run dev`.
    - The Kryetar is told, and the cases leave every surface (the case page → 404).
    - "Shfaq edhe të përfunduarat" lists the ended row.
 
-## 053c — "Përcjellja e çështjes" (B.3, D5) and e-mail
-**Setup:**
-- `docker compose up -d` (adds Mailpit: open http://localhost:8025).
-- Run the migrator (script 021) and restart the API, then `npm run dev`.
-- An ACTIVE first-instance case: avokat1 primary, with a scheduled hearing.
+## 053c — "Përcjellja e çështjes" — REMOVED by task 053j
+Only "Gjykatat që mbulon" stays (used by 053j below). The handoff step, the case card, "Çështjet e ardhura" and the
+handoff e-mail are gone; the e-mail outbox stays without a producer.
 
-**Steps:**
-1. **Admin** (*Administrimi → Zyrat → Gjykatat që mbulon*): give "Gjykata e Apelit Tiranë" to Zyra Qendrore Tiranë and
-   save. Open another office's dialog: that court is greyed out with "Mbulohet nga Zyra Qendrore Tiranë". Saving it
-   there anyway (API) → 409.
-2. **Closing not final** (avokat1, *Vendimi → Regjistro vendimin*):
-   - With "Formë e prerë" unchecked a fifth step "Përcjellja" appears. "Mbyll çështjen" stays disabled until the
-     level and the court are chosen.
-   - The court list follows the level, and a lower level is allowed.
-   - After choosing the court: "Do t'i përcillet: Zyra Qendrore Tiranë".
-   - Check "Formë e prerë" instead: the step disappears.
-3. **Unmapped court** (e.g. Gjykata e Lartë): a warning, then "Zyra që e merr" and "Arsyeja" (at least 10
-   characters) are required.
-4. **After closing:**
-   - The tab shows the "Përcjellja e çështjes" card, and the history shows "Çështja u përcoll".
-   - Mailpit shows one mail per active Protokoll of the receiving office: "Ju është dhënë akses në një çështje
-     ekzistuese".
-   - The Protokoll's bell shows the same.
-5. **Protokoll** (*Çështjet*): tabs "Çështjet e mia (n)" | "Çështjet e ardhura (n)".
-   - The incoming card shows code, parties, object, previous court, result and decision date. There are no
-     documents, no chat, and no link into the case.
-   - "Vazhdo" opens the next-level form with level and court filled in.
-   - Register: the card is gone, and the count drops.
-6. **Correction** (avokat1 or avokat2, card "Ndrysho përcjelljen"): choose another court or office. The old office's
-   Protokoll get "Përcjellja e çështjes u anulua" (and a mail); the new office gets the handoff. After X/2 is
-   registered, the button is gone (the API gives 409).
-7. **Final later** (*Plotëso / Ndrysho vendimin*, "Formë e prerë"): the card disappears; the receiving Protokoll are
-   told "Vendimi mori formë të prerë"; the case leaves "Çështjet e ardhura".
-8. **Mail failure:** stop Mailpit (`docker compose stop mailpit`) and close another case.
-   - The closing succeeds.
-   - `email_outbox` keeps the mail PENDING with `attempts` and `last_error`.
-   - Start Mailpit again: the mail arrives at its next attempt (within minutes).
+## 053j — The Protokoll is central; the office of the court
+**Setup:** run the migrator (script 030) and restart the API, then `npm run dev`. Closed cases of at least two offices
+(close some through *Vendimi*, one of them with "Formë e prerë").
+
+1. **Closing** (avokat1, *Vendimi → Regjistro vendimin*), "Formë e prerë" unchecked: four steps only — no
+   "Përcjellja". The case list has no "Çështjet e ardhura" tab.
+2. **"Vazhdo çështje ekzistuese"** (Protokoll):
+   - A table of every office's dossiers, 10 rows, "‹ Para / Pas ›" with "1–10 nga N"; the code column stays when
+     scrolling sideways.
+   - Default "Statusi: Mund të vazhdohen": only closed, not final, not archived levels. "Të gjitha" adds the open ones
+     (reason "E pambyllur në sistem" and "Njofto…" instead of "Vazhdo"), the final ones and the archived ones
+     ("Dosja është arkivuar").
+   - The filters: Kodi unik, Nr. i aktit (a part of them is enough), Shkalla → Gjykata → Gjyqtari (the court list
+     follows the level), Paditësi, I padituri, Objekti (without diacritics too: "shperblim"), Kategoria → Lloji,
+     Rezultati.
+   - "+ Shto filtër": Zyra, Avokati, Data e regjistrimit, Data e vendimit, Formë e prerë, Ankimuar, … (the report
+     builder's filters); each one can be removed with ×. The URL keeps every choice; "Pastro filtrat" resets.
+   - Admin → audit: one REGISTRATION_LOOKUP row per search, with the filters.
+   - Opening `/cases/<id>` of another office's case as the Protokoll: "Çështja nuk u gjet".
+3. **Continue** ("Vazhdo" on a row): the preview lists the object, the plaintiff(s) and the defendant(s) only. A third
+   party is not copied; "Palë të tjera (nëse ka)" adds one. Category, delegation and lawyers stay empty on X/n+1.
+4. **Office of the court** (both *Regjistro çështje të re* and the continuation):
+   - Admin → *Zyrat → Gjykatat që mbulon*: give "Gjykata e Apelit Tiranë" to an office B with a Kryetar.
+   - Choose that court: "Zyra që e ndjek" is filled with B ("Zyra që mbulon këtë gjykatë."). Register: the case is in
+     B; B's Kryetar gets the notification and sees it under "Pa avokat"; the Protokoll's own Kryetar does not.
+   - Choose another office: "Keni zgjedhur një zyrë tjetër …"; after registering, the audit shows CASE_OFFICE_OVERRIDE.
+   - A court no office covers: the field stays empty with "Kjo gjykatë nuk i është caktuar asnjë zyre …" and is required.
+   - An office without a Kryetar: "Zyra nuk ka Kryetar. Kontaktoni administratorin."
+5. **"Çështjet e mia"** (Protokoll): the cases it registered for office B are listed while they wait for B's Kryetar.
+6. **Admin** (*Administrimi → Listat → Lloji i palës*): "Kopjohet në shkallën e radhës" is Po for Paditës and I paditur,
+   Jo for Person i tretë; changing it changes what the next continuation copies.
 
 ## 052 — Deployment (images, configuration, health)
 

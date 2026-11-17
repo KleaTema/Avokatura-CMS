@@ -333,8 +333,9 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
         {
             // ix_ca_user_current (user_id, ended_at, case_id)
             CaseListTab.Mine => cases.Where(c => db.CaseAssignments.Any(a => a.UserId == userId && a.EndedAt == null && a.CaseId == c.Id)),
-            // ix_cases_office_status (office_id, lifecycle_status, registered_at); registered cases are in the registrar's office
-            CaseListTab.Registered => cases.Where(c => c.OfficeId == officeId && c.LifecycleStatus == Case.Registered && c.RegisteredBy == userId),
+            // "Të regjistruarat nga unë" by registered_by (task 053j: a registration goes to the office of its court, not
+            // to the registrar's) — the index of fk_cases_reg_by
+            CaseListTab.Registered => cases.Where(c => c.RegisteredBy == userId && c.LifecycleStatus == Case.Registered),
             CaseListTab.Unassigned => cases.Where(c => c.OfficeId == officeId && c.LifecycleStatus == Case.Registered),
             CaseListTab.Office => cases.Where(c => c.OfficeId == officeId),
             // ix_ci_institution (institution_id, ended_at, case_id)

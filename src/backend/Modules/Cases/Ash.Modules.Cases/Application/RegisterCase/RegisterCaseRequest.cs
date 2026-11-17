@@ -4,6 +4,8 @@ namespace Ash.Modules.Cases.Application.RegisterCase;
 /// What Protokoll sends from the summons (fletëthirrje). Codes for lookups; numeric ids only for courts and
 /// judges (as in task 012). Everything is nullable so a missing field becomes a field error, not a binding error.
 /// The parties are saved in the same transaction (at least one); later changes go through task 017's endpoints.
+/// OfficePublicId: "Zyra që e ndjek" (task 053j) — empty = the office covering the court (office_courts); required
+/// when no office covers it.
 /// </summary>
 public sealed record RegisterCaseRequest(
     string? SummonsNumber,
@@ -17,7 +19,8 @@ public sealed record RegisterCaseRequest(
     string? ObjectText,
     FirstHearingRequest? FirstHearing,
     IReadOnlyList<PartyRequest>? Parties,
-    bool ConfirmPossibleDuplicate = false);
+    bool ConfirmPossibleDuplicate = false,
+    Guid? OfficePublicId = null);
 
 /// <summary>
 /// Kind is NATURAL, LEGAL or INSTITUTION. InstitutionPublicId is required for INSTITUTION and not allowed otherwise;

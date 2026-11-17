@@ -132,17 +132,18 @@ is a MySQL named lock here.
   - Script 024 turned the old per-case rows into links: same office as the current primary → linked; otherwise ended. It is reported in `ash_ops.migration_reports`, which the migrator prints after a run.
 
 ## Case life cycle
-`REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set by "Arkivo" only when the latest level is closed, final, and its reasoned decision has arrived with a clean document (task 053a, `ArchiveRule`). A closed case can continue as X/n+1 at any court level, a lower one too (appeal, recourse, retrial). X/n+1 copies only the parties and the object; each institution party gets a MONITORING link. Category, subcategory and delegation are not copied (client decision B.1).
+`REGISTERED` (at Kryetar, no lawyer) → `ACTIVE` (primary lawyer assigned) → `CLOSED` (decision recorded). Dossier → `archived_at` set by "Arkivo" only when the latest level is closed, final, and its reasoned decision has arrived with a clean document (task 053a, `ArchiveRule`). A closed case can continue as X/n+1 at any court level, a lower one too (appeal, recourse, retrial). X/n+1 copies only the object and the parties whose role has `party_roles.copy_to_next_level` (the plaintiff and the defendant, task 053j); each institution among THOSE gets a MONITORING link. The Protokoll may add parties in the form. Category, subcategory, delegation and other parties are not copied (client decisions B.1, 053j c).
 
-## Handoff to the next level — "Përcjellja e çështjes" (task 053c)
-- **Court → office.** `office_courts` (Identity; admin: Administrimi → Zyrat → "Gjykatat që mbulon") says which office handles a court. A court has at most one active office (unique index on a generated column).
-- **Closing.** `POST /api/cases/{id}/decision` with `isFinal = false` requires the destination, `nextCourtLevelCode` + `nextCourtId` (a court of that level; any level, a lower one too). The office comes from the court. When no office covers the court, `receivingOfficePublicId` + `handoffReason` (at least 10 characters) are required. With `isFinal = true` the fields are refused.
-- **What it writes.** A `case_handoffs` row and history `CASE_HANDED_OFF`, in the closing's transaction (`HandoffService`). The `CaseHandedOff` event makes the Notifications module tell every active Protokoll of the office: a mandatory notification `CASE_HANDED_OFF` and an e-mail.
-- **Receiving office.** It sees the case under "Çështjet e ardhura" (`GET /api/cases/handoffs/incoming`, an extra tab in `/api/cases/tabs`). It gets registration-level data only, never `case.view`: no documents, no chat. "Vazhdo" opens the next-level form with level and court filled in. Registering X/n+1 sets `accepted_case_id`.
-- **Correction.** `PUT /api/cases/{id}/handoff` is open to whoever has `decision.record` on the closed level, until the handoff is accepted. The open row is cancelled and a new one written (`HANDOFF_CHANGED`). The old office gets `HANDOFF_WITHDRAWN`; the new one gets `CASE_HANDED_OFF`.
-- **Final later.** `PUT /decision` that makes the decision final cancels the open handoff ("Vendimi mori formë të prerë", `HANDOFF_CANCELLED`), and the office gets `HANDOFF_WITHDRAWN`.
+## The Protokoll is central; the office of the court (task 053j)
+The handoff of task 053c ("Përcjellja", `case_handoffs`, "Çështjet e ardhura") is removed (script 030 drops the table; its history codes stay readable). The decision no longer asks for the next court.
+- **Court → office.** `office_courts` (Identity; admin: Administrimi → Zyrat → "Gjykatat që mbulon") says which office covers a court; at most one active office per court.
+- **Routing a registration.** Registration (016) and continuation (018) carry `officePublicId` ("Zyra që e ndjek"). `CaseRegistrationSupport.ResolveOfficeAsync` takes it, or the office covering the summons court; a court no office covers needs it (400 on `officePublicId`). `cases.office_id` = that office — NOT the Protokoll's — and `SENT_TO_HEAD` / `CaseRegistered` go to ITS Kryetar (no Kryetar → the old refusal). Another office than the court's is audited (`CASE_OFFICE_OVERRIDE`). `GET /api/cases/registration/offices?courtId=` pre-fills the form.
+- **The Protokoll's own list.** "Të regjistruarat nga unë" (`registered` tab) filters by `registered_by`, whatever the office; the desk's corrections follow the same rule while the case is REGISTERED.
+- **Country-wide lookup.** `GET /api/cases/registration-search` is a table of every dossier (latest level), registration-level data only — never `case.view` (TODO(client-q-protokoll-full-view)). Status `CONTINUABLE` (default: closed, not final, not archived) | `ALL` | `OPEN` | `CLOSED`. Keyset by `(closed_at, id)` on `ix_cases_status_closed` (CONTINUABLE / CLOSED) or by `id` (ALL / OPEN); "is the latest level" through `uq_cases_dossier_level` (EXPLAIN-checked, `ProtokollCentralTests`). Every request is audited (`REGISTRATION_LOOKUP`, the filters used); the `crossOffice` rate limit applies.
+- **"+ Shto filtër".** The report builder's registry (task 053h, `CaseReportFilters.Lookup`: Tabela 3's and Tabela 1's columns plus the registration date, minus the lookup's own filters) is offered through `ICaseFilterCatalog` (Reports.Contracts): `GET …/registration-search/more-filters?more=` gives the filters with their options, and `more=` (the builder's JSON object) on the search adds their predicates over the shown level `c` and its decision `d`. One definition, two uses.
 
-## E-mail (task 053c)
+## E-mail (task 053c; no producer since task 053j)
+- **Use.** Its only producer was the handoff; since task 053j nothing queues mail. The outbox, the dispatcher and the configuration stay, ready for TODO(client-q-email).
 - **Queuing.** `IEmailOutbox.EnqueueAsync` writes `email_outbox` rows in the caller's transaction. Nothing is sent for an action that rolls back.
 - **Sending.** `EmailDispatcher` (a `BackgroundService` in Notifications) sends them through `IEmailSender` (`SmtpEmailSender`, MailKit). It runs every `Email:IntervalSeconds` and is woken after each commit that queued mail. Each mail is claimed with `FOR UPDATE SKIP LOCKED`, one transaction per mail.
 - **Retries.** A failed mail waits 1, 2, 4 … minutes (at most an hour) and is `FAILED` after `Email:MaxAttempts`, with its last error kept. A mail failure never fails the action.
@@ -161,7 +162,7 @@ The "Vazhdo çështje ekzistuese" search (`GET /api/cases/registration-search`) 
 - **Semantics:**
   - every given filter must match, each on any level of the dossier, and the dossier is shown by its latest level;
   - unknown parameters are ignored;
-  - no filter at all is a 400.
+  - no filter at all lists every dossier (task 053j: a table, default status "Mund të vazhdohen").
 
 **To add a filter:**
 1. Add one class (e.g. `internal sealed class SummonsNumberSearchFilter : TextFilter` with `Name`, `Order` and `Predicate`). Nothing to register.

@@ -5,11 +5,13 @@ using Ash.SharedKernel.Results;
 
 namespace Ash.Modules.Reference.Application.Admin;
 
-public sealed record CreatePartyRoleRequest(string Code, string Name, string ReportGroup, int SortOrder);
+/// <summary>CopyToNextLevel (task 053j): the party is copied when the case continues at the next level; default no.</summary>
+public sealed record CreatePartyRoleRequest(string Code, string Name, string ReportGroup, int SortOrder, bool CopyToNextLevel = false);
 
-public sealed record UpdatePartyRoleRequest(string Name, int SortOrder);
+/// <summary>CopyToNextLevel null keeps the current value (older clients).</summary>
+public sealed record UpdatePartyRoleRequest(string Name, int SortOrder, bool? CopyToNextLevel = null);
 
-public sealed record PartyRoleAdminResponse(string Code, string Name, string ReportGroup, byte SortOrder, bool IsActive);
+public sealed record PartyRoleAdminResponse(string Code, string Name, string ReportGroup, byte SortOrder, bool IsActive, bool CopyToNextLevel);
 
 public static partial class PartyRoleAdminSupport
 {
@@ -52,7 +54,7 @@ public static partial class PartyRoleAdminSupport
     public static byte ToDbSortOrder(int sortOrder) => checked((byte)sortOrder);
 
     public static PartyRoleAdminResponse ToResponse(PartyRoleRecord record) =>
-        new(record.Code, record.Name, record.ReportGroup, record.SortOrder, record.IsActive);
+        new(record.Code, record.Name, record.ReportGroup, record.SortOrder, record.IsActive, record.CopyToNextLevel);
 
     public static object Snapshot(PartyRoleRecord record) => new
     {
@@ -60,7 +62,8 @@ public static partial class PartyRoleAdminSupport
         Name = record.Name,
         ReportGroup = record.ReportGroup,
         SortOrder = record.SortOrder,
-        IsActive = record.IsActive
+        IsActive = record.IsActive,
+        CopyToNextLevel = record.CopyToNextLevel
     };
 
     public static void AuditChange(IAuditLog audit, PartyRoleRecord record, string action, object? oldValues, object? newValues) =>

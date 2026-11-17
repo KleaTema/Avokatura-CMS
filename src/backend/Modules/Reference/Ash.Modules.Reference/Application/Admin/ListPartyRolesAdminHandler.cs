@@ -10,7 +10,7 @@ public sealed class ListPartyRolesAdminHandler(ReferenceDbContext db)
         return await db.PartyRoles.AsNoTracking()
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Code)
-            .Select(x => new PartyRoleAdminResponse(x.Code, x.Name, x.ReportGroup, x.SortOrder, x.IsActive))
+            .Select(x => new PartyRoleAdminResponse(x.Code, x.Name, x.ReportGroup, x.SortOrder, x.IsActive, x.CopyToNextLevel))
             .ToListAsync(ct);
     }
 }

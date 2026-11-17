@@ -54,10 +54,6 @@ public static class NotificationsModule
 		services.AddScoped<IEventHandler<SupervisionStarted>>(sp => sp.GetRequiredService<SupervisionNotifications>());
 		services.AddScoped<IEventHandler<SupervisionEnded>>(sp => sp.GetRequiredService<SupervisionNotifications>());
 
-		services.AddScoped<HandoffNotifications>();
-		services.AddScoped<IEventHandler<CaseHandedOff>>(sp => sp.GetRequiredService<HandoffNotifications>());
-		services.AddScoped<IEventHandler<CaseHandoffWithdrawn>>(sp => sp.GetRequiredService<HandoffNotifications>());
-
 		services.AddScoped<DocumentEventNotifications>();
 		services.AddScoped<IEventHandler<DocumentInfected>>(sp => sp.GetRequiredService<DocumentEventNotifications>());
 		services.AddScoped<IEventHandler<DocumentScanFailed>>(sp => sp.GetRequiredService<DocumentEventNotifications>());

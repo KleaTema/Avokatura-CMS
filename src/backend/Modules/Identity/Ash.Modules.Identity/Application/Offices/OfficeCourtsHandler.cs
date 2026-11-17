@@ -14,7 +14,8 @@ public sealed record OfficeCourtResponse(int CourtId, Guid OfficePublicId, strin
 public sealed record SetOfficeCourtsRequest(IReadOnlyList<int>? CourtIds);
 
 /// <summary>
-/// "Gjykatat që mbulon" (task 053c): which office handles which court, so a handoff finds the receiving office.
+/// "Gjykatat që mbulon" (task 053c): which office handles which court. Since task 053j it routes a registration: the
+/// court that issued the summons pre-fills "Zyra që e ndjek" (registration and continuation).
 /// A court maps to at most one ACTIVE office: giving it to this office while another one has it → 409 naming both.
 /// Removed courts are kept inactive (is_active = 0), not deleted.
 /// </summary>

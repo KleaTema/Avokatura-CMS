@@ -24,7 +24,7 @@ import { useForbiddenRedirect } from './lists/helpers'
 const t = sq.adminOffices
 
 /**
- * "Gjykatat që mbulon" (task 053c): the courts this office handles, so a handoff to one of them reaches this office's
+ * "Gjykatat që mbulon" (task 053c; task 053j: a summons of one of them pre-fills this office at registration): the courts this office handles, so a case of one of them reaches this office's
  * Protokoll. A court of another office is shown but cannot be picked ("Mbulohet nga …"); the server refuses it too.
  */
 export function OfficeCourtsDialog({ office, onClose }: { office: AdminOffice; onClose: () => void }) {

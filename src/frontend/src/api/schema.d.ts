@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/config": {
         parameters: {
             query?: never;
@@ -116,6 +132,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/registration/offices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListRegistrationOffices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/registration-search": {
         parameters: {
             query?: never;
@@ -140,6 +172,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["ListRegistrationSearchFilters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/registration-search/more-filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListRegistrationSearchMoreFilters"];
         put?: never;
         post?: never;
         delete?: never;
@@ -572,38 +620,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["SearchCases"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/cases/handoff-destination": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["GetHandoffDestination"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/cases/handoffs/incoming": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ListIncomingHandoffs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1988,22 +2004,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/cases/{id}/handoff": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["GetCaseHandoff"];
-        put: operations["ChangeCaseHandoff"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/supervisions": {
         parameters: {
             query?: never;
@@ -2560,6 +2560,8 @@ export interface components {
             kind: string;
             displayName: string;
             authority: string;
+            policy: null | string;
+            knownAuthorities: string[];
             clientId: string;
             scopes: string[];
         };
@@ -2635,19 +2637,16 @@ export interface components {
             /** Format: uint32 */
             rowVersion: number | string;
         };
-        CaseHandoffView: {
-            /** Format: uuid */
-            publicId: string;
-            courtLevelCode: string;
-            courtLevelName: string;
-            /** Format: int32 */
-            courtId: number | string;
-            courtName: string;
-            office: components["schemas"]["OfficeRef"];
-            overrideReason: null | string;
-            /** Format: date-time */
-            createdAt: string;
-            canChange: boolean;
+        CaseFilterField: {
+            key: string;
+            label: string;
+            kind: string;
+            parent: null | string;
+            options: null | components["schemas"]["CaseFilterOption"][];
+        };
+        CaseFilterOption: {
+            value: string;
+            label: string;
         };
         CaseHeader: {
             /** Format: uuid */
@@ -2732,14 +2731,6 @@ export interface components {
             name: string;
             /** Format: date-time */
             assignedAt: string;
-        };
-        ChangeHandoffRequest: {
-            nextCourtLevelCode: null | string;
-            /** Format: int32 */
-            nextCourtId: null | number | string;
-            /** Format: uuid */
-            receivingOfficePublicId: null | string;
-            reason: null | string;
         };
         ChangeJudgeRequest: {
             /** Format: int64 */
@@ -2980,6 +2971,8 @@ export interface components {
             reportGroup: string;
             /** Format: int32 */
             sortOrder: number | string;
+            /** @default false */
+            copyToNextLevel: boolean;
         };
         CreateSummonsTypeRequest: {
             code: string;
@@ -3066,13 +3059,6 @@ export interface components {
             cancelOpenHearings: null | boolean;
             /** Format: uint32 */
             rowVersion: null | number | string;
-            nextCourtLevelCode?: null | string;
-            /** Format: int32 */
-            nextCourtId?: null | number | string;
-            /** Format: uuid */
-            receivingOfficePublicId?: null | string;
-            handoffReason?: null | string;
-            handoff?: components["schemas"]["HandoffInput"];
         };
         DecisionResultAdminResponse: {
             code: string;
@@ -3223,19 +3209,6 @@ export interface components {
             permissions: string[];
             menus: string[];
         };
-        HandoffDestinationResponse: {
-            office: null | components["schemas"]["OfficeRef"];
-            offices: components["schemas"]["OfficeRef"][];
-        };
-        HandoffInput: {
-            nextCourtLevelCode: null | string;
-            /** Format: int32 */
-            nextCourtId: null | number | string;
-            /** Format: uuid */
-            receivingOfficePublicId: null | string;
-            reason: null | string;
-            isEmpty?: boolean;
-        };
         HearingSaveResponse: {
             hearing: components["schemas"]["HearingView"];
             warnings: components["schemas"]["RegistrationWarning"][];
@@ -3281,31 +3254,6 @@ export interface components {
         };
         /** Format: binary */
         IFormFile: string;
-        IncomingHandoffItem: {
-            /** Format: uuid */
-            handoffPublicId: string;
-            /** Format: uuid */
-            casePublicId: string;
-            caseCode: string;
-            partyNames: string[];
-            objectText: string;
-            fromCourtName: string;
-            resultName: null | string;
-            /** Format: date */
-            decisionDate: null | string;
-            courtLevelCode: string;
-            courtLevelName: string;
-            /** Format: int32 */
-            courtId: number | string;
-            courtName: string;
-            /** Format: date-time */
-            handedOffAt: string;
-        };
-        IncomingHandoffsResponse: {
-            items: components["schemas"]["IncomingHandoffItem"][];
-            /** Format: int32 */
-            total: number | string;
-        };
         InstitutionAdminResponse: {
             /** Format: uuid */
             publicId: string;
@@ -3525,11 +3473,6 @@ export interface components {
             publicId: string;
             name: string;
         };
-        OfficeRef: {
-            /** Format: uuid */
-            publicId: string;
-            name: string;
-        };
         OpenDirectRequest: {
             /** Format: uuid */
             userId: string;
@@ -3624,6 +3567,7 @@ export interface components {
             /** Format: uint8 */
             sortOrder: number | string;
             isActive: boolean;
+            copyToNextLevel: boolean;
         };
         PartyRoleRef: {
             code: string;
@@ -3696,6 +3640,8 @@ export interface components {
             parties: null | components["schemas"]["PartyRequest"][];
             /** @default false */
             confirmPossibleDuplicate: boolean;
+            /** Format: uuid */
+            officePublicId?: null | string;
         };
         RegisterCaseResponse: {
             /** Format: uuid */
@@ -3719,23 +3665,48 @@ export interface components {
             firstHearing: null | components["schemas"]["FirstHearingRequest"];
             /** @default false */
             confirmPossibleDuplicate: boolean;
+            parties?: null | components["schemas"]["PartyRequest"][];
+            /** Format: uuid */
+            officePublicId?: null | string;
         };
         RegistrationFilterResponse: {
             name: string;
             input: string;
             dependsOn: null | string;
         };
+        RegistrationOfficeOption: {
+            /** Format: uuid */
+            publicId: string;
+            name: string;
+        };
+        RegistrationOfficesResponse: {
+            offices: components["schemas"]["RegistrationOfficeOption"][];
+            /** Format: uuid */
+            courtOfficePublicId: null | string;
+        };
         RegistrationSearchItem: {
             /** Format: uuid */
             casePublicId: string;
             caseCode: string;
             status: string;
-            actNumber: string;
+            courtLevelName: string;
             courtName: string;
+            judgeName: string;
+            actNumber: string;
             objectSnippet: string;
-            partyNames: string[];
+            plaintiffs: string[];
+            defendants: string[];
             /** Format: int32 */
             partyCount: number | string;
+            categoryName: null | string;
+            subcategoryName: null | string;
+            resultName: null | string;
+            /** Format: date */
+            decisionDate: null | string;
+            isFinal: null | boolean;
+            officeName: string;
+            /** Format: date-time */
+            registeredAt: string;
             /** Format: date-time */
             closedAt: null | string;
             canContinue: boolean;
@@ -4175,6 +4146,7 @@ export interface components {
             name: string;
             /** Format: int32 */
             sortOrder: number | string;
+            copyToNextLevel?: null | boolean;
         };
         UpdateSummonsTypeRequest: {
             name: string;
@@ -4227,6 +4199,10 @@ export interface components {
             userPublicId: string;
             name: string;
         };
+        VersionResponse: {
+            version: string;
+            environment: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -4263,6 +4239,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionResponse"];
                 };
             };
         };
@@ -4430,14 +4426,47 @@ export interface operations {
             };
         };
     };
+    ListRegistrationOffices: {
+        parameters: {
+            query?: {
+                courtId?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationOfficesResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     SearchCasesForRegistration: {
         parameters: {
             query?: {
                 after?: string;
                 limit?: number | string;
                 status?: string;
+                more?: string;
                 code?: string;
                 actNumber?: string;
+                courtLevel?: string;
                 courtId?: number;
                 judgeId?: number;
                 plaintiff?: string;
@@ -4489,6 +4518,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistrationFilterResponse"][];
+                };
+            };
+        };
+    };
+    ListRegistrationSearchMoreFilters: {
+        parameters: {
+            query?: {
+                more?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFilterField"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
         };
@@ -5707,57 +5767,6 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    GetHandoffDestination: {
-        parameters: {
-            query: {
-                courtId: number | string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HandoffDestinationResponse"];
-                };
-            };
-        };
-    };
-    ListIncomingHandoffs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IncomingHandoffsResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9303,106 +9312,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordDecisionResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    GetCaseHandoff: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CaseHandoffView"];
-                };
-            };
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    ChangeCaseHandoff: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangeHandoffRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CaseHandoffView"];
                 };
             };
             /** @description Bad Request */

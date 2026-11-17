@@ -17,7 +17,6 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CaseDecision> CaseDecisions => Set<CaseDecision>();
     public DbSet<CaseSecurityMeasure> CaseSecurityMeasures => Set<CaseSecurityMeasure>();
     public DbSet<CaseReminderRow> CaseReminders => Set<CaseReminderRow>();
-    public DbSet<CaseHandoff> CaseHandoffs => Set<CaseHandoff>();
     public DbSet<Supervision> Supervisions => Set<Supervision>();
     public DbSet<AssistantLink> AssistantLinks => Set<AssistantLink>();
 
@@ -146,28 +145,6 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.CreatedAt).HasColumnName("created_at");
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
             b.Property(x => x.EndedBy).HasColumnName("ended_by");
-        });
-
-        // task 053c (script 021): the handoff of a closed, non-final level to the next court and office
-        modelBuilder.Entity<CaseHandoff>(b =>
-        {
-            b.ToTable("case_handoffs");
-            b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
-            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
-            b.Property(x => x.DossierId).HasColumnName("dossier_id");
-            b.Property(x => x.FromCaseId).HasColumnName("from_case_id");
-            b.Property(x => x.ToOfficeId).HasColumnName("to_office_id");
-            b.Property(x => x.CourtLevelId).HasColumnName("court_level_id");
-            b.Property(x => x.CourtId).HasColumnName("court_id");
-            b.Property(x => x.OverrideReason).HasColumnName("override_reason");
-            b.Property(x => x.CreatedBy).HasColumnName("created_by");
-            b.Property(x => x.CreatedAt).HasColumnName("created_at");
-            b.Property(x => x.AcceptedCaseId).HasColumnName("accepted_case_id");
-            b.Property(x => x.AcceptedAt).HasColumnName("accepted_at");
-            b.Property(x => x.CancelledAt).HasColumnName("cancelled_at");
-            b.Property(x => x.CancelledBy).HasColumnName("cancelled_by");
-            b.Property(x => x.CancelReason).HasColumnName("cancel_reason");
         });
 
         modelBuilder.Entity<CaseAssignmentRow>(b =>
@@ -435,31 +412,6 @@ public sealed class Supervision
     public DateTime CreatedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     public uint? EndedBy { get; set; }
-}
-
-/// <summary>
-/// "Përcjellja e çështjes" (task 053c): a closed level that is not final, handed to the next court and its office.
-/// Open = neither accepted (X/n+1 registered) nor cancelled (destination corrected, or the decision became final).
-/// </summary>
-public sealed class CaseHandoff
-{
-    public ulong Id { get; set; }
-    public Guid PublicId { get; set; }
-    public ulong DossierId { get; set; }
-    public ulong FromCaseId { get; set; }
-    public ushort ToOfficeId { get; set; }
-    public byte CourtLevelId { get; set; }
-    public ushort CourtId { get; set; }
-    public string? OverrideReason { get; set; }
-    public uint CreatedBy { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public ulong? AcceptedCaseId { get; set; }
-    public DateTime? AcceptedAt { get; set; }
-    public DateTime? CancelledAt { get; set; }
-    public uint? CancelledBy { get; set; }
-    public string? CancelReason { get; set; }
-
-    public bool IsOpen => AcceptedCaseId is null && CancelledAt is null;
 }
 
 public sealed class CaseInstitution

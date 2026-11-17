@@ -204,6 +204,8 @@ export interface SimpleListItem {
   reportGroup: string | null
   outcomeGroup: string | null
   sendsBackForRetrial: boolean | null
+  /** party roles (task 053j): copied when the case continues at the next level */
+  copyToNextLevel: boolean | null
   isActive: boolean
 }
 
@@ -215,6 +217,7 @@ export interface SimpleItemInput {
   isOther: boolean
   group: string
   sendsBackForRetrial: boolean
+  copyToNextLevel: boolean
 }
 
 interface SimpleRowFields {
@@ -226,6 +229,7 @@ interface SimpleRowFields {
   reportGroup?: string
   outcomeGroup?: string
   sendsBackForRetrial?: boolean
+  copyToNextLevel?: boolean
 }
 
 const toItem = (r: SimpleRowFields): SimpleListItem => ({
@@ -236,6 +240,7 @@ const toItem = (r: SimpleRowFields): SimpleListItem => ({
   reportGroup: r.reportGroup ?? null,
   outcomeGroup: r.outcomeGroup ?? null,
   sendsBackForRetrial: r.sendsBackForRetrial ?? null,
+  copyToNextLevel: r.copyToNextLevel ?? null,
   isActive: r.isActive,
 })
 
@@ -272,14 +277,14 @@ const simpleListApi: Record<SimpleListKey, SimpleListApi> = {
     create: (v) =>
       api
         .POST('/api/reference/admin/party-roles', {
-          body: { code: v.code, name: v.name, reportGroup: v.group, sortOrder: v.sortOrder },
+          body: { code: v.code, name: v.name, reportGroup: v.group, sortOrder: v.sortOrder, copyToNextLevel: v.copyToNextLevel },
         })
         .then(unwrap),
     update: (code, v) =>
       api
         .PUT('/api/reference/admin/party-roles/{code}', {
           params: { path: { code } },
-          body: { name: v.name, sortOrder: v.sortOrder },
+          body: { name: v.name, sortOrder: v.sortOrder, copyToNextLevel: v.copyToNextLevel },
         })
         .then(unwrap),
     setActive: (code, active) =>

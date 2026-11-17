@@ -210,6 +210,35 @@ internal static class CaseReportFilters
         YesNo("decisionReceived", "Vendimi i arsyetuar ardhur", "d.decision_received"),
     ];
 
+    // ---------------------------------------------------------------- the "Vazhdo çështje ekzistuese" lookup (task 053j)
+
+    /// <summary>The lookup's own filters (Cases module, task 053b): never offered again under "+ Shto filtër".</summary>
+    private static readonly HashSet<string> LookupOwnKeys =
+    [
+        "caseCode", "actNumber", "courtLevel", "court", "judge", "plaintiffs", "defendants", "objectText", "category",
+        "subcategory", "result",
+    ];
+
+    private static CaseFilterDef RegisteredAt =>
+        new("registeredAt", "Data e regjistrimit", ReportFilterKinds.DateRange, Column: "c.registered_at", UtcDate: true);
+
+    /// <summary>
+    /// "+ Shto filtër" of the lookup: every column of Tabela 3 and Tabela 1 (once each; Tabela 3's meaning first: the
+    /// lookup shows mostly closed levels, so "Avokati" is the primary lawyer at closing) plus the registration date —
+    /// minus the lookup's own filters. Over alias c and d = LEFT JOIN case_decisions (no decision → no d match).
+    /// </summary>
+    public static readonly IReadOnlyList<CaseFilterDef> Lookup =
+        Closed.Concat(Active.Where(a => Closed.All(c => c.Key != a.Key)))
+            .Append(RegisteredAt)
+            .Where(d => !LookupOwnKeys.Contains(d.Key))
+            .Select(d => d with { IsDefault = false })
+            .ToList();
+
+    /// <summary>The lookup's rows: the latest level of every dossier of the country (alias c, d).</summary>
+    public const string LookupFrom =
+        "FROM cases c LEFT JOIN case_decisions d ON d.case_id = c.id " +
+        "WHERE NOT EXISTS (SELECT 1 FROM cases nx WHERE nx.dossier_id = c.dossier_id AND nx.level_seq > c.level_seq)";
+
     public static IReadOnlyList<CaseFilterDef> For(int table) => table == ReportTables.Closed ? Closed : Active;
 
     /// <summary>The table's base (FROM … WHERE …) without the scope: Tabela 1 = not closed, Tabela 3 = closed with a decision.</summary>
@@ -345,9 +374,13 @@ internal static class CaseReportFilters
         Error.Validation("report.filter_invalid", $"Vlera e filtrit \"{def.Label}\" nuk është e vlefshme.");
 
     /// <summary>"AND …" of every chosen filter (the filter's own text never reaches the SQL, only its parameter).</summary>
-    public static Result<string> Where(int table, ReportFilterValues values, DynamicParameters p, IEnumerable<CaseFilterDef>? only = null)
+    public static Result<string> Where(int table, ReportFilterValues values, DynamicParameters p, IEnumerable<CaseFilterDef>? only = null) =>
+        Where(For(table), values, p, only);
+
+    /// <summary>"AND …" of every chosen filter of <paramref name="defs"/> (a table's, or the lookup's).</summary>
+    public static Result<string> Where(
+        IReadOnlyList<CaseFilterDef> defs, ReportFilterValues values, DynamicParameters p, IEnumerable<CaseFilterDef>? only = null)
     {
-        var defs = For(table);
         var unknown = values.Keys.FirstOrDefault(k => defs.All(d => d.Key != k));
         if (unknown is not null)
         {
@@ -373,9 +406,10 @@ internal static class CaseReportFilters
     }
 
     /// <summary>The filter and its ancestors (parent, parent's parent): what limits its options.</summary>
-    public static IEnumerable<CaseFilterDef> Ancestors(int table, CaseFilterDef def)
+    public static IEnumerable<CaseFilterDef> Ancestors(int table, CaseFilterDef def) => Ancestors(For(table), def);
+
+    public static IEnumerable<CaseFilterDef> Ancestors(IReadOnlyList<CaseFilterDef> defs, CaseFilterDef def)
     {
-        var defs = For(table);
         var current = def.Parent;
         while (current is not null && defs.FirstOrDefault(d => d.Key == current) is { } parent)
         {

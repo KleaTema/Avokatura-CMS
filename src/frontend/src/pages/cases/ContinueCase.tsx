@@ -4,49 +4,67 @@ import {
   Button,
   CircularProgress,
   Link as MuiLink,
-  Paper,
+  Menu,
+  MenuItem,
   Stack,
+  TableCell,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { JudgePicker, type PickedJudge } from '../../components/JudgePicker'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
 import { CaseCode } from '../../components/ui/CaseCode'
-import { PaginationFooter } from '../../components/ui/DataTable'
+import { DataTable, PaginationFooter, type DataColumn } from '../../components/ui/DataTable'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { StatusChip } from '../../components/ui/StatusChip'
+import { stickyCellSx } from '../../components/ui/tableStyles'
 import { NotifyNotClosedDialog } from '../../components/registration/NotifyNotClosedDialog'
 import { FormSection, RegistrationForm } from '../../components/registration/RegistrationForm'
 import {
+  REGISTRATION_STATUSES,
+  useMoreFilters,
   useNextLevelPreview,
   useNotifyRecipients,
   useRegisterNextLevel,
   useRegistrationFilters,
   useRegistrationSearch,
+  type MoreFilter,
   type NextLevelPreview,
   type RegistrationFilter,
   type RegistrationFilterName,
   type RegistrationFilterValues,
   type RegistrationSearchItem,
+  type RegistrationStatus,
 } from '../../features/cases/api'
 import { useMe } from '../../features/identity/api'
-import { useCaseCategories, useCaseSubcategories, useCourts, useDecisionResults } from '../../features/reference/api'
+import {
+  useCaseCategories,
+  useCaseSubcategories,
+  useCourtLevels,
+  useCourts,
+  useDecisionResults,
+} from '../../features/reference/api'
+import { cleanValues, descendants, filtersParam, parseValues, type FilterValue, type FilterValues, type ReportFilterMeta } from '../../features/reports/builder'
 import { sq } from '../../i18n/sq'
 import { formatTiraneDate } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
-import { useUrlSearch } from '../../lib/useUrlSearch'
+import { FilterField as MoreFilterField } from '../reports/builder/FilterField'
 
 const t = sq.cases.continue
 
 /**
- * Protokoll continues a closed case at the next level (task 021, part 2): find the dossier (?q= in the URL, so the
- * duplicate dialog of a new registration can open it), then the summons form for X/n+1 (?case=<publicId>).
+ * Protokoll continues a closed case at the next level (tasks 021, 053j): a table of EVERY dossier of the country (the
+ * Protokoll is a central role), then the summons form for X/n+1 (?case=<publicId>). Filters and paging live in the URL
+ * (?actNumber=… opens it from the duplicate dialog of a new registration).
  */
 export function ContinueCasePage() {
   const [params, setParams] = useSearchParams()
@@ -55,38 +73,59 @@ export function ContinueCasePage() {
     setParams((prev) => {
       const next = new URLSearchParams(prev)
       if (publicId) next.set('case', publicId)
-      else ['case', 'level', 'court'].forEach((key) => next.delete(key))
+      else next.delete('case')
       return next
     })
 
-  // task 053c: opened from "Çështjet e ardhura" with the handoff's level and court
-  const level = params.get('level') ?? ''
-  const court = params.get('court') ?? ''
-  const initialCourt = level && court ? { courtLevelCode: level, courtId: court } : undefined
-
-  return selected ? (
-    <NextLevel previousCasePublicId={selected} initialCourt={initialCourt} onBack={() => select(null)} />
-  ) : (
-    <Search onContinue={select} />
-  )
+  return selected ? <NextLevel previousCasePublicId={selected} onBack={() => select(null)} /> : <Search onContinue={select} />
 }
 
-// ---------------------------------------------------------------- search
+// ---------------------------------------------------------------- the table
 
 /** URL parameters that only label a chosen value (not sent to the API). */
 const JUDGE_NAME = 'judgeName'
+/** The "+ Shto filtër" values in the URL: the report builder's JSON object. */
+const MORE = 'more'
+const isStatus = (value: string): value is RegistrationStatus => REGISTRATION_STATUSES.some((s) => s === value)
+
+const COLUMNS: DataColumn[] = [
+  { key: 'code', label: t.columns.code, sticky: true },
+  { key: 'level', label: t.columns.level },
+  { key: 'court', label: t.columns.court },
+  { key: 'judge', label: t.columns.judge },
+  { key: 'actNumber', label: t.columns.actNumber },
+  { key: 'plaintiffs', label: t.columns.plaintiffs },
+  { key: 'defendants', label: t.columns.defendants },
+  { key: 'object', label: t.columns.object, width: 280 },
+  { key: 'category', label: t.columns.category },
+  { key: 'result', label: t.columns.result },
+  { key: 'decisionDate', label: t.columns.decisionDate },
+  { key: 'office', label: t.columns.office },
+  { key: 'status', label: t.columns.status },
+  { key: 'action', label: t.columns.action },
+]
+
+/** A "+ Shto filtër" filter as the report builder's FilterField draws it (never default, required or locked here). */
+const asReportFilter = (f: MoreFilter): ReportFilterMeta => ({
+  key: f.key,
+  label: f.label,
+  kind: f.kind,
+  parent: f.parent,
+  isDefault: false,
+  required: false,
+  locked: false,
+  options: f.options,
+})
 
 function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const me = useMe(true)
   const canCreate = me.data?.permissions.includes('case.create') ?? false
   const [params, setParams] = useSearchParams()
-  const [status, setStatus] = useUrlSearch('status')
   const filters = useRegistrationFilters()
   const fields = filters.data ?? []
+  const paging = useKeysetPaging()
 
-  // every filter lives in the URL under its own name (?actNumber=… opens from the duplicate dialog)
-  const raw: RegistrationFilterValues = Object.fromEntries(fields.map((f) => [f.name, params.get(f.name) ?? '']))
-  const set = (changes: Record<string, string>) =>
+  const set = (changes: Record<string, string>) => {
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -94,24 +133,64 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
           if (value) next.set(key, value)
           else next.delete(key)
         }
+        // other filters: back to the first page
+        next.delete('page')
         return next
       },
       { replace: true },
     )
-  // a filter's value goes, and so do the values that depend on it (court → judge, category → subcategory)
+  }
+
+  // every filter lives in the URL under its own name
+  const raw: RegistrationFilterValues = Object.fromEntries(fields.map((f) => [f.name, params.get(f.name) ?? '']))
+  // a filter's value goes, and so do the values that depend on it (shkalla → gjykata → gjyqtari, kategoria → lloji)
   const change = (name: string, value: string) => {
     const changes: Record<string, string> = { [name]: value }
-    for (const f of fields) {
-      if (f.dependsOn !== name) continue
-      changes[f.name] = ''
-      if (f.input === 'Judge') changes[JUDGE_NAME] = ''
+    const clear = (parent: string) => {
+      for (const f of fields) {
+        if (f.dependsOn !== parent) continue
+        changes[f.name] = ''
+        if (f.input === 'Judge') changes[JUDGE_NAME] = ''
+        clear(f.name)
+      }
     }
+    clear(name)
     set(changes)
   }
-  const clear = () => set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, '']]))
 
-  // texts count from 2 characters, after a pause; chosen values at once
-  // (debounced as a string: `raw` is a new object on every render)
+  const statusParam = params.get('status') ?? ''
+  const status: RegistrationStatus = isStatus(statusParam) ? statusParam : 'CONTINUABLE'
+
+  // "+ Shto filtër": the report builder's registry; the added ones stay shown while empty
+  const moreValues = parseValues(safeJson(params.get(MORE)))
+  const moreParam = Object.keys(cleanValues(moreValues)).length > 0 ? filtersParam(moreValues) : ''
+  const more = useMoreFilters(moreParam)
+  const moreFilters = (more.data ?? []).map(asReportFilter)
+  const [added, setAdded] = useState<string[]>(() => Object.keys(moreValues))
+  const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null)
+  const shownMore = moreFilters.filter((f) => added.includes(f.key) || cleanValues(moreValues)[f.key] !== undefined)
+  const addable = moreFilters.filter((f) => !shownMore.includes(f))
+  const setMore = (next: FilterValues) =>
+    set({ [MORE]: Object.keys(cleanValues(next)).length > 0 ? filtersParam(next) : '' })
+  const changeMore = (filter: ReportFilterMeta, value: FilterValue) => {
+    const next = { ...moreValues, [filter.key]: value }
+    for (const child of descendants(moreFilters, filter.key)) delete next[child]
+    setMore(next)
+  }
+  const removeMore = (filter: ReportFilterMeta) => {
+    setAdded((current) => current.filter((k) => k !== filter.key))
+    const next = { ...moreValues }
+    delete next[filter.key]
+    for (const child of descendants(moreFilters, filter.key)) delete next[child]
+    setMore(next)
+  }
+
+  const clearAll = () => {
+    setAdded([])
+    set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, ''], [MORE, ''], ['status', '']]))
+  }
+
+  // texts count from 2 characters, after a pause; chosen values at once (debounced as a string: `raw` is new each render)
   const typed = JSON.parse(useDebounced(JSON.stringify(raw), 300)) as RegistrationFilterValues
   const values: RegistrationFilterValues = Object.fromEntries(
     fields.map((f) => {
@@ -119,21 +198,21 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
       return [f.name, f.input === 'Text' ? serverQuery(typed[key] ?? '') : (raw[key] ?? '')]
     }),
   )
-  const searched = Object.values(values).some((v) => v)
-  const paging = useKeysetPaging()
-  // every status unless one is chosen: the closed level is the one to continue
-  const results = useRegistrationSearch(fields, values, status, { cursor: paging.cursor, size: paging.size })
+  const filtered = Object.values(values).some((v) => v) || moreParam !== '' || status !== 'CONTINUABLE'
+  const results = useRegistrationSearch(fields, values, status, moreParam, { cursor: paging.cursor, size: paging.size })
   const [notifyFor, setNotifyFor] = useState<RegistrationSearchItem | null>(null)
-
   const items = results.data?.items ?? []
+  const labelOf = (key: string | null | undefined) => moreFilters.find((f) => f.key === key)?.label
 
   return (
     <Stack spacing={3}>
       <PageHeader title={t.title} />
       {filters.isPending && <CircularProgress aria-label={sq.errors.loading} />}
       {filters.isError && <Alert severity="error">{problemMessage(filters.error)}</Alert>}
+
+      {/* the client's filters on top, then the status, then "+ Shto filtër" */}
       <Box
-        sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' } }}
+        sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' } }}
         role="search"
       >
         {fields.map((f, i) => (
@@ -149,53 +228,76 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
           />
         ))}
         <AppSelect
-          filter
           label={t.status}
           value={status}
-          onChange={setStatus}
-          options={Object.entries(t.statuses).map(([value, label]) => ({ value, label }))}
+          onChange={(value) => set({ status: value === 'CONTINUABLE' ? '' : value })}
+          options={REGISTRATION_STATUSES.map((value) => ({ value, label: t.statuses[value] ?? value }))}
         />
       </Box>
-      {searched && (
-        <Box>
-          <Button size="small" onClick={clear}>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-start' } }}>
+        {shownMore.map((f) => (
+          <MoreFilterField
+            key={f.key}
+            filter={f}
+            value={moreValues[f.key]}
+            onChange={(v) => changeMore(f, v)}
+            onRemove={() => removeMore(f)}
+            parentLabel={f.parent && cleanValues(moreValues)[f.parent] === undefined ? labelOf(f.parent) : undefined}
+          />
+        ))}
+        {addable.length > 0 && (
+          <Button
+            variant="outlined"
+            startIcon={<Plus size={18} aria-hidden />}
+            onClick={(e) => setAddAnchor(e.currentTarget)}
+            sx={{ mt: 1 }}
+          >
+            {t.addFilter}
+          </Button>
+        )}
+        <Menu anchorEl={addAnchor} open={addAnchor !== null} onClose={() => setAddAnchor(null)}>
+          {addable.map((f) => (
+            <MenuItem
+              key={f.key}
+              onClick={() => {
+                setAdded((current) => [...current, f.key])
+                setAddAnchor(null)
+              }}
+            >
+              {f.label}
+            </MenuItem>
+          ))}
+        </Menu>
+        {filtered && (
+          <Button onClick={clearAll} sx={{ mt: 1 }}>
             {t.clearFilters}
           </Button>
-        </Box>
-      )}
+        )}
+      </Stack>
 
-      {!searched && <Typography color="text.secondary">{t.typeToSearch}</Typography>}
-      {searched && results.isPending && <CircularProgress aria-label={sq.errors.loading} />}
       {results.isError && <Alert severity="error">{problemMessage(results.error)}</Alert>}
 
-      {searched && results.isSuccess && items.length === 0 && (
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography>{t.noResults}</Typography>
-          <Stack direction="row" spacing={2} sx={{ mt: 1, alignItems: 'center' }}>
-            <Button size="small" onClick={clear}>
-              {t.clearFilters}
-            </Button>
-            {canCreate && (
-              <MuiLink component={Link} to="/cases/register">
-                {t.registerNew}
-              </MuiLink>
-            )}
-          </Stack>
-        </Paper>
-      )}
-
-      {searched && items.length > 0 && (
-        <Box>
-          <Stack spacing={2} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-            {items.map((item) => (
-              <ResultCard
-                key={item.casePublicId}
-                item={item}
-                onContinue={() => onContinue(item.casePublicId)}
-                onNotify={() => setNotifyFor(item)}
-              />
-            ))}
-          </Stack>
+      <DataTable
+        label={t.tableLabel}
+        columns={COLUMNS}
+        loading={results.isPending && fields.length > 0}
+        minWidth={1600}
+        empty={
+          results.isSuccess && items.length === 0 ? (
+            <EmptyState
+              title={t.noResults}
+              action={
+                canCreate ? (
+                  <MuiLink component={Link} to="/cases/register">
+                    {t.registerNew}
+                  </MuiLink>
+                ) : undefined
+              }
+            />
+          ) : undefined
+        }
+        footer={
           <PaginationFooter
             mode="keyset"
             paging={paging}
@@ -205,8 +307,17 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
             busy={results.isFetching}
             stale={results.isPlaceholderData}
           />
-        </Box>
-      )}
+        }
+      >
+        {items.map((item) => (
+          <ResultRow
+            key={item.casePublicId}
+            item={item}
+            onContinue={() => onContinue(item.casePublicId)}
+            onNotify={() => setNotifyFor(item)}
+          />
+        ))}
+      </DataTable>
 
       {notifyFor && (
         <NotifyNotClosedDialog
@@ -217,6 +328,16 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
       )}
     </Stack>
   )
+}
+
+/** The URL's ?more= as JSON (anything unreadable is no filter). */
+function safeJson(text: string | null): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -234,7 +355,7 @@ function FilterField({
 }: {
   filter: RegistrationFilter
   value: string
-  /** the value of filter.dependsOn (the court of a judge, the category of a subcategory) */
+  /** the value of filter.dependsOn (the level of a court, the court of a judge, the category of a subcategory) */
   parentValue: string
   judgeName: string
   onChange: (value: string) => void
@@ -242,6 +363,7 @@ function FilterField({
   autoFocus: boolean
 }) {
   const label = t.filters[filter.name] ?? filter.name
+  const levels = useCourtLevels()
   const courts = useCourts()
   const categories = useCaseCategories()
   const subcategories = useCaseSubcategories()
@@ -249,11 +371,23 @@ function FilterField({
   const courtName = (id: string | null) => courts.data?.find((c) => String(c.id) === id)?.name
 
   switch (filter.input) {
+    case 'CourtLevel':
+      return (
+        <AppSelect
+          filter
+          label={label}
+          value={value}
+          onChange={onChange}
+          options={(levels.data ?? []).map((l) => ({ value: l.code, label: l.name }))}
+        />
+      )
     case 'Court':
       return (
         <OptionPicker
           filter
-          options={(courts.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
+          options={(courts.data ?? [])
+            .filter((c) => !parentValue || c.courtLevelCode === parentValue)
+            .map((c) => ({ value: String(c.id), label: c.name }))}
           value={value}
           onChange={onChange}
           label={label}
@@ -317,7 +451,10 @@ function FilterField({
   }
 }
 
-function ResultCard({
+/** The server sends at most five names per side. */
+const names = (list: string[]) => list.join(', ')
+
+function ResultRow({
   item,
   onContinue,
   onNotify,
@@ -326,46 +463,54 @@ function ResultCard({
   onContinue: () => void
   onNotify: () => void
 }) {
-  const hiddenParties = Number(item.partyCount) - item.partyNames.length
   // "E pambyllur në sistem": the level is still open — the lawyer has to record the decision first
   const notClosed = !item.canContinue && item.status !== 'CLOSED'
+  const category = [item.categoryName, item.subcategoryName].filter(Boolean).join(' / ')
   return (
-    <Paper component="li" variant="outlined" sx={{ p: 2 }}>
-      <Stack spacing={1}>
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography variant="h3" component="h2">
-            <CaseCode code={item.caseCode} />
-          </Typography>
-          <StatusChip kind="status" value={item.status} />
-          <Typography color="text.secondary">
-            {item.closedAt ? `${t.closedAt} ${formatTiraneDate(item.closedAt)}` : t.notClosed}
-          </Typography>
-        </Stack>
-        <Typography>
-          {t.actNumber}: {item.actNumber} · {item.courtName}
+    <TableRow hover>
+      <TableCell sx={{ ...stickyCellSx, whiteSpace: 'nowrap' }}>
+        <CaseCode code={item.caseCode} />
+      </TableCell>
+      <TableCell>{item.courtLevelName}</TableCell>
+      <TableCell>{item.courtName}</TableCell>
+      <TableCell>{item.judgeName}</TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.actNumber}</TableCell>
+      <TableCell>{names(item.plaintiffs)}</TableCell>
+      <TableCell>{names(item.defendants)}</TableCell>
+      <TableCell>
+        <Typography variant="body2" color="text.secondary">
+          {item.objectSnippet}
         </Typography>
-        {item.objectSnippet && (
-          <Typography color="text.secondary">
-            {t.object}: {item.objectSnippet}
+      </TableCell>
+      <TableCell>{category}</TableCell>
+      <TableCell>
+        {item.resultName}
+        {item.isFinal && (
+          <Typography variant="caption" color="text.secondary" component="div">
+            {t.final}
           </Typography>
         )}
-        <Typography>
-          {t.parties}: {item.partyNames.join(', ')}
-          {hiddenParties > 0 && ` ${t.moreParties(hiddenParties)}`}
-        </Typography>
+      </TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.decisionDate ? formatTiraneDate(item.decisionDate) : ''}</TableCell>
+      <TableCell>{item.officeName}</TableCell>
+      <TableCell>
+        <StatusChip kind="status" value={item.status} />
+      </TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
         {item.canContinue ? (
-          <Box>
-            <Button variant="contained" onClick={onContinue}>
-              {t.continueButton}
-            </Button>
-          </Box>
+          <Button size="small" variant="outlined" onClick={onContinue} aria-label={t.continueLabel(item.caseCode)}>
+            {t.continueButton}
+          </Button>
         ) : (
-          <Alert severity="warning" action={notClosed && <NotifyButton caseId={item.casePublicId} onClick={onNotify} />}>
-            {item.reason}
-          </Alert>
+          <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+            <Typography variant="body2" color="warning.main">
+              {item.reason}
+            </Typography>
+            {notClosed && <NotifyButton caseId={item.casePublicId} onClick={onNotify} />}
+          </Stack>
         )}
-      </Stack>
-    </Paper>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -373,7 +518,7 @@ function ResultCard({
 function NotifyButton({ caseId, onClick }: { caseId: string; onClick: () => void }) {
   const recipients = useNotifyRecipients(caseId)
   return (
-    <Button color="inherit" size="small" onClick={onClick} disabled={!recipients.data}>
+    <Button size="small" onClick={onClick} disabled={!recipients.data}>
       {t.notify(recipients.data?.hasPrimaryLawyer ?? false)}
     </Button>
   )
@@ -381,15 +526,7 @@ function NotifyButton({ caseId, onClick }: { caseId: string; onClick: () => void
 
 // ---------------------------------------------------------------- next level
 
-function NextLevel({
-  previousCasePublicId,
-  initialCourt,
-  onBack,
-}: {
-  previousCasePublicId: string
-  initialCourt?: { courtLevelCode: string; courtId: string }
-  onBack: () => void
-}) {
+function NextLevel({ previousCasePublicId, onBack }: { previousCasePublicId: string; onBack: () => void }) {
   const preview = useNextLevelPreview(previousCasePublicId)
   const register = useRegisterNextLevel(previousCasePublicId)
 
@@ -401,7 +538,7 @@ function NextLevel({
 
   if (preview.isPending) return <CircularProgress aria-label={sq.errors.loading} />
   if (preview.isError) {
-    // 409: already continued, archived or not closed — the search shows the current state
+    // 409: already continued, archived or not closed — the table shows the current state
     return (
       <Stack spacing={2}>
         <Alert severity="warning">{problemMessage(preview.error)}</Alert>
@@ -418,7 +555,6 @@ function NextLevel({
         title={t.nextTitle(preview.data.caseCode)}
         above={<PreviewPanel preview={preview.data} />}
         send={(request) => register.mutateAsync(request)}
-        initialCourt={initialCourt}
         anotherLabel={t.back}
         onAnother={onBack}
       />

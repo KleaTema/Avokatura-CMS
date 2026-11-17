@@ -11,8 +11,9 @@ namespace Ash.Modules.Notifications.Application;
 
 /// <summary>
 /// <see cref="INotificationSender"/>: rows in the caller's transaction, the push after its commit.
-/// In-app only (stored + SignalR). E-mail exists since task 053c (IEmailOutbox) and is used where the client asked for
-/// it: the handoff to the receiving Protokoll. TODO(client-q-email): which other notifications also go by e-mail.
+/// In-app only (stored + SignalR). E-mail exists since task 053c (IEmailOutbox, email_outbox, the dispatcher job) but
+/// has NO producer since task 053j (its only user, the handoff, is removed); it stays ready.
+/// TODO(client-q-email): which notifications go by e-mail.
 /// </summary>
 internal sealed class NotificationSender(
     NotificationsDbContext db,

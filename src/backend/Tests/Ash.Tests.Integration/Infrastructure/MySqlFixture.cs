@@ -24,7 +24,6 @@ public sealed class MySqlFixture : IAsyncLifetime
         "ash_core.supervisions",
         // task 053c
         "ash_core.email_outbox",
-        "ash_core.case_handoffs",
         "ash_core.office_courts",
         "ash_core.case_reminders",
         "ash_core.sent_reminders",

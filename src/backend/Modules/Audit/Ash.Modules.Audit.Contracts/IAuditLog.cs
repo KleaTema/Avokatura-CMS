@@ -8,6 +8,10 @@ public static class AuditActions
     public const string CaseView = "CASE_VIEW";
     public const string CaseCreate = "CASE_CREATE";
     public const string CaseUpdate = "CASE_UPDATE";
+    /// <summary>Task 053j: the Protokoll's country-wide "Vazhdo çështje ekzistuese" lookup (the filters used).</summary>
+    public const string RegistrationLookup = "REGISTRATION_LOOKUP";
+    /// <summary>Task 053j: a registration sent to another office than the one covering the summons court.</summary>
+    public const string CaseOfficeOverride = "CASE_OFFICE_OVERRIDE";
     public const string DocumentDownload = "DOCUMENT_DOWNLOAD";
     public const string DocumentUpload = "DOCUMENT_UPLOAD";
     /// <summary>A document was removed (soft delete, task 034).</summary>

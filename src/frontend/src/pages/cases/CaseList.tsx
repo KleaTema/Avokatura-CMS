@@ -28,7 +28,6 @@ import { CirclePause, UserPlus } from 'lucide-react'
 import { RangeFilter } from '../../components/RangeFilter'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
 import { InstitutionPicker } from '../../components/InstitutionPicker'
-import { IncomingHandoffs } from '../../components/IncomingHandoffs'
 import { JudgePicker } from '../../components/JudgePicker'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
@@ -107,9 +106,6 @@ const FILTER_PARAMS: Param[] = [
  * The filters are not: the "Filtra" panel shows every filter on every tab.
  */
 const TABS_WITHOUT_CLASSIFICATION = new Set(['registered', 'unassigned'])
-
-/** Task 053c: the Protokoll's "Çështjet e ardhura" (GET /api/cases/handoffs/incoming), not a case list. */
-const INCOMING_TAB = 'incoming'
 
 const HIDE_ON_PHONE = { display: { xs: 'none', md: 'table-cell' } } as const
 const TRUNCATE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
@@ -231,7 +227,7 @@ export function CaseListPage() {
     filter: get('filter'),
   }
   const paging = useKeysetPaging()
-  const list = useCaseList(filters, { cursor: paging.cursor, size: paging.size }, tab !== '' && tab !== INCOMING_TAB)
+  const list = useCaseList(filters, { cursor: paging.cursor, size: paging.size }, tab !== '')
   const items = list.data?.items ?? []
   // the button only for who may assign; the API checks each case again
   const canAssign = tab === 'unassigned' && permissions.includes('case.assign_lawyer')
@@ -405,11 +401,6 @@ export function CaseListPage() {
         </Tabs>
       )}
 
-      {/* task 053c: "Çështjet e ardhura" is not a case list — the handoffs to the office, with "Vazhdo" */}
-      {tab === INCOMING_TAB ? (
-        <IncomingHandoffs />
-      ) : (
-        <>
       {/* row 1: search grows; status and court beside it (on a phone they move into the panel); the panel button */}
       <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
         <TextField
@@ -628,8 +619,6 @@ export function CaseListPage() {
             stale={list.isPlaceholderData}
           />
         </Box>
-      )}
-        </>
       )}
 
       {assigning && (

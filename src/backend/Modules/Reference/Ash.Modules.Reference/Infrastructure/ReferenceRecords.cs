@@ -38,6 +38,9 @@ public sealed class PartyRoleRecord
     public string ReportGroup { get; set; } = "";
     public byte SortOrder { get; set; }
     public bool IsActive { get; set; }
+
+    /// <summary>Task 053j: copied when the case continues at the next level (plaintiff, defendant).</summary>
+    public bool CopyToNextLevel { get; set; }
 }
 
 public sealed class SummonsTypeRecord

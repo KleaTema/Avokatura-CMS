@@ -22,7 +22,7 @@ public sealed class ReferenceData(ReferenceDbContext db, ReferenceCache cache) :
 
     public Task<IReadOnlyList<PartyRoleDto>> ListPartyRolesAsync(CancellationToken ct = default) =>
         Cached("party-roles", t => db.PartyRoles.AsNoTracking().OrderBy(x => x.SortOrder)
-            .Select(x => new PartyRoleDto(x.Id, x.Code, x.Name, x.ReportGroup, x.SortOrder, x.IsActive)).ToListAsync(t), ct);
+            .Select(x => new PartyRoleDto(x.Id, x.Code, x.Name, x.ReportGroup, x.SortOrder, x.IsActive, x.CopyToNextLevel)).ToListAsync(t), ct);
 
     public Task<IReadOnlyList<SummonsTypeDto>> ListSummonsTypesAsync(CancellationToken ct = default) =>
         Cached("summons-types", t => db.SummonsTypes.AsNoTracking().OrderBy(x => x.Name)

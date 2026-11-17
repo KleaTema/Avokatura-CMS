@@ -72,13 +72,13 @@ public sealed class CaseReportBuilder(ReportingDb db, ReportAudienceResolver aud
     /// Under a chosen ministry the institution list is the ministry and its direct agencies, not every other
     /// institution that happens to be a party of the same cases (the value is a parameter of the parent's predicate).
     /// </summary>
-    private static string MinistryLimit(CaseFilterDef def, ReportFilterValues values) =>
+    internal static string MinistryLimit(CaseFilterDef def, ReportFilterValues values) =>
         def.Key == "institution" && values.Text("ministry") is not null
             ? "AND (i.id = (SELECT im.id FROM institutions im WHERE im.public_id = @bf_ministry) " +
               "OR i.parent_institution_id = (SELECT im.id FROM institutions im WHERE im.public_id = @bf_ministry))"
             : string.Empty;
 
-    private sealed class OptionDb
+    internal sealed class OptionDb
     {
         public string? Value { get; set; }
         public byte[]? Bytes { get; set; }

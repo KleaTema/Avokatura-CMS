@@ -84,17 +84,12 @@ public class ArchiveTests(MySqlFixture db) : IntegrationTest(db)
     private static async Task<List<string>> PermissionsOf(HttpClient client, Guid id) =>
         (await CaseOf(client, id)).GetProperty("permissions").EnumerateArray().Select(p => p.GetString()!).ToList();
 
-    /// <summary>Closes the case through the API (HUMBUR), final or not (not final: handed off to the appeal court, 053c).</summary>
+    /// <summary>Closes the case through the API (HUMBUR), final or not.</summary>
     private async Task CloseAsync(HttpClient client, Guid id, bool final)
     {
         var (_, rowVersion) = await HeaderOf(client, id);
-        var appealCourt = final ? (int?)null : await HandoffTestData.MapAppealCourtAsync(Db.AppConnectionString);
         var response = await client.PostAsJsonAsync($"/api/cases/{id}/decision",
-            new
-            {
-                resultCode = "HUMBUR", decisionReceived = false, isFinal = final, rowVersion,
-                nextCourtLevelCode = final ? null : HandoffTestData.AppealLevel, nextCourtId = appealCourt,
-            }, Ct);
+            new { resultCode = "HUMBUR", decisionReceived = false, isFinal = final, rowVersion }, Ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync(Ct));
     }
 

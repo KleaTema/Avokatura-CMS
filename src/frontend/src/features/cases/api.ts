@@ -412,11 +412,7 @@ export const useRecordDecision = (caseId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: DecisionRequest) => api.POST('/api/cases/{id}/decision', { ...path(caseId), body }).then(unwrap),
-    onSuccess: (result) =>
-      Promise.all([
-        afterCaseChange(qc, caseId, result.caseRowVersion),
-        qc.invalidateQueries({ queryKey: ['case-handoff', caseId] }),
-      ]),
+    onSuccess: (result) => afterCaseChange(qc, caseId, result.caseRowVersion),
   })
 }
 
@@ -425,8 +421,7 @@ export const useUpdateDecision = (caseId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: DecisionRequest) => api.PUT('/api/cases/{id}/decision', { ...path(caseId), body }).then(unwrap),
-    // becoming final cancels the open handoff (task 053c)
-    onSuccess: () => Promise.all([afterCaseChange(qc, caseId), qc.invalidateQueries({ queryKey: ['case-handoff', caseId] })]),
+    onSuccess: () => afterCaseChange(qc, caseId),
   })
 }
 
@@ -574,7 +569,10 @@ export type NotifyRecipient = components['schemas']['NotifyRecipient']
 
 export type RegisterNextLevelRequest = components['schemas']['RegisterNextLevelRequest']
 
-/** The next level sends the summons only: the object text and the parties are copied from the previous level. */
+/**
+ * The next level sends the summons, the office and the parties ADDED in the form (task 053j): the object text and the
+ * plaintiff / defendant are copied from the previous level.
+ */
 export const toNextLevelRequest = (r: RegisterCaseRequest): RegisterNextLevelRequest => ({
   summonsNumber: r.summonsNumber,
   summonsTypeCode: r.summonsTypeCode,
@@ -586,13 +584,46 @@ export const toNextLevelRequest = (r: RegisterCaseRequest): RegisterNextLevelReq
   judgeId: r.judgeId,
   firstHearing: r.firstHearing,
   confirmPossibleDuplicate: r.confirmPossibleDuplicate,
+  parties: r.parties,
+  officePublicId: r.officePublicId,
 })
+
+/** "Zyra që e ndjek" (task 053j): the offices, and the one covering the court (null = none: the choice is required). */
+export const useRegistrationOffices = (courtId: number | null) =>
+  useQuery({
+    queryKey: ['registration-offices', courtId] as const,
+    staleTime: 60_000,
+    queryFn: () =>
+      api
+        .GET('/api/cases/registration/offices', { params: { query: { courtId: courtId ?? undefined } } })
+        .then(unwrap),
+  })
 
 export type RegistrationFilter = components['schemas']['RegistrationFilterResponse']
 type RegistrationSearchQuery = NonNullable<paths['/api/cases/registration-search']['get']['parameters']['query']>
 /** The filter parameters (code, actNumber, courtId, …) — generated from the server's filter registry (task 053b). */
-export type RegistrationFilterName = Exclude<keyof RegistrationSearchQuery, 'after' | 'limit' | 'status'>
+export type RegistrationFilterName = Exclude<keyof RegistrationSearchQuery, 'after' | 'limit' | 'status' | 'more'>
 export type RegistrationFilterValues = Partial<Record<RegistrationFilterName, string>>
+
+/** The status choice of "Vazhdo çështje ekzistuese" (task 053j); CONTINUABLE = "Mund të vazhdohen", the default. */
+export const REGISTRATION_STATUSES = ['CONTINUABLE', 'ALL', 'OPEN', 'CLOSED'] as const
+export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number]
+
+/** One "+ Shto filtër" filter: the report builder's registry (task 053h) over the country's latest levels. */
+export type MoreFilter = components['schemas']['CaseFilterField']
+
+/**
+ * The "+ Shto filtër" filters with their options under the values already chosen (`more`: the report builder's
+ * JSON object, as the search receives it).
+ */
+export const useMoreFilters = (more: string) =>
+  useQuery({
+    queryKey: ['registration-search', 'more-filters', more] as const,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      api.GET('/api/cases/registration-search/more-filters', { params: { query: { more: more || undefined } } }).then(unwrap),
+  })
 
 /** The fields of the search form, in order, with their control (GET …/registration-search/filters). */
 export const useRegistrationFilters = () =>
@@ -606,13 +637,15 @@ export const useRegistrationFilters = () =>
 const NUMERIC_INPUTS = new Set(['Court', 'Judge'])
 
 /**
- * Dossiers matching every given filter (each on any level of the dossier) — Protokoll's registration lookup, one page
- * with the total. Values '' are not sent; status '' = every status, 'OPEN' | 'CLOSED'. Disabled without a filter.
+ * "Vazhdo çështje ekzistuese" (task 053j): every dossier of the country by its latest level, one page with the total.
+ * Each filter must match (on any level of the dossier); values '' are not sent; `more` = the "+ Shto filtër" values
+ * (the report builder's JSON object, '' = none); status default CONTINUABLE ("Mund të vazhdohen").
  */
 export const useRegistrationSearch = (
   filters: RegistrationFilter[],
   values: RegistrationFilterValues,
-  status: string,
+  status: RegistrationStatus,
+  more: string,
   p: PageRequest,
 ) => {
   const entries = filters
@@ -622,94 +655,17 @@ export const useRegistrationSearch = (
     entries.map(([name, value, input]) => [name, NUMERIC_INPUTS.has(input) ? Number(value) : value]),
   ) as Partial<RegistrationSearchQuery>
   return useQuery({
-    queryKey: ['registration-search', query, status, p.cursor ?? null, p.size] as const,
-    enabled: entries.length > 0,
+    queryKey: ['registration-search', query, status, more, p.cursor ?? null, p.size] as const,
+    enabled: filters.length > 0,
     placeholderData: keepPreviousData,
     queryFn: () =>
       api
         .GET('/api/cases/registration-search', {
-          params: { query: { ...query, status: status || undefined, after: p.cursor, limit: p.size } },
+          params: { query: { ...query, status, more: more || undefined, after: p.cursor, limit: p.size } },
         })
         .then(unwrap),
   })
 }
-
-// ---------------------------------------------------------------- handoff (task 053c)
-
-export type CaseHandoff = components['schemas']['CaseHandoffView']
-export type IncomingHandoff = components['schemas']['IncomingHandoffItem']
-export type OfficeRef = components['schemas']['OfficeRef']
-
-/** The fields of a handoff, as the closing step and the correction send them. '' = not chosen. */
-export interface HandoffValues {
-  levelCode: string
-  courtId: string
-  officePublicId: string
-  reason: string
-}
-
-export const emptyHandoff: HandoffValues = { levelCode: '', courtId: '', officePublicId: '', reason: '' }
-
-/** The office the chosen court resolves to; null office = unmapped (choose one of `offices`, with a reason). */
-export const useHandoffDestination = (courtId: string) =>
-  useQuery({
-    queryKey: ['handoff-destination', courtId] as const,
-    enabled: courtId !== '',
-    staleTime: 60_000,
-    queryFn: () =>
-      api.GET('/api/cases/handoff-destination', { params: { query: { courtId: Number(courtId) } } }).then(unwrap),
-  })
-
-/** The open handoff of a closed level; null when none (204). */
-export const useCaseHandoff = (caseId: string, enabled: boolean) =>
-  useQuery({
-    queryKey: ['case-handoff', caseId] as const,
-    enabled,
-    queryFn: async (): Promise<CaseHandoff | null> => {
-      const { data, error, response } = await api.GET('/api/cases/{id}/handoff', { params: { path: { id: caseId } } })
-      if (response.status === 204) return null
-      if (error !== undefined) return unwrap({ data, error, response })
-      return data ?? null
-    },
-  })
-
-export const useChangeHandoff = (caseId: string) => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (values: HandoffValues) =>
-      api
-        .PUT('/api/cases/{id}/handoff', { params: { path: { id: caseId } }, body: handoffBody(values) })
-        .then(unwrap),
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['case-handoff', caseId] }), qc.invalidateQueries({ queryKey: caseKeys.detail(caseId) })]),
-  })
-}
-
-/** The request fields of a handoff ('' → not sent). */
-export const handoffBody = (h: HandoffValues) => ({
-  nextCourtLevelCode: h.levelCode || null,
-  nextCourtId: h.courtId ? Number(h.courtId) : null,
-  receivingOfficePublicId: h.officePublicId || null,
-  reason: h.reason.trim() || null,
-})
-
-/** The same fields as POST /decision names them (a final decision sends none). */
-export const decisionHandoffFields = (h: HandoffValues | null) =>
-  h === null
-    ? {}
-    : {
-        nextCourtLevelCode: h.levelCode || null,
-        nextCourtId: h.courtId ? Number(h.courtId) : null,
-        receivingOfficePublicId: h.officePublicId || null,
-        handoffReason: h.reason.trim() || null,
-      }
-
-/** "Çështjet e ardhura": the open handoffs to the user's office (Protokoll). */
-export const useIncomingHandoffs = (enabled: boolean) =>
-  useQuery({
-    queryKey: ['incoming-handoffs'] as const,
-    enabled,
-    queryFn: () => api.GET('/api/cases/handoffs/incoming').then(unwrap),
-  })
 
 /** Who "Njofto…" reaches (GET …/notify-not-closed/recipients): the primary lawyer if any, and the Kryetar. */
 export const useNotifyRecipients = (caseId: string) =>
@@ -752,8 +708,6 @@ export const useRegisterNextLevel = (previousCasePublicId: string) => {
     onSuccess: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: ['registration-search'] }),
-        // task 053c: the accepted handoff leaves "Çështjet e ardhura"
-        qc.invalidateQueries({ queryKey: ['incoming-handoffs'] }),
         invalidateCaseLists(qc),
       ]),
   })
@@ -791,7 +745,8 @@ export async function hasCaseWithActNumber(actNumber: string): Promise<boolean> 
   const wanted = normalize(actNumber.trim())
   try {
     const page = await api
-      .GET('/api/cases/registration-search', { params: { query: { actNumber: actNumber.trim(), limit: 50 } } })
+      // every status (task 053j: the default would hide what cannot be continued yet)
+      .GET('/api/cases/registration-search', { params: { query: { actNumber: actNumber.trim(), status: 'ALL', limit: 50 } } })
       .then(unwrap)
     return page.items.some((item) => normalize(item.actNumber) === wanted)
   } catch {

@@ -50,6 +50,7 @@ const buildSchema = (config: SimpleListConfig, isNew: boolean) =>
       isOther: z.boolean(),
       group: z.string(),
       sendsBackForRetrial: z.boolean(),
+      copyToNextLevel: z.boolean(),
     })
     .superRefine((v, ctx) => {
       if (isNew && config.group && !v.group)
@@ -65,6 +66,7 @@ const toFormValues = (item: SimpleListItem | null): FormValues => ({
   isOther: item?.isOther ?? false,
   group: item?.reportGroup ?? item?.outcomeGroup ?? '',
   sendsBackForRetrial: item?.sendsBackForRetrial ?? false,
+  copyToNextLevel: item?.copyToNextLevel ?? false,
 })
 
 /** Add (item = null) or edit one row of a simple list. Code and the group fields are create-only. */
@@ -105,6 +107,7 @@ export function SimpleItemDialog({
           isOther: v.isOther,
           group: v.group,
           sendsBackForRetrial: v.sendsBackForRetrial,
+          copyToNextLevel: v.copyToNextLevel,
         },
       })
       onClose()
@@ -223,6 +226,22 @@ export function SimpleItemDialog({
                       label={t.columns.sendsBackForRetrial}
                     />
                     {!isNew && <FormHelperText>{t.immutableHint}</FormHelperText>}
+                  </div>
+                )}
+              />
+            )}
+            {/* task 053j: the party is copied when the case continues at the next level (plaintiff, defendant) */}
+            {list === 'party-roles' && (
+              <Controller
+                name="copyToNextLevel"
+                control={control}
+                render={({ field }) => (
+                  <div>
+                    <FormControlLabel
+                      control={<Checkbox checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                      label={t.columns.copyToNextLevel}
+                    />
+                    <FormHelperText>{t.copyToNextLevelHint}</FormHelperText>
                   </div>
                 )}
               />

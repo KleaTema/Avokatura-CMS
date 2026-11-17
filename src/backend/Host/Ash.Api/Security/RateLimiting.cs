@@ -21,7 +21,6 @@ public static class RateLimiting
     /// <summary>Cross-office lookups of the registration desk (client decision Q1a) — the strictest.</summary>
     public const string CrossOffice = "crossOffice";
     public const string Notify = "notify";
-    public const string Handoff = "handoff";
     public const string Hub = "hub";
 
     public static readonly IReadOnlyDictionary<string, RateLimitRule> Defaults = new Dictionary<string, RateLimitRule>
@@ -31,7 +30,6 @@ public static class RateLimiting
         [Search] = new(60, 60),
         [CrossOffice] = new(20, 60),
         [Notify] = new(5, 60),
-        [Handoff] = new(20, 60),
         [Hub] = new(20, 60),
     };
 
@@ -58,7 +56,6 @@ public static class RateLimiting
             ("GET", "/api/cases/registration-search") => CrossOffice,
             ("GET", "/api/cases/{previousCasePublicId:guid}/next-level/preview") => CrossOffice,
             ("POST", "/api/cases/{previousCasePublicId:guid}/notify-not-closed") => Notify,
-            ("PUT", "/api/cases/{id:guid}/handoff/") => Handoff,
             _ => null,
         };
     }

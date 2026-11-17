@@ -59,12 +59,8 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
             services.AddScoped<IEventHandler<CaseClosed>, ClosedHandler>();
         });
         var id = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM cases WHERE id = {seed.ActiveCaseId}"))!);
-        _appealCourt = await HandoffTestData.MapAppealCourtAsync(Db.AppConnectionString);
         return new Ctx(seed, factory, id, recorder);
     }
-
-    /// <summary>The mapped appeal court: a non-final closing is handed off there (task 053c).</summary>
-    private int _appealCourt;
 
     // ---------------------------------------------------------------- helpers
 
@@ -81,18 +77,9 @@ public class DecisionTests(MySqlFixture db) : IntegrationTest(db)
     private static async Task<uint> CaseRowVersion(HttpClient client, Guid id) =>
         (await CaseOf(client, id)).GetProperty("header").GetProperty("rowVersion").GetUInt32();
 
-    /// <summary>
-    /// A decision body: HUMBUR, not received, nothing else — with the given fields replaced. Not final → handed off to
-    /// the mapped appeal court (task 053c) unless the overrides set the handoff fields themselves.
-    /// </summary>
-    private Dictionary<string, object?> Body(uint rowVersion, params (string Key, object? Value)[] overrides)
+    /// <summary>A decision body: HUMBUR, not received, nothing else — with the given fields replaced.</summary>
+    private static Dictionary<string, object?> Body(uint rowVersion, params (string Key, object? Value)[] overrides)
     {
-        var final = overrides.Any(o => o.Key == "isFinal" && o.Value is true);
-        if (!final && overrides.All(o => o.Key is not ("nextCourtLevelCode" or "nextCourtId")))
-        {
-            overrides = [.. HandoffTestData.Fields(_appealCourt), .. overrides];
-        }
-
         var body = new Dictionary<string, object?>
         {
             ["resultCode"] = "HUMBUR",

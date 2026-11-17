@@ -7,6 +7,7 @@ namespace Ash.Modules.Cases.Application.RegistrationSearch.Filters;
 public enum RegistrationFilterInput
 {
     Text,
+    CourtLevel,
     Court,
     Judge,
     Category,

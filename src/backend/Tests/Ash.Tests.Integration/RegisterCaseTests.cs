@@ -27,6 +27,8 @@ public class RegisterCaseTests(MySqlFixture db) : IntegrationTest(db)
     {
         await using var seed = await Seed.CreateAsync(Db.AppConnectionString);
         var court = await seed.CourtAsync(TiraneFirstInstance);
+        // task 053j: the case goes to the office covering the court — TR, the Protokoll's own
+        await OfficeCourtsTestData.MapAsync(Db.AppConnectionString, TiraneFirstInstance);
         var judge = await seed.JudgeAsync(judgeFirst!, judgeLast!);
         var today = TiraneTime.Today(new SystemClock());
         return new Dictionary<string, object?>

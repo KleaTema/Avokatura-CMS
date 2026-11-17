@@ -20,7 +20,7 @@ namespace Ash.Tests.Integration;
 /// <list type="bullet">
 /// <item>every endpoint requires authorization except an explicit allow-list;</item>
 /// <item>every endpoint with an object id in its route (case, dossier, document, hearing, party, conversation, message,
-/// notification, handoff, assistant link, saved report), called by users of office TR with the id of an object of office
+/// notification, assistant link, saved report), called by users of office TR with the id of an object of office
 /// DR that they cannot see, answers 404 — never 2xx, never a 403 that reveals the object (a 403 is accepted only when
 /// the caller lacks the endpoint's own system permission, which says nothing about the object);</item>
 /// <item>every mutating endpoint has a system permission or goes through the case access (route) — or is on the
@@ -46,8 +46,8 @@ public class EndpointAuthorizationTests(MySqlFixture db) : IntegrationTest(db)
     private static readonly string[] GlobalScopePrefixes = ["/api/identity/admin/", "/api/reference/admin/", "/api/supervisions/"];
 
     /// <summary>
-    /// Client decision Q1a: the Protokoll continues a dossier of ANY office (a next-level summons may arrive at another
-    /// office), so case.link_previous holders see these endpoints across offices by design.
+    /// Client decision Q1a (task 053j: the Protokoll is a central role): the Protokoll continues a dossier of ANY office,
+    /// so case.link_previous holders see these endpoints across offices by design.
     /// </summary>
     private static readonly string[] CrossOfficeByDesign = ["/api/cases/{previousCasePublicId:guid}/"];
 

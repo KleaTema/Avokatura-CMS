@@ -28,16 +28,28 @@ public static class RegistrationEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("RegisterCase");
 
+        // "Zyra që e ndjek" (task 053j): the offices, and the one covering the summons court
+        endpoints.MapGet("/api/cases/registration/offices",
+                async (int? courtId, RegistrationOfficesHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(courtId, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<RegistrationOfficesResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .WithName("ListRegistrationOffices");
+
         // Find the existing dispute a new summons belongs to (task 018): a registration lookup, not case.view.
         // The filter parameters come from the registry (task 053b), read from the query string and added to OpenAPI.
         endpoints.MapGet("/api/cases/registration-search",
-                async (HttpRequest request, string? after, int? limit, string? status, RegistrationSearchHandler handler,
+                async (HttpRequest request, string? after, int? limit, string? status, string? more, RegistrationSearchHandler handler,
                     CancellationToken ct) =>
                 {
                     var filters = RegistrationSearchFilters.FromQuery(request.Query)
                         .Select(x => KeyValuePair.Create(x.Filter.Name, x.Value))
                         .ToList();
-                    var result = await handler.Handle(new RegistrationSearchQuery(filters, after, limit, status), ct);
+                    var result = await handler.Handle(new RegistrationSearchQuery(filters, after, limit, status, more), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequirePermission("case.link_previous")
@@ -51,6 +63,19 @@ public static class RegistrationEndpoints
             .RequirePermission("case.link_previous")
             .Produces<IReadOnlyList<RegistrationFilterResponse>>()
             .WithName("ListRegistrationSearchFilters");
+
+        // task 053j: "+ Shto filtër" — the report builder's registry (task 053h) over the country's latest levels; the
+        // options of a select under the choices already made (more = the chosen values, the report builder's JSON)
+        endpoints.MapGet("/api/cases/registration-search/more-filters",
+                async (string? more, Ash.Modules.Reports.Contracts.ICaseFilterCatalog catalog, CancellationToken ct) =>
+                {
+                    var result = await catalog.DescribeLookupAsync(more, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission("case.link_previous")
+            .Produces<IReadOnlyList<Ash.Modules.Reports.Contracts.CaseFilterField>>()
+            .ProducesValidationProblem()
+            .WithName("ListRegistrationSearchMoreFilters");
 
         endpoints.MapPost("/api/cases/{previousCasePublicId:guid}/next-level",
                 async (Guid previousCasePublicId, RegisterNextLevelRequest req, RegisterNextLevelHandler handler, CancellationToken ct) =>

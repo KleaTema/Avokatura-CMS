@@ -56,10 +56,10 @@ public static class NotificationTypes
     /// <summary>To the administrators: a partitioned table's p_max holds rows, or next month's partition is missing.</summary>
     public const string PartitionAlert = "PARTITION_ALERT";
 
-    /// <summary>Task 053c: a case was handed off to the user's office (the Protokoll): it waits in "Çështjet e ardhura".</summary>
+    /// <summary>Task 053c; NO LONGER SENT since task 053j (the handoff is removed) — kept for rows already stored.</summary>
     public const string CaseHandedOff = "CASE_HANDED_OFF";
 
-    /// <summary>Task 053c: a case handed off to the user's office goes elsewhere now, or the decision became final.</summary>
+    /// <summary>Task 053c; NO LONGER SENT since task 053j — kept for rows already stored.</summary>
     public const string HandoffWithdrawn = "HANDOFF_WITHDRAWN";
 
     /// <summary>Task 053d: the Monitor put a lawyer's cases or a case under the Kryetar's supervision.</summary>

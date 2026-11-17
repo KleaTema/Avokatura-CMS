@@ -28,6 +28,7 @@ import { ApiError } from '../../api/client'
 import {
   hasCaseWithActNumber,
   possibleDuplicates,
+  useRegistrationOffices,
   type PossibleDuplicates,
   type RegisterCaseRequest,
   type RegisterCaseResponse,
@@ -73,8 +74,9 @@ interface DuplicateState extends PossibleDuplicates {
 
 /**
  * The summons form shared by "new case" (task 016) and "next level" (task 018): same fields in the order of the
- * paper summons, same 400 / 409 possible-duplicate / 201 handling and success view. The next level has no object
- * and no parties (they are copied); `above` shows what will be copied.
+ * paper summons, same 400 / 409 possible-duplicate / 201 handling and success view. Both have "Zyra që e ndjek" (task
+ * 053j: the office of the summons court, pre-filled). The next level has no object (copied, with the plaintiff and the
+ * defendant) but may ADD parties; `above` shows what will be copied.
  * `send` posts the request and returns the created case; a 400/409 ApiError is handled here.
  */
 export function RegistrationForm({
@@ -84,7 +86,6 @@ export function RegistrationForm({
   send: post,
   anotherLabel,
   onAnother,
-  initialCourt,
 }: {
   mode: RegistrationMode
   title: string
@@ -93,8 +94,6 @@ export function RegistrationForm({
   anotherLabel: string
   /** after success; default: an empty form keeping court level, court and received date */
   onAnother?: () => void
-  /** task 053c: the next level opened from "Çështjet e ardhura" starts with the handoff's level and court */
-  initialCourt?: { courtLevelCode: string; courtId: string }
 }) {
   const me = useMe(true)
   const canContinue = mode === 'new' && (me.data?.permissions.includes('case.link_previous') ?? false)
@@ -126,13 +125,23 @@ export function RegistrationForm({
     formState: { errors, isDirty },
   } = useForm<RegistrationValues>({
     resolver: zodResolver(schema) as Resolver<RegistrationValues>,
-    defaultValues: emptyRegistrationValues(initialCourt && { ...initialCourt, receivedDate: todayValue() }),
+    defaultValues: emptyRegistrationValues(undefined, mode),
   })
 
-  const [courtLevelCode, courtId, showAllJudges, hearingTypeCode, receivedDate] = useWatch({
+  const [courtLevelCode, courtId, showAllJudges, hearingTypeCode, receivedDate, officePublicId] = useWatch({
     control,
-    name: ['courtLevelCode', 'courtId', 'showAllJudges', 'hearingTypeCode', 'receivedDate'],
+    name: ['courtLevelCode', 'courtId', 'showAllJudges', 'hearingTypeCode', 'receivedDate', 'officePublicId'],
   })
+
+  // "Zyra që e ndjek" (task 053j): the office covering the court that issued the summons, pre-filled whenever the
+  // court changes; the Protokoll may choose another (the server audits it); no office for the court → required
+  const offices = useRegistrationOffices(courtId ? Number(courtId) : null)
+  const courtOffice = courtId ? (offices.data?.courtOfficePublicId ?? null) : null
+  const officesFor = offices.data && courtId ? courtId : null
+  useEffect(() => {
+    if (officesFor === null) return
+    setValue('officePublicId', courtOffice ?? '', { shouldValidate: courtOffice !== null })
+  }, [officesFor, courtOffice, setValue])
   const today = todayValue()
   const isOtherHearing = (hearingTypes.data ?? []).some((h) => h.code === hearingTypeCode && h.isOther)
 
@@ -236,7 +245,7 @@ export function RegistrationForm({
       onAnother()
       return
     }
-    reset(emptyRegistrationValues(getValues()))
+    reset({ ...emptyRegistrationValues(getValues(), mode), officePublicId: getValues('officePublicId') })
     setDone(null)
     setFormErrors([])
   }
@@ -445,6 +454,34 @@ export function RegistrationForm({
               )}
             />
           </Stack>
+          <Controller
+            name="officePublicId"
+            control={control}
+            render={({ field }) => (
+              <AppSelect
+                required
+                name={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                inputRef={field.ref}
+                label={t.fields.office}
+                disabled={!courtId}
+                error={!!errors.officePublicId}
+                helperText={
+                  errors.officePublicId?.message ??
+                  (!courtId || offices.isPending
+                    ? undefined
+                    : courtOffice === null
+                      ? t.fields.officeUnmapped
+                      : officePublicId && officePublicId !== courtOffice
+                        ? t.fields.officeOverride
+                        : t.fields.officeFromCourt)
+                }
+                options={(offices.data?.offices ?? []).map((o) => ({ value: o.publicId, label: o.name }))}
+              />
+            )}
+          />
         </FormSection>
 
         <FormSection title={t.sections.hearing}>
@@ -549,6 +586,24 @@ export function RegistrationForm({
               />
             </FormSection>
           </>
+        )}
+
+        {/* task 053j: the plaintiff and the defendant are copied; the Protokoll may add more parties here */}
+        {mode === 'next' && (
+          <FormSection title={t.sections.moreParties}>
+            <Controller
+              name="parties"
+              control={control}
+              render={({ field }) => (
+                <PartyEditor
+                  value={field.value}
+                  onChange={field.onChange}
+                  rowErrors={rowErrors(field.value.length)}
+                  error={partyErrors?.message ?? partyErrors?.root?.message}
+                />
+              )}
+            />
+          </FormSection>
         )}
 
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>

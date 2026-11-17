@@ -113,3 +113,23 @@ D5	Përcjellja to an office with several Protokoll users	Every Protokoll user of
 - Statistikat: a user with Avokat sekondar and WITHOUT Avokat Shteti → no statistics (403); a user with Avokat Shteti → only the cases where they are primary at the moment the measure refers to (open → current primary, closed → primary at closing). Reports (Tabela 1/3) for both, with a "Roli im" column.
 - The secondary keeps the case rights of D1 (records the decision).
 - A role cannot be removed from a user who still holds that position on open cases: transfer first.
+
+4. Client decisions (task 053j): the Protokoll logic — REPLACES section B ("Përcjellja") and D5
+a) "Përcjellja e çështjes" (task 053c) is REMOVED: closing a level no longer asks for the next court; there is no
+   "Çështjet e ardhura" tab and no handoff notification or e-mail. The e-mail infrastructure stays (unused for now).
+b) The Protokoll is a CENTRAL role of the Avokatura: in "Vazhdo çështje ekzistuese" it sees ALL cases of the country — a
+   table with the registration-level data only (code, level, court, judge, act number, parties, object, category and
+   type, result, decision date, status), never the full case page, documents, team, chat or history
+   (TODO(client-q-protokoll-full-view)). Default filter "Mund të vazhdohen" (latest level closed, not final, dossier not
+   archived); every search is audited.
+c) Continuing a case copies ONLY the object, the plaintiff(s) and the defendant(s) (party roles with "Kopjohet në
+   shkallën e radhës", Administrimi → Listat → Lloji i palës). No category, no delegation, no third parties; the
+   Protokoll may add parties in the form.
+d) The court that issued the summons is the court where the case is tried: the case goes to the office that covers that
+   court ("Gjykatat që mbulon") and ITS Kryetar receives it. The form pre-fills "Zyra që e ndjek"; the Protokoll may
+   change it (audited); a court no office covers requires the choice. "Të regjistruarat nga unë" lists what the user
+   registered, whatever the office.
+
+- 053j: Përcjellja hiqet. Protokolli është rol qendror dhe sheh të gjitha çështjet e vendit te "Vazhdo çështje
+  ekzistuese" (vetëm të dhënat e regjistrimit). Vazhdimi kopjon vetëm objektin, paditësin dhe të paditurin. Çështja i
+  shkon zyrës që mbulon gjykatën e fletëthirrjes dhe Kryetarit të saj.

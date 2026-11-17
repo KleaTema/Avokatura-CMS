@@ -64,7 +64,7 @@ public sealed class AshApiFactory : WebApplicationFactory<Program>
             Environment.SetEnvironmentVariable("Storage__SecretKey", "test");
         }
         // task 051: tests are not throttled (they run many calls in a second) — HardeningTests sets its own small limits
-        foreach (var policy in new[] { "upload", "export", "search", "crossOffice", "notify", "handoff", "hub" })
+        foreach (var policy in new[] { "upload", "export", "search", "crossOffice", "notify", "hub" })
         {
             Environment.SetEnvironmentVariable($"RateLimits__{policy}__PermitLimit", "100000");
             Environment.SetEnvironmentVariable($"RateLimits__{policy}__WindowSeconds", "60");

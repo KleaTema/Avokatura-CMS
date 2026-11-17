@@ -14,12 +14,46 @@ internal sealed record RegistrationLookups(
     CourtLevelDto CourtLevel, CourtDto Court, JudgeDto Judge, SummonsTypeDto? SummonsType, HearingTypeDto HearingType);
 
 /// <summary>
+/// Where a registration goes (task 053j): the office, its head, and the office of the court in office_courts (null when
+/// none). Overridden: the Protokoll chose another office than the court's (or the court has none).
+/// </summary>
+internal sealed record RegistrationOffice(OfficeInfo Office, OfficeHead Head, OfficeInfo? Mapped)
+{
+    public bool Overridden => Mapped is null || Mapped.Id != Office.Id;
+}
+
+/// <summary>
 /// Steps shared by registering a new case (task 016) and continuing a closed one at the next level (task 018):
 /// lookups, the office head check, the possible-duplicate check and the first hearing.
 /// </summary>
 internal sealed class CaseRegistrationSupport(
-    CasesDbContext db, IReferenceData reference, IOfficeDirectory offices, ICaseAccessService access, ICurrentUser user, IClock clock)
+    CasesDbContext db, IReferenceData reference, IOfficeDirectory offices, ICaseAccessService access, ICurrentUser user, IClock clock,
+    Parties.PartyResolver partyResolver)
 {
+    /// <summary>Roles and institutions must exist and be active; returns the parties ready for PartyWriter.</summary>
+    public async Task<List<Parties.NewParty>> ResolvePartiesAsync(
+        IReadOnlyList<PartyRequest>? requested, FieldErrors errors, CancellationToken ct)
+    {
+        var result = new List<Parties.NewParty>();
+        for (var i = 0; i < (requested?.Count ?? 0); i++)
+        {
+            var p = requested![i];
+            var prefix = $"parties[{i}].";
+            var kind = p?.Kind?.Trim();
+            if (p is null || kind is null || errors.Has($"{prefix}kind"))
+            {
+                continue; // reported by the validator
+            }
+
+            if (await partyResolver.ResolveAsync(p, kind, prefix, errors, ct) is { } party)
+            {
+                result.Add(party);
+            }
+        }
+
+        return result;
+    }
+
     public const string DefaultHearingTypeCode = "PERGATITORE";
     public const string InvalidMessage = "Të dhënat e regjistrimit nuk janë të vlefshme.";
 
@@ -108,19 +142,38 @@ internal sealed class CaseRegistrationSupport(
         }
     }
 
+    public const string OfficeUnmappedMessage = "Kjo gjykatë nuk i është caktuar asnjë zyre: zgjidhni zyrën që e ndjek.";
+
     /// <summary>
-    /// The user's office must be active and have an active head, who receives the new case.
-    /// Checked before anything is written (for a new dossier: before create_dossier, so no code is spent).
+    /// "Zyra që e ndjek" (task 053j, client decision d): the case goes to the office that covers the court that issued
+    /// the summons (office_courts), NOT to the Protokoll's own office. The Protokoll may choose another office
+    /// (<paramref name="chosenOfficePublicId"/>; audited by the caller when <see cref="RegistrationOffice.Overridden"/>);
+    /// a court no office covers needs the choice (400 on officePublicId). The office must be active with an active
+    /// head, who receives the case. Checked before anything is written (a new dossier: before create_dossier).
     /// </summary>
-    public async Task<Result<(long OfficeId, OfficeHead Head)>> CheckOfficeAsync(CancellationToken ct)
+    public async Task<Result<RegistrationOffice>> ResolveOfficeAsync(ushort courtId, Guid? chosenOfficePublicId, CancellationToken ct)
     {
-        // TODO(client-q-office-without-head): registration is refused while the office has no active head (default for task 016).
-        if (user.OfficeId is not { } officeId)
+        var mapped = await offices.GetByCourtAsync(courtId, ct);
+        OfficeInfo? office;
+        if (chosenOfficePublicId is { } chosen)
         {
-            return Error.Validation("case.no_office", "Përdoruesi nuk i përket asnjë zyre.");
+            office = await offices.GetAsync(chosen, ct);
+            if (office is null || !office.IsActive)
+            {
+                return OfficeFieldError("Zyra nuk ekziston ose nuk është aktive.");
+            }
+        }
+        else if (mapped is null)
+        {
+            return OfficeFieldError(OfficeUnmappedMessage);
+        }
+        else
+        {
+            office = mapped;
         }
 
-        var routing = await offices.GetRoutingAsync(officeId, ct);
+        // TODO(client-q-office-without-head): registration is refused while the office has no active head (default for task 016).
+        var routing = await offices.GetRoutingAsync(office.Id, ct);
         if (routing is null || !routing.IsActive)
         {
             return Error.Validation("case.office_inactive", "Zyra nuk është aktive. Kontaktoni administratorin.");
@@ -131,8 +184,20 @@ internal sealed class CaseRegistrationSupport(
             return Error.Validation("case.office_without_head", "Zyra nuk ka Kryetar. Kontaktoni administratorin.");
         }
 
-        return (officeId, head);
+        return new RegistrationOffice(office, head, mapped);
     }
+
+    private static Error OfficeFieldError(string message)
+    {
+        var errors = new FieldErrors();
+        errors.Add("officePublicId", message);
+        return errors.ToError(InvalidMessage);
+    }
+
+    /// <summary>The office override (another office than the court's, or a court no office covers): the audit row.</summary>
+    public static object? OverrideDetails(RegistrationOffice office, CourtDto court) => office.Overridden
+        ? new { Court = court.Name, CourtOffice = office.Mapped?.Name, ChosenOffice = office.Office.Name }
+        : null;
 
     /// <summary>
     /// A non-closed case of the office with the same summons number and court, or any case with the same act number.

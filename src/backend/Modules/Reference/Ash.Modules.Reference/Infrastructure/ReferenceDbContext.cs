@@ -79,6 +79,7 @@ public sealed class ReferenceDbContext(IUnitOfWork unitOfWork, IEnumerable<IInte
             b.Property(x => x.ReportGroup).HasColumnName("report_group");
             b.Property(x => x.SortOrder).HasColumnName("sort_order");
             b.Property(x => x.IsActive).HasColumnName("is_active");
+            b.Property(x => x.CopyToNextLevel).HasColumnName("copy_to_next_level");
         });
 
         modelBuilder.Entity<SummonsTypeRecord>(b =>

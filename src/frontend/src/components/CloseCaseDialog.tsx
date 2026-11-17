@@ -28,15 +28,7 @@ import { useEffect, useState } from 'react'
 import { Controller, useForm, useWatch, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { ApiError } from '../api/client'
-import {
-  caseKeys,
-  decisionHandoffFields,
-  emptyHandoff,
-  useRecordDecision,
-  useUpdateDecision,
-  type CaseDetail,
-  type HandoffValues,
-} from '../features/cases/api'
+import { caseKeys, useRecordDecision, useUpdateDecision, type CaseDetail } from '../features/cases/api'
 import { useDecisionDocuments } from '../features/documents/api'
 import { useDecisionResults } from '../features/reference/api'
 import { sq } from '../i18n/sq'
@@ -58,7 +50,6 @@ import {
 import { CURRENCIES } from '../lib/money'
 import { problemMessage } from '../lib/problem'
 import { AppDatePicker } from './AppDatePicker'
-import { HANDOFF_SERVER_FIELDS, HandoffFields, useHandoffComplete, type HandoffErrors } from './HandoffFields'
 import { MoneyField } from './caseData/MoneyField'
 import { UploadQueue } from './documents/UploadQueue'
 import { AppSelect } from './ui/AppSelect'
@@ -145,14 +136,8 @@ export function CloseCaseDialog({
   }, [uploadedDocument, getValues, setValue])
   const waiting = uploadedDocument !== undefined && uploadedDocument.scanStatus === 'PENDING'
 
-  // task 053c: closing a level that is NOT final hands it off — one more step, "Përcjellja"
-  const [handoff, setHandoff] = useState<HandoffValues>(emptyHandoff)
-  const [handoffErrors, setHandoffErrors] = useState<HandoffErrors>({})
-  const needsHandoff = mode === 'record' && !isFinal
-  const handoffComplete = useHandoffComplete(handoff)
-  const steps = needsHandoff ? [...t.steps, t.handoffStep] : t.steps
-  const handoffStep = t.steps.length
-
+  // task 053j: the handoff step of 053c is removed — the Protokoll continues the case when the next summons arrives
+  const steps = t.steps
   const last = steps.length - 1
   const next = async () => {
     if (step >= STEP_FIELDS.length || (await trigger(STEP_FIELDS[step]))) setStep((s) => Math.min(last, s + 1))
@@ -162,13 +147,9 @@ export function CloseCaseDialog({
     setFormError(null)
     setConflict(false)
     try {
-      setHandoffErrors({})
       const result =
         mode === 'record'
-          ? await record.mutateAsync({
-              ...decisionRequest(values, Number(detail.header.rowVersion), cancelOpenHearings),
-              ...decisionHandoffFields(needsHandoff ? handoff : null),
-            })
+          ? await record.mutateAsync(decisionRequest(values, Number(detail.header.rowVersion), cancelOpenHearings))
           : await update.mutateAsync(decisionRequest(values, Number(decision?.rowVersion ?? 0)))
       onDone(result.suggestions)
     } catch (error) {
@@ -192,14 +173,9 @@ export function CloseCaseDialog({
       // field errors: on their fields, the first one's step opened
       let firstStep: number | null = null
       const unmatched: string[] = []
-      const handoffFound: HandoffErrors = {}
       for (const [key, messages] of Object.entries(problem?.errors ?? {})) {
         const target = fieldOfServer(key)
-        const handoffField = HANDOFF_SERVER_FIELDS[key]
-        if (handoffField && needsHandoff) {
-          handoffFound[handoffField] = messages.join(' ')
-          firstStep = firstStep === null ? handoffStep : Math.min(firstStep, handoffStep)
-        } else if (target) {
+        if (target) {
           setError(target.field, { type: 'server', message: messages.join(' ') })
           firstStep = firstStep === null ? target.step : Math.min(firstStep, target.step)
         } else {
@@ -207,7 +183,6 @@ export function CloseCaseDialog({
         }
       }
 
-      setHandoffErrors(handoffFound)
       if (firstStep !== null) setStep(firstStep)
       if (unmatched.length > 0 || firstStep === null) setFormError(unmatched.join(' ') || problemMessage(error))
     }
@@ -554,14 +529,6 @@ export function CloseCaseDialog({
                   )}
                 </Stack>
               )}
-
-              {/* 5. Përcjellja (not final): where the case goes next — task 053c */}
-              {needsHandoff && step === handoffStep && (
-                <Stack spacing={2}>
-                  <Typography variant="body2">{sq.handoff.intro}</Typography>
-                  <HandoffFields values={handoff} onChange={setHandoff} errors={handoffErrors} autoFocus />
-                </Stack>
-              )}
             </Stack>
           )}
         </DialogContent>
@@ -587,8 +554,7 @@ export function CloseCaseDialog({
                   type="submit"
                   variant="contained"
                   color="secondary"
-                  // not final: only once the destination is complete (task 053c)
-                  disabled={saving || waiting || (needsHandoff && !handoffComplete)}
+                  disabled={saving || waiting}
                 >
                   {mode === 'record' ? t.confirmRecord : t.confirmUpdate}
                 </Button>

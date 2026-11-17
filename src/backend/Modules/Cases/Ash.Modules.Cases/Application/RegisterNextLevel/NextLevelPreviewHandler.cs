@@ -12,7 +12,10 @@ public sealed record NextLevelPreviewParty(string Role, string Kind, string Disp
 /// <summary>An institution link the new level will get: always MONITORING (client decision B.1; no delegation is copied).</summary>
 public sealed record NextLevelPreviewLink(string Institution, string Mode);
 
-/// <summary>What continuing this level will copy: the object and the parties, plus the institution links.</summary>
+/// <summary>
+/// What continuing this level will copy: the object and the parties of a copied role (plaintiff, defendant — task
+/// 053j), plus the institution links from those parties.
+/// </summary>
 public sealed record NextLevelPreviewResponse(
     string CaseCode,
     string CourtLevelName,
@@ -43,11 +46,8 @@ internal sealed class NextLevelPreviewHandler(
 
         var previous = source.Value.Previous;
         var roles = (await reference.ListPartyRolesAsync(ct)).ToDictionary(r => r.Id);
-        // the same rows, in the same order, as RegisterNextLevelHandler copies them
-        var parties = await db.CaseParties.AsNoTracking()
-            .Where(p => p.CaseId == previous.Id && p.DeletedAt == null)
-            .OrderBy(p => p.Id)
-            .ToListAsync(ct);
+        // the same rows, in the same order, as RegisterNextLevelHandler copies them (only the copied roles, task 053j)
+        var parties = await RegisterNextLevelHandler.CopiedPartiesAsync(db, previous.Id, roles, ct);
         // the links the new level gets: MONITORING for each institution party (client decision B.1)
         var institutionIds = RegisterNextLevelHandler.InstitutionIds(parties);
         var linked = (await institutions.GetByIdsAsync(institutionIds, ct)).ToDictionary(i => i.Id);

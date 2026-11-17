@@ -16,11 +16,12 @@ using MySql.Data.MySqlClient;
 namespace Ash.Modules.Cases.Application.RegisterNextLevel;
 
 /// <summary>
-/// Continues a closed case at the next level: X/n stays unchanged; X/n+1 is created in the same dossier with the
-/// copied object text and parties, a MONITORING link for each institution party, the first hearing, and goes to the
-/// Kryetar of the Protokoll's office. Assignments, category, subcategory, delegation and decision are NOT copied
-/// (client decision B.1, 12.11.2026). Any court level may follow, a lower one too (a retrial). All in the request
-/// transaction.
+/// Continues a closed case at the next level: X/n stays unchanged; X/n+1 is created in the same dossier with ONLY the
+/// copied object text and the parties of a copied role (plaintiff, defendant — task 053j c), a MONITORING link for each
+/// institution among those, the parties the Protokoll added, the first hearing, and goes to the Kryetar of the office
+/// that covers the summons court (or the office chosen — task 053j d). Assignments, category, subcategory, delegation
+/// and decision are NOT copied (client decision B.1, 12.11.2026). Any court level may follow, a lower one too (a
+/// retrial). All in the request transaction.
 /// </summary>
 internal sealed class RegisterNextLevelHandler(
     CasesDbContext db,
@@ -29,7 +30,6 @@ internal sealed class RegisterNextLevelHandler(
     IReferenceData reference,
     IInstitutionDirectory institutions,
     PartyWriter parties,
-    Handoff.HandoffService handoffs,
     IHistoryWriter history,
     IAuditLog audit,
     IEventPublisher events,
@@ -54,6 +54,7 @@ internal sealed class RegisterNextLevelHandler(
         var hearingUtc = RegisterCaseValidator.Validate(form, TiraneTime.Today(clock), errors, withParties: false);
         var warnings = new List<RegistrationWarning>();
         var lookups = await support.ResolveLookupsAsync(form, errors, warnings, ct);
+        var addedParties = await support.ResolvePartiesAsync(form.Parties, errors, ct);
         if (errors.Any)
         {
             return errors.ToError(CaseRegistrationSupport.InvalidMessage);
@@ -61,13 +62,15 @@ internal sealed class RegisterNextLevelHandler(
 
         support.WarnIfHearingInPast(hearingUtc, warnings);
 
-        var office = await support.CheckOfficeAsync(ct);
+        // "Zyra që e ndjek" (task 053j): the office of the court that issued the new summons, or the one chosen
+        var office = await support.ResolveOfficeAsync(lookups.Court.Id, req.OfficePublicId, ct);
         if (office.IsFailure)
         {
             return office.Error!;
         }
 
-        var (officeId, head) = office.Value;
+        var officeId = office.Value.Office.Id;
+        var head = office.Value.Head;
         var summonsNumber = form.SummonsNumber!.Trim();
         var actNumber = form.ActNumber!.Trim();
         var duplicates = await support.CheckPossibleDuplicatesAsync(
@@ -112,9 +115,6 @@ internal sealed class RegisterNextLevelHandler(
             return conflict;
         }
 
-        // task 053c: the open handoff of X/n is accepted (it leaves "Çështjet e ardhura")
-        await handoffs.AcceptAsync(previous.Id, next.Id, ct);
-
         support.AddFirstHearing(next, lookups, form.FirstHearing!, hearingUtc!.Value);
         var caseId = (long)next.Id;
         history.Add((long)dossier.Id, caseId, HistoryEventType.CaseCreatedFromPrevious,
@@ -131,26 +131,33 @@ internal sealed class RegisterNextLevelHandler(
             });
         await db.SaveChangesAsync(ct);
 
-        // 4. The non-deleted parties, then a MONITORING link per institution among them (client decision B.1: no
-        //    delegation, no category — the new level gets a new lawyer, who sets them)
+        // 4. The parties whose role is copied (party_roles.copy_to_next_level: plaintiff and defendant, task 053j),
+        //    then a MONITORING link per institution among THEM (client decision B.1: no delegation, no category — the
+        //    new level gets a new lawyer, who sets them); then the parties the Protokoll added in the form
         var roles = (await reference.ListPartyRolesAsync(ct)).ToDictionary(r => r.Id);
-        var sourceParties = await db.CaseParties.AsNoTracking()
-            .Where(p => p.CaseId == previous.Id && p.DeletedAt == null)
-            .OrderBy(p => p.Id)
-            .ToListAsync(ct);
+        var sourceParties = await CopiedPartiesAsync(db, previous.Id, roles, ct);
         foreach (var party in sourceParties)
         {
             await parties.CopyAsync(next, party, roles[party.PartyRoleId], ct);
         }
 
         await LinkInstitutionPartiesAsync(next, sourceParties, ct);
+        foreach (var party in addedParties)
+        {
+            await parties.AddAsync(next, party, ct);
+        }
 
         history.Add((long)dossier.Id, caseId, HistoryEventType.SentToHead,
-            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.", @new: new { Name = head.FullName, UserPublicId = head.PublicId });
+            $"Çështja iu dërgua Kryetarit të zyrës: {head.FullName}.",
+            @new: new { Name = head.FullName, UserPublicId = head.PublicId, Office = office.Value.Office.Name });
         await db.SaveChangesAsync(ct);
 
         audit.Record(AuditActions.CaseCreate, "CASE", caseId, caseId,
             details: new { next.CaseCode, PreviousCaseCode = previous.CaseCode });
+        if (CaseRegistrationSupport.OverrideDetails(office.Value, lookups.Court) is { } overridden)
+        {
+            audit.Record(AuditActions.CaseOfficeOverride, "CASE", caseId, caseId, details: overridden);
+        }
         await events.PublishAsync(new CaseRegistered(next.PublicId, officeId, head.PublicId), ct);
 
         return new RegisterCaseResponse(next.PublicId, next.CaseCode, warnings);
@@ -170,6 +177,20 @@ internal sealed class RegisterNextLevelHandler(
         {
             await parties.LinkAsync(next, known[id], CaseInstitution.Monitoring, ct);
         }
+    }
+
+    /// <summary>
+    /// The parties of the previous level that continuing copies (shared with the preview): not deleted, and of a role
+    /// with copy_to_next_level (task 053j) — a third party, for one, is not copied.
+    /// </summary>
+    internal static async Task<List<CaseParty>> CopiedPartiesAsync(
+        CasesDbContext db, ulong previousCaseId, IReadOnlyDictionary<byte, PartyRoleDto> roles, CancellationToken ct)
+    {
+        var all = await db.CaseParties.AsNoTracking()
+            .Where(p => p.CaseId == previousCaseId && p.DeletedAt == null)
+            .OrderBy(p => p.Id)
+            .ToListAsync(ct);
+        return all.Where(p => roles.TryGetValue(p.PartyRoleId, out var role) && role.CopyToNextLevel).ToList();
     }
 
     /// <summary>The institutions of the parties, first occurrence first (shared with the preview).</summary>

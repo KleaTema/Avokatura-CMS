@@ -27,6 +27,11 @@ public sealed class UpdatePartyRoleHandler(ReferenceDbContext db, IAuditLog audi
         var oldValues = PartyRoleAdminSupport.Snapshot(row);
         row.Name = req.Name.Trim();
         row.SortOrder = sortOrder;
+        if (req.CopyToNextLevel is { } copy)
+        {
+            row.CopyToNextLevel = copy;
+        }
+
         await db.SaveChangesAsync(ct);
 
         PartyRoleAdminSupport.AuditChange(audit, row, "PARTY_ROLE_UPDATED", oldValues,

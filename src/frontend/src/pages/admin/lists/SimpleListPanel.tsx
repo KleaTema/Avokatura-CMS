@@ -130,6 +130,7 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
                 {config.isOther && <TableCell>{t.columns.isOther}</TableCell>}
                 {config.group && <TableCell>{groupHeader}</TableCell>}
                 {config.group === 'outcome' && <TableCell>{t.columns.sendsBackForRetrial}</TableCell>}
+                {list === 'party-roles' && <TableCell>{t.columns.copyToNextLevel}</TableCell>}
                 <TableCell>{t.columns.status}</TableCell>
                 <TableCell align="right">{sq.common.actions}</TableCell>
               </TableRow>
@@ -145,6 +146,7 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
                     {config.isOther && <TableCell>{row.isOther ? t.yes : t.no}</TableCell>}
                     {config.group && <TableCell>{groupLabels(config.group)[groupCode] ?? groupCode}</TableCell>}
                     {config.group === 'outcome' && <TableCell>{row.sendsBackForRetrial ? t.yes : t.no}</TableCell>}
+                    {list === 'party-roles' && <TableCell>{row.copyToNextLevel ? t.yes : t.no}</TableCell>}
                     <TableCell>
                       <StatusChip active={row.isActive} />
                     </TableCell>

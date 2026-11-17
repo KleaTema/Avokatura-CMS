@@ -6,7 +6,8 @@ public sealed record CourtDto(ushort Id, string Name, byte CourtLevelId, string?
 
 public sealed record JudgeDto(uint Id, string FirstName, string LastName, ushort? CourtId, bool IsActive);
 
-public sealed record PartyRoleDto(byte Id, string Code, string Name, string ReportGroup, byte SortOrder, bool IsActive);
+/// <summary>CopyToNextLevel (task 053j): the party is copied when the case continues at the next level.</summary>
+public sealed record PartyRoleDto(byte Id, string Code, string Name, string ReportGroup, byte SortOrder, bool IsActive, bool CopyToNextLevel = false);
 
 public sealed record SummonsTypeDto(byte Id, string Code, string Name, bool IsActive);
 

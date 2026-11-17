@@ -79,7 +79,7 @@ public static class AdminOrgEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .WithName("SetAdminOfficeHead");
 
-        // task 053c: "Gjykatat që mbulon" — the court → office mapping the handoff resolves the receiving office from
+        // task 053c: "Gjykatat që mbulon" — the court → office mapping; task 053j: it routes a new registration
         endpoints.MapGet("/api/identity/admin/office-courts", async (OfficeCourtsHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.ListAsync(ct)))
             .RequirePermission(Permission)

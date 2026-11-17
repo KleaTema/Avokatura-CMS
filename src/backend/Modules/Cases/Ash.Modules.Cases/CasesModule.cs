@@ -27,7 +27,6 @@ using Ash.Modules.Cases.Application.RegisterCase;
 using Ash.Modules.Cases.Application.UpdateDecision;
 using Ash.Modules.Cases.Application.RegisterNextLevel;
 using Ash.Modules.Cases.Application.RegistrationSearch;
-using Ash.Modules.Cases.Application.Handoff;
 using Ash.Modules.Cases.Application.TransferLawyer;
 using Ash.Modules.Cases.Contracts;
 using Ash.Modules.Cases.Endpoints;
@@ -66,6 +65,8 @@ public static class CasesModule
 		services.AddScoped<GetCaseHandler>();
 		services.AddScoped<GetHistoryHandler>();
 		services.AddScoped<RegistrationSearchHandler>();
+		// task 053j: "Zyra që e ndjek" of the registration forms
+		services.AddScoped<RegistrationOfficesHandler>();
 		services.AddScoped<ListPartiesHandler>();
 		services.AddScoped<AddPartyHandler>();
 		services.AddScoped<UpdatePartyHandler>();
@@ -106,10 +107,6 @@ public static class CasesModule
 		services.AddScoped<DecisionSupport>();
 		services.AddScoped<RecordDecisionHandler>();
 		services.AddScoped<UpdateDecisionHandler>();
-		// task 053c: the handoff to the next court and its office
-		services.AddScoped<HandoffService>();
-		services.AddScoped<HandoffQueries>();
-		services.AddScoped<ChangeHandoffHandler>();
 		// task 053d: the Monitor's "Mbikëqyrja"
 		services.AddScoped<Application.Supervision.SupervisionHandlers>();
 		services.AddScoped<ArchiveDossierHandler>();
@@ -132,6 +129,6 @@ public static class CasesModule
 	{
 		return endpoints.MapCaseRegistration().MapCaseParties().MapCaseList().MapCaseDetail().MapCaseAssignment()
 			.MapCaseData().MapCaseInstitutions().MapCaseHearings().MapAgenda().MapCaseDecision().MapDossiers().MapDashboard().MapSearch()
-			.MapCaseHandoffs().MapSupervisions();
+			.MapSupervisions();
 	}
 }

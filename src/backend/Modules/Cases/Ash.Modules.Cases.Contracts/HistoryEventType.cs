@@ -52,6 +52,8 @@ public enum HistoryEventType
     DecisionUpdated,
     CaseClosed,
     DossierArchived,
+    // the three handoff codes (task 053c) are no longer written since task 053j (the handoff is removed); kept so that
+    // stored history rows still read
     /// <summary>CASE_HANDED_OFF (task 053c): the closed, non-final level was handed to the next court and its office.</summary>
     CaseHandedOff,
     /// <summary>HANDOFF_CHANGED (task 053c): the destination was corrected before the next level was registered.</summary>

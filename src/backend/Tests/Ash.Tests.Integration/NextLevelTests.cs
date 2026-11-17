@@ -66,7 +66,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
             ["actDate"] = TiraneTime.Today(new SystemClock()).AddDays(-10).ToString("yyyy-MM-dd"),
             ["receivedDate"] = TiraneTime.Today(new SystemClock()).ToString("yyyy-MM-dd"),
             ["courtLevelCode"] = "FIRST_INSTANCE",
-            ["courtId"] = await seed.CourtAsync("Gjykata e Shkallës së Parë Tiranë"),
+            ["courtId"] = await OfficeCourtsTestData.MapAsync(Db.AppConnectionString, OfficeCourtsTestData.FirstInstanceTirana),
             ["judgeId"] = await seed.JudgeAsync("Ilir", "Gjyqtari"),
             ["objectText"] = "Kërkesë për shpërblim dëmi — objekti i shkallës së parë",
             ["firstHearing"] = new { at = Hearing(14) },
@@ -94,17 +94,21 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         return new FirstLevel(created.GetProperty("casePublicId").GetGuid(), id, code, code[..^2], actNumber);
     }
 
+    /// <summary>The next-level form; <paramref name="officeCode"/>: the office the court is mapped to (null = not mapped).</summary>
     private async Task<Dictionary<string, object?>> NextLevelBody(string court = "Gjykata e Apelit Tiranë", string level = "APPEAL",
-        string judgeFirst = "Genc", string judgeLast = "Muçaj")
+        string judgeFirst = "Genc", string judgeLast = "Muçaj", string? officeCode = "TR")
     {
         await using var seed = await Seed.CreateAsync(Db.AppConnectionString);
+        var courtId = officeCode is null
+            ? await seed.CourtAsync(court)
+            : await OfficeCourtsTestData.MapAsync(Db.AppConnectionString, court, officeCode);
         return new Dictionary<string, object?>
         {
             ["summonsNumber"] = $"FL2-{Guid.NewGuid():N}"[..20],
             ["actNumber"] = $"AKT2-{Guid.NewGuid():N}"[..20],
             ["receivedDate"] = TiraneTime.Today(new SystemClock()).ToString("yyyy-MM-dd"),
             ["courtLevelCode"] = level,
-            ["courtId"] = await seed.CourtAsync(court),
+            ["courtId"] = courtId,
             ["judgeId"] = await seed.JudgeAsync(judgeFirst, judgeLast),
             ["firstHearing"] = new { at = Hearing(30) }
         };
@@ -135,17 +139,23 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         (await Scalar($"SELECT object_text FROM cases WHERE id = {nextId}")).ShouldBe("Kërkesë për shpërblim dëmi — objekti i shkallës së parë");
         (await Scalar($"SELECT COUNT(*) FROM case_hearings WHERE case_id = {nextId} AND status = 'SCHEDULED'")).ShouldBe(1L);
 
-        // parties copied with new public ids; the active MONITORING link copied
-        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {nextId} AND deleted_at IS NULL")).ShouldBe(3L);
+        // task 053j: ONLY the plaintiff and the defendant are copied (copy_to_next_level), with new public ids — the third
+        // party (the LEGAL one) is not; the defendant institution's MONITORING link is created
+        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {nextId} AND deleted_at IS NULL")).ShouldBe(2L);
+        (await Scalar($"""
+            SELECT GROUP_CONCAT(r.code ORDER BY p.id) FROM case_parties p JOIN party_roles r ON r.id = p.party_role_id
+             WHERE p.case_id = {nextId}
+            """)).ShouldBe("PADITES,I_PADITUR");
         (await Scalar($"SELECT COUNT(*) FROM case_parties n JOIN case_parties o ON o.public_id = n.public_id WHERE n.case_id = {nextId} AND o.case_id = {first.Id}"))
             .ShouldBe(0L);
-        (await Scalar($"SELECT identifier FROM case_parties WHERE case_id = {nextId} AND party_kind = 'LEGAL'")).ShouldBe("K12345678A");
+        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {nextId} AND party_kind = 'LEGAL'")).ShouldBe(0L);
         (await Scalar($"SELECT COUNT(*) FROM case_institutions WHERE case_id = {nextId} AND link_mode = 'MONITORING' AND ended_at IS NULL"))
             .ShouldBe(1L);
         (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {nextId}")).ShouldBe(0L);
+        (await Scalar($"SELECT category_id IS NULL FROM cases WHERE id = {nextId}")).ShouldBe(1L);
 
         (await Scalar($"SELECT GROUP_CONCAT(event_type ORDER BY id) FROM case_history_events WHERE case_id = {nextId}"))
-            .ShouldBe("CASE_CREATED_FROM_PREVIOUS,PARTY_ADDED,PARTY_ADDED,PARTY_ADDED,INSTITUTION_LINKED,SENT_TO_HEAD");
+            .ShouldBe("CASE_CREATED_FROM_PREVIOUS,PARTY_ADDED,PARTY_ADDED,INSTITUTION_LINKED,SENT_TO_HEAD");
         ((string)(await Scalar($"SELECT summary FROM case_history_events WHERE case_id = {nextId} AND event_type = 'CASE_CREATED_FROM_PREVIOUS'"))!)
             .ShouldContain(first.CaseCode);
 
@@ -422,7 +432,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         created.GetProperty("warnings").EnumerateArray()
             .ShouldNotContain(w => w.GetProperty("code").GetString()!.StartsWith("institution."));
         var nextId = Convert.ToInt64(await Scalar($"SELECT id FROM cases WHERE case_code = '{created.GetProperty("caseCode").GetString()}'"));
-        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {nextId} AND deleted_at IS NULL")).ShouldBe(3L);
+        (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = {nextId} AND deleted_at IS NULL")).ShouldBe(2L); // plaintiff + defendant
         (await Scalar($"SELECT object_text FROM cases WHERE id = {nextId}")).ShouldBe("Kërkesë për shpërblim dëmi — objekti i shkallës së parë");
         (await Scalar($"""
             SELECT GROUP_CONCAT(CONCAT(i.name, '|', l.link_mode)) FROM case_institutions l JOIN institutions i ON i.id = l.institution_id
@@ -487,7 +497,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
             """)).ShouldBe("FIRST_INSTANCE,APPEAL,HIGH_COURT,FIRST_INSTANCE");
         (await Scalar($"SELECT COUNT(*) FROM cases WHERE case_code = '{codes[0]}' AND category_id IS NULL AND subcategory_id IS NULL")).ShouldBe(1L);
         (await Scalar($"SELECT COUNT(*) FROM case_parties WHERE case_id = (SELECT id FROM cases WHERE case_code = '{codes[^1]}') AND deleted_at IS NULL"))
-            .ShouldBe(3L);
+            .ShouldBe(2L); // task 053j: plaintiff + defendant, level after level
     }
 
     private const string SearchPath = "/api/cases/registration-search";
@@ -552,7 +562,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
             item.ShouldNotBeNull(SearchUrl(filters)); // the dossier is shown by its latest level, whatever level matched
             Find(page, first.CaseCode).ShouldBeNull(SearchUrl(filters));
             item.Value.GetProperty("canContinue").GetBoolean().ShouldBeTrue();
-            item.Value.GetProperty("partyCount").GetInt32().ShouldBe(3);
+            item.Value.GetProperty("partyCount").GetInt32().ShouldBe(2); // task 053j: the third party was not copied to /2
             item.Value.GetProperty("courtName").GetString().ShouldBe("Gjykata e Apelit Tiranë");
             item.Value.GetProperty("objectSnippet").GetString().ShouldBe("Kërkesë për shpërblim dëmi — objekti i shkallës së parë");
             item.Value.TryGetProperty("objectText", out _).ShouldBeFalse();
@@ -588,8 +598,9 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
             return (await Json(response)).GetProperty("errors");
         }
 
-        (await Errors("")).TryGetProperty("filters", out _).ShouldBeTrue();
-        (await Errors("?q=agim")).TryGetProperty("filters", out _).ShouldBeTrue(); // the old free text is no filter
+        // task 053j: a table of every case — no filter is fine (unknown parameters such as the old q are ignored)
+        (await client.GetAsync(SearchPath, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.GetAsync($"{SearchPath}?q=agim", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
         var many = await Errors("?plaintiff=a&courtId=abc&category=NOPE&result=NOPE&status=NOPE");
         foreach (var field in new[] { "plaintiff", "courtId", "category", "result", "status" })
         {
@@ -609,7 +620,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
             .Select(f => $"{f.GetProperty("name").GetString()}|{f.GetProperty("input").GetString()}|" +
                          (f.TryGetProperty("dependsOn", out var on) ? on.GetString() : null))
             .ShouldBe([
-                "code|Text|", "actNumber|Text|", "courtId|Court|", "judgeId|Judge|courtId", "plaintiff|Text|", "defendant|Text|",
+                "code|Text|", "actNumber|Text|", "courtLevel|CourtLevel|", "courtId|Court|courtLevel", "judgeId|Judge|courtId", "plaintiff|Text|", "defendant|Text|",
                 "object|Text|", "category|Category|", "subcategory|Subcategory|category", "result|DecisionResult|"
             ]);
         using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
@@ -642,10 +653,15 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         var closed = await RegisterFirstLevel(client);
         var open = await RegisterFirstLevel(client, close: false);
 
-        var page = await Search(client, ("plaintiff", "oxha"));
+        var page = await Search(client, ("plaintiff", "oxha"), ("status", "ALL"));
         Find(page, closed.CaseCode).ShouldNotBeNull();
         Find(page, open.CaseCode).ShouldNotBeNull();
         page.GetProperty("total").GetInt32().ShouldBe(page.GetProperty("items").GetArrayLength());
+
+        // task 053j: the default is "Mund të vazhdohen" — the open one is not listed
+        var continuable = await Search(client, ("plaintiff", "oxha"));
+        Find(continuable, closed.CaseCode).ShouldNotBeNull();
+        Find(continuable, open.CaseCode).ShouldBeNull();
 
         var closedOnly = await Search(client, ("plaintiff", "oxha"), ("status", "CLOSED"));
         Find(closedOnly, closed.CaseCode).ShouldNotBeNull();
@@ -662,7 +678,7 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         using var client = factory.CreateClient().AsUser(Protokoll);
         var open = await RegisterFirstLevel(client, close: false);
 
-        var item = Find(await Search(client, ("actNumber", open.ActNumber)), open.CaseCode);
+        var item = Find(await Search(client, ("actNumber", open.ActNumber), ("status", "ALL")), open.CaseCode);
 
         item.ShouldNotBeNull();
         item.Value.GetProperty("canContinue").GetBoolean().ShouldBeFalse();
@@ -732,8 +748,8 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         preview.GetProperty("parties").EnumerateArray()
             .Select(p => $"{p.GetProperty("role").GetString()}|{p.GetProperty("kind").GetString()}|{p.GetProperty("displayName").GetString()}|{p.GetProperty("identifier").GetString()}")
             .ShouldBe([
+                // task 053j: only the copied roles — the third party (Shoqëria Alfa) is not previewed
                 "Paditës|NATURAL|Agim Hoxha|",
-                "Person i tretë|LEGAL|Shoqëria Alfa sh.p.k.|K12345678A",
                 $"I paditur|INSTITUTION|{Ministry}|"
             ]);
         var link = preview.GetProperty("institutionLinks").EnumerateArray().Single();
