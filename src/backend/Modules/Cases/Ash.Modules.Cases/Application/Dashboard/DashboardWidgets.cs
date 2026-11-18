@@ -1,5 +1,3 @@
-using Ash.Infrastructure.Jobs;
-using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Application.AssignLawyers;
 using Ash.Modules.Cases.Application.ListCases;
 using Ash.Modules.Cases.Infrastructure;
@@ -17,7 +15,7 @@ namespace Ash.Modules.Cases.Application.Dashboard;
 /// filter its LinkPath encodes (the list's URL parameters: tab, status, filter, from, regFrom, regTo, lawyer, office),
 /// so a card and the list it opens show the same number. Lists show at most <see cref="ListSize"/> rows.
 /// </summary>
-internal sealed class DashboardWidgets(
+internal sealed partial class DashboardWidgets(
     CasesDbContext db,
     CaseListQueryBuilder builder,
     CaseListSpecialFactory specials,
@@ -25,9 +23,9 @@ internal sealed class DashboardWidgets(
     IReferenceData reference,
     IUserDirectory users,
     IOfficeDirectory offices,
+    IInstitutionDirectory institutions,
+    IAdminOverview admin,
     IDocumentService documents,
-    JobStatusReader jobs,
-    PersistenceOptions persistence,
     ICurrentUser user)
 {
     public const int ListSize = 8;
@@ -284,39 +282,4 @@ internal sealed class DashboardWidgets(
 
     public async Task<DashboardWidget> FailedScansAsync(DateTime now, CancellationToken ct) =>
         new("adminFailedScans", DashboardWidget.Count, "Dokumente të pakontrolluara", await documents.CountFailedScansAsync(ct));
-
-    /// <summary>Every job (ash_ops.job_runs): Value = how many are overdue; a row per job with its last success or error.</summary>
-    public async Task<DashboardWidget> JobsAsync(DateTime now, CancellationToken ct)
-    {
-        var statuses = await jobs.ReadAsync(now, ct);
-        var items = statuses
-            .Select(j => new DashboardItem(j.Name, j.LastError, j.LastSucceededAt, Value: j.Stale ? 1 : 0))
-            .ToList();
-        return new DashboardWidget("adminJobs", DashboardWidget.List, "Punët në sfond", statuses.Count(j => j.Stale), Items: items);
-    }
-
-    /// <summary>Per partitioned table: Detail OK, P_MAX_ROWS or NEXT_MONTH_MISSING (both: two rows); Value = problems.</summary>
-    public async Task<DashboardWidget> PartitionsAsync(DateTime now, CancellationToken ct)
-    {
-        var items = new List<DashboardItem>();
-        foreach (var table in await PartitionStatus.ReadAsync(persistence.ConnectionString, now, ct))
-        {
-            if (table.PMaxHasRows)
-            {
-                items.Add(new DashboardItem(table.Table, "P_MAX_ROWS", Value: 1));
-            }
-
-            if (!table.NextMonthReady)
-            {
-                items.Add(new DashboardItem(table.Table, "NEXT_MONTH_MISSING", Value: 1));
-            }
-
-            if (table.Ok)
-            {
-                items.Add(new DashboardItem(table.Table, "OK", Value: 0));
-            }
-        }
-
-        return new DashboardWidget("adminPartitions", DashboardWidget.List, "Particionet e bazës", items.Count(i => i.Value == 1), Items: items);
-    }
 }

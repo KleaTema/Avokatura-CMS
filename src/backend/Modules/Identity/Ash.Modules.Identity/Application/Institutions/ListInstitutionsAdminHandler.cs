@@ -57,6 +57,12 @@ public sealed class ListInstitutionsAdminHandler(IdentityDbContext db, ParallelR
     {
         var institutions = db.Institutions.AsNoTracking();
 
+        // task 053n: one institution (a dashboard row "what changed"), inactive included
+        if (q.PublicId is { } publicId)
+        {
+            institutions = institutions.Where(i => i.PublicId == publicId);
+        }
+
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
             var words = NgramSearch.BooleanQuery(q.Q.Trim());

@@ -8,8 +8,16 @@ import {
   FileWarning,
   FolderOpen,
   Gavel,
+  Building2,
+  KeyRound,
   Landmark,
+  LogIn,
+  Scale,
   Share2,
+  ShieldOff,
+  UserCheck,
+  UserPlus,
+  Users,
   UserX,
   type LucideIcon,
 } from 'lucide-react'
@@ -49,6 +57,15 @@ const ICONS: Record<string, LucideIcon> = {
   allMissingData6m: TriangleAlert,
   allDecisionPending: Gavel,
   adminFailedScans: FileWarning,
+  adminUsersActive: UserCheck,
+  adminUsersInactive: Users,
+  adminUsersNoRole: UserX,
+  adminUsersNeverLoggedIn: LogIn,
+  adminUsersCreatedThisMonth: UserPlus,
+  adminLoginBlocked: ShieldOff,
+  adminLoginNone: KeyRound,
+  adminOfficesNoHead: Building2,
+  adminCourtsUncovered: Scale,
 }
 
 /** A widget that failed: a small inline error with "Provo përsëri" — never a broken page. */
@@ -140,14 +157,17 @@ const COLUMNS: Record<ReturnType<typeof listShapeOf>, DataColumn[]> = {
     { key: 'case', label: t.columns.case, width: 180 },
     { key: 'when', label: t.columns.when, width: 150 },
   ],
-  jobs: [
-    { key: 'job', label: t.columns.job },
-    { key: 'last', label: t.columns.lastSuccess, width: 170 },
-    { key: 'state', label: t.columns.state, width: 140 },
+  // task 053n: the administrator's lists
+  changes: [
+    { key: 'what', label: t.columns.what },
+    { key: 'who', label: t.columns.who, width: 180 },
+    { key: 'when', label: t.columns.when, width: 150 },
   ],
-  partitions: [
-    { key: 'table', label: t.columns.table },
-    { key: 'state', label: t.columns.state },
+  imports: [
+    { key: 'file', label: t.columns.file },
+    { key: 'kind', label: t.columns.importKind, width: 130 },
+    { key: 'errors', label: t.columns.errors, width: 90, align: 'right' },
+    { key: 'when', label: t.columns.when, width: 150 },
   ],
 }
 
@@ -209,36 +229,38 @@ function ListRow({ shape, item }: { shape: ReturnType<typeof listShapeOf>; item:
           </TableCell>
         </TableRow>
       )
-    case 'jobs': {
-      const late = num(item.value) === 1
+    case 'changes':
+      // a user / office / institution opens its admin page filtered to it; anything else is plain text
       return (
-        <TableRow>
+        <TableRow {...rowProps}>
           <TableCell>
-            {item.label}
-            {item.detail && (
-              <Typography variant="caption" color="error" component="p">
-                {item.detail}
-              </Typography>
+            {link ? (
+              <Link component={RouterLink} to={link} underline="hover" onClick={(e) => e.stopPropagation()}>
+                {item.label}
+              </Link>
+            ) : (
+              item.label
             )}
           </TableCell>
-          <TableCell>{item.at ? formatDateTime(item.at) : t.never}</TableCell>
-          <TableCell>
-            <Typography variant="body2" sx={{ color: late ? 'error.main' : 'success.dark', fontWeight: 600 }}>
-              {late ? t.jobLate : t.jobOk}
-            </Typography>
-          </TableCell>
+          <TableCell>{item.detail}</TableCell>
+          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(item.at)}</TableCell>
         </TableRow>
       )
-    }
-    case 'partitions':
+    case 'imports':
       return (
-        <TableRow>
-          <TableCell>{item.label}</TableCell>
+        <TableRow {...rowProps}>
           <TableCell>
-            <Typography variant="body2" sx={{ color: num(item.value) === 1 ? 'error.main' : 'success.dark', fontWeight: 600 }}>
-              {t.partition[item.detail ?? ''] ?? item.detail}
-            </Typography>
+            {link ? (
+              <Link component={RouterLink} to={link} underline="hover" onClick={(e) => e.stopPropagation()}>
+                {item.label}
+              </Link>
+            ) : (
+              item.label
+            )}
           </TableCell>
+          <TableCell>{item.detail}</TableCell>
+          <TableCell align="right">{num(item.value)}</TableCell>
+          <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(item.at)}</TableCell>
         </TableRow>
       )
   }

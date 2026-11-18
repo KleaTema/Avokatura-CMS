@@ -26,10 +26,16 @@ const ATTENTION = new Set([
   'institutionNoJurist',
   'allMissingData6m',
   'allDecisionPending',
+  // task 053n: the administration's loose ends
+  'adminUsersNoRole',
+  'adminLoginBlocked',
+  'adminLoginNone',
+  'adminOfficesNoHead',
+  'adminCourtsUncovered',
 ])
 
 /** Which columns a list widget shows. */
-export type ListShape = 'hearings' | 'registrations' | 'activity' | 'jobs' | 'partitions'
+export type ListShape = 'hearings' | 'registrations' | 'activity' | 'changes' | 'imports'
 
 export function listShapeOf(code: string): ListShape {
   switch (code) {
@@ -37,10 +43,10 @@ export function listShapeOf(code: string): ListShape {
       return 'registrations'
     case 'mineActivity':
       return 'activity'
-    case 'adminJobs':
-      return 'jobs'
-    case 'adminPartitions':
-      return 'partitions'
+    case 'adminRecentChanges':
+      return 'changes'
+    case 'adminImportErrors':
+      return 'imports'
     default:
       return 'hearings'
   }

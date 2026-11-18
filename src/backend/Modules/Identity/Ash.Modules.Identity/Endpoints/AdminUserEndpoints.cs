@@ -23,9 +23,14 @@ public static class AdminUserEndpoints
         group.MapGet("", async (
                 string? q, string? role, Guid? officeId, Guid? institutionId, bool? active, string? after, int? limit,
                 string? position, DateOnly? lastLoginFrom, DateOnly? lastLoginTo,
+                bool? noRole, bool? neverLoggedIn, DateOnly? createdFrom, DateOnly? createdTo, string? login, Guid? userId,
                 ListUsersHandler handler, CancellationToken ct) =>
                 Results.Ok(await handler.Handle(new ListUsersQuery(q, role, officeId, institutionId, active, after, limit,
-                    position, lastLoginFrom, lastLoginTo), ct)))
+                    position, lastLoginFrom, lastLoginTo)
+                {
+                    NoRole = noRole, NeverLoggedIn = neverLoggedIn, CreatedFrom = createdFrom, CreatedTo = createdTo,
+                    Login = login, PublicId = userId,
+                }, ct)))
             .RequirePermission(Permission)
             .Produces<KeysetPage<UserResponse>>()
             .WithName("ListAdminUsers");

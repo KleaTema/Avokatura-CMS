@@ -57,8 +57,33 @@ public class DashboardTests(MySqlFixture db) : IntegrationTest(db)
         return $"/api/cases?{string.Join('&', parts)}&limit=1";
     }
 
-    private static async Task<long> ListTotal(HttpClient client, string linkPath) =>
-        (await Json(await client.GetAsync(ApiQuery(linkPath), Ct))).GetProperty("total").GetInt64();
+    private static async Task<long> ListTotal(HttpClient client, string linkPath)
+    {
+        // task 053n: the administrator's cards open admin pages — the users list (server), offices and courts (whole lists
+        // the page filters in the browser by the same rule)
+        if (linkPath.StartsWith("/admin/users?", StringComparison.Ordinal))
+        {
+            var query = linkPath["/admin/users?".Length..];
+            return (await Json(await client.GetAsync($"/api/identity/admin/users?{query}&limit=1", Ct))).GetProperty("total").GetInt64();
+        }
+
+        if (linkPath == "/admin/offices?active=true&head=false")
+        {
+            var offices = (await Json(await client.GetAsync("/api/identity/admin/offices", Ct))).EnumerateArray();
+            return offices.Count(o => o.GetProperty("isActive").GetBoolean()
+                                      && (!o.TryGetProperty("head", out var head) || head.ValueKind == JsonValueKind.Null));
+        }
+
+        if (linkPath == "/admin/lists?list=courts&active=true&covered=false")
+        {
+            var covered = (await Json(await client.GetAsync("/api/identity/admin/covered-courts", Ct))).EnumerateArray()
+                .Select(c => c.GetInt32()).ToHashSet();
+            var courts = (await Json(await client.GetAsync("/api/reference/admin/courts", Ct))).EnumerateArray();
+            return courts.Count(c => c.GetProperty("isActive").GetBoolean() && !covered.Contains(c.GetProperty("id").GetInt32()));
+        }
+
+        return (await Json(await client.GetAsync(ApiQuery(linkPath), Ct))).GetProperty("total").GetInt64();
+    }
 
     private static long? Long(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
@@ -114,7 +139,8 @@ public class DashboardTests(MySqlFixture db) : IntegrationTest(db)
     // the seed gives the jurist no overdue hearing: some of its numbers are 0
     [InlineData("jurist@ash.local", "mineOpen,mineHearingOverdue,mineMissingData30,mineDecisionPending,mineHearingsThisWeek,mineActivity", false)]
     [InlineData("monitor@ash.local", "allHearingsThisWeek,allMissingData6m,allDecisionPending,allByOffice", true)]
-    [InlineData("admin@ash.local", "allHearingsThisWeek,allMissingData6m,allDecisionPending,allByOffice,adminFailedScans,adminJobs,adminPartitions", true)]
+    // task 053n: the administrator — administration only, no case or office numbers
+    [InlineData("admin@ash.local", "adminUsersActive,adminUsersInactive,adminUsersNoRole,adminUsersNeverLoggedIn,adminUsersCreatedThisMonth,adminLoginBlocked,adminLoginNone,adminOfficesNoHead,adminCourtsUncovered,adminFailedScans,adminRecentChanges,adminImportErrors", false)]
     public async Task Each_audience_gets_its_widgets_and_every_number_equals_its_list(string email, string codes, bool nonZero)
     {
         await DashboardSeed.CreateAsync(Db.AppConnectionString, 5000, Now);
@@ -284,7 +310,7 @@ public class DashboardTests(MySqlFixture db) : IntegrationTest(db)
         Text(failed, "error").ShouldNotBeNull();
         Long(failed, "value").ShouldBeNull();
         widgets.Where(w => Text(w, "code") != "adminFailedScans").ShouldAllBe(w => Text(w, "error") == null);
-        Long(widgets.Single(w => Text(w, "code") == "allHearingsThisWeek"), "value").ShouldNotBeNull();
+        Long(widgets.Single(w => Text(w, "code") == "adminUsersActive"), "value").ShouldNotBeNull();
 
         // a failure is never cached: the next load asks again and has it
         var again = (await Widgets(admin)).Single(w => Text(w, "code") == "adminFailedScans");

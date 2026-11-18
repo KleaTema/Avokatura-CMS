@@ -19,7 +19,7 @@ import { TableFilterBar } from '../../../components/filters/TableFilterBar'
 import { useUrlFilters } from '../../../components/filters/useUrlFilters'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
 import { PaginationFooter } from '../../../components/ui/DataTable'
-import { useAdminCourts, useSetCourtActive, type AdminCourt } from '../../../features/admin/api'
+import { useAdminCourts, useCoveredCourts, useSetCourtActive, type AdminCourt } from '../../../features/admin/api'
 import { useTableFilters } from '../../../features/filters/api'
 import { useCourtLevels } from '../../../features/reference/api'
 import { sq } from '../../../i18n/sq'
@@ -42,6 +42,8 @@ export function CourtsPanel() {
   const meta = useTableFilters('courts')
   const url = useUrlFilters(meta.data ?? [])
 
+  // task 053n: covered by an active office (office_courts) — "Gjykata pa zyrë" on the admin dashboard
+  const covered = new Set((useCoveredCourts().data ?? []).map(Number))
   const levelName = (code: string) => levels.data?.find((l) => l.code === code)?.name ?? code
   const field = (c: AdminCourt, key: string): unknown => {
     const fields: Record<string, unknown> = {
@@ -49,6 +51,7 @@ export function CourtsPanel() {
       level: c.courtLevel,
       foreign: c.isForeign,
       active: c.isActive,
+      covered: covered.has(Number(c.id)),
     }
     return fields[key]
   }

@@ -22,18 +22,21 @@ export const useAgenda = (p: AgendaParams) =>
   useQuery({
     queryKey: [...agendaKeys.all, p] as const,
     placeholderData: keepPreviousData,
-    queryFn: () =>
-      api
-        .GET('/api/agenda', {
-          params: {
-            query: {
-              from: p.from,
-              to: p.to,
-              lawyerId: p.lawyerId || undefined,
-              officeId: p.officeId || undefined,
-              includeCancelled: p.includeCancelled || undefined,
-            },
-          },
-        })
-        .then(unwrap),
+    queryFn: () => fetchAgenda(p),
   })
+
+/** Every hearing of a range (at most 3 months; the API refuses more than 2,000) — the calendar's and the print's source. */
+export const fetchAgenda = (p: AgendaParams) =>
+  api
+    .GET('/api/agenda', {
+      params: {
+        query: {
+          from: p.from,
+          to: p.to,
+          lawyerId: p.lawyerId || undefined,
+          officeId: p.officeId || undefined,
+          includeCancelled: p.includeCancelled || undefined,
+        },
+      },
+    })
+    .then(unwrap)

@@ -2,6 +2,7 @@ using Ash.AspNetCore.Authorization;
 using Ash.AspNetCore.Http;
 using Ash.Modules.Identity.Application.Institutions;
 using Ash.Modules.Identity.Application.Offices;
+using Ash.Modules.Identity.Contracts;
 using Ash.SharedKernel.Paging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -102,11 +103,19 @@ public static class AdminOrgEndpoints
         var institutions = endpoints.MapGroup("/api/identity/admin/institutions");
 
         institutions.MapGet("", async (string? q, string? after, int? limit, string? type, bool? active, Guid? parentId,
-                    ListInstitutionsAdminHandler handler, CancellationToken ct) =>
-                Results.Ok(await handler.Handle(new ListInstitutionsAdminQuery(q, after, limit, type, active, parentId), ct)))
+                    Guid? institutionId, ListInstitutionsAdminHandler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(new ListInstitutionsAdminQuery(q, after, limit, type, active, parentId, institutionId), ct)))
             .RequirePermission(Permission)
             .Produces<KeysetPage<InstitutionAdminResponse>>()
             .WithName("ListAdminInstitutions");
+
+        // task 053n: the courts an active office covers (the courts list's "Mbulohet nga një zyrë"; reference data
+        // lives in another module, the coverage here)
+        endpoints.MapGet("/api/identity/admin/covered-courts", async (IAdminOverview overview, CancellationToken ct) =>
+                Results.Ok((await overview.ListCoveredCourtIdsAsync(ct)).Order().ToList()))
+            .RequirePermission("admin.lookups")
+            .Produces<IReadOnlyList<int>>()
+            .WithName("ListCoveredCourts");
 
         institutions.MapPost("", async (CreateInstitutionRequest req, CreateInstitutionHandler handler, CancellationToken ct) =>
                 {

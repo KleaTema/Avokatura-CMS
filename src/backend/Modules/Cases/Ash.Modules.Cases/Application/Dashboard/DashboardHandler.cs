@@ -28,6 +28,8 @@ internal sealed class DashboardHandler(
 {
     public const string AdminPermission = "audit.view";
 
+    private const string MonitorRole = "MONITOR";
+
     /// <summary>Connections one dashboard load may use at once (each widget borrows one from the pool).</summary>
     public const int Parallelism = 4;
 
@@ -103,7 +105,9 @@ internal sealed class DashboardHandler(
             definitions.Add(new("institutionUpcoming", DashboardWidget.List, "Seancat e ardhshme", CacheScope.Personal, (w, n, t) => w.InstitutionUpcomingAsync(n, t)));
         }
 
-        if (tabs.Contains(CaseListTab.All))
+        // task 053n: the administrator sees the administration, not the country's cases (unless also a Monitor)
+        var administrator = user.HasPermission(AdminPermission);
+        if (tabs.Contains(CaseListTab.All) && (!administrator || user.Roles.Contains(MonitorRole)))
         {
             definitions.Add(Special("allHearingsThisWeek", "Seanca këtë javë", CacheScope.Global, CaseListTab.All, CaseListSpecial.HearingThisWeek));
             definitions.Add(Special("allMissingData6m", "Pa të dhëna mbi 6 muaj", CacheScope.Global, CaseListTab.All, CaseListSpecial.MissingData6M));
@@ -111,11 +115,23 @@ internal sealed class DashboardHandler(
             definitions.Add(new("allByOffice", DashboardWidget.Chart, "Çështjet sipas zyrës", CacheScope.Global, (w, n, t) => w.ByOfficeAsync(n, t)));
         }
 
-        if (user.HasPermission(AdminPermission))
+        if (administrator)
         {
+            // task 053n: administration widgets, none tied to an office; job and partition health live in /health/ready
+            Definition Users(string code, string title) =>
+                new(code, DashboardWidget.Count, title, CacheScope.Global, (w, n, t) => w.AdminUsersAsync(code, n, t));
+            definitions.Add(Users("adminUsersActive", "Përdorues aktivë"));
+            definitions.Add(Users("adminUsersInactive", "Përdorues joaktivë"));
+            definitions.Add(Users("adminUsersNoRole", "Pa asnjë rol"));
+            definitions.Add(Users("adminUsersNeverLoggedIn", "Nuk kanë hyrë asnjëherë"));
+            definitions.Add(Users("adminUsersCreatedThisMonth", "Krijuar këtë muaj"));
+            definitions.Add(Users("adminLoginBlocked", "Me llogari hyrjeje të bllokuar"));
+            definitions.Add(Users("adminLoginNone", "Pa llogari hyrjeje"));
+            definitions.Add(new("adminOfficesNoHead", DashboardWidget.Count, "Zyra pa Kryetar", CacheScope.Global, (w, n, t) => w.AdminOfficesWithoutHeadAsync(n, t)));
+            definitions.Add(new("adminCourtsUncovered", DashboardWidget.Count, "Gjykata pa zyrë", CacheScope.Global, (w, n, t) => w.AdminCourtsUncoveredAsync(n, t)));
             definitions.Add(new("adminFailedScans", DashboardWidget.Count, "Dokumente të pakontrolluara", CacheScope.Global, (w, n, t) => w.FailedScansAsync(n, t)));
-            definitions.Add(new("adminJobs", DashboardWidget.List, "Punët në sfond", CacheScope.Global, (w, n, t) => w.JobsAsync(n, t)));
-            definitions.Add(new("adminPartitions", DashboardWidget.List, "Particionet e bazës", CacheScope.Global, (w, n, t) => w.PartitionsAsync(n, t)));
+            definitions.Add(new("adminRecentChanges", DashboardWidget.List, "Ndryshimet e fundit administrative", CacheScope.Global, (w, n, t) => w.AdminRecentChangesAsync(n, t)));
+            definitions.Add(new("adminImportErrors", DashboardWidget.List, "Importet me gabime", CacheScope.Global, (w, n, t) => w.AdminImportErrorsAsync(n, t)));
         }
 
         using var gate = new SemaphoreSlim(Parallelism);

@@ -100,6 +100,9 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.InstitutionId).HasColumnName("institution_id");
             b.Property(x => x.IsActive).HasColumnName("is_active");
             b.Property(x => x.LastLoginAt).HasColumnName("last_login_at");
+            // set by MySQL on insert, never written by the app
+            b.Property(x => x.CreatedAt).HasColumnName("created_at").ValueGeneratedOnAdd()
+                .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
         });
 
         modelBuilder.Entity<RoleRecord>(b =>
@@ -183,6 +186,8 @@ public sealed class UserRecord
     public uint? InstitutionId { get; set; }
     public bool IsActive { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    /// <summary>users.created_at (the database's default; read-only here — task 053n "Krijuar këtë muaj").</summary>
+    public DateTime CreatedAt { get; set; }
 }
 
 public sealed class RoleRecord

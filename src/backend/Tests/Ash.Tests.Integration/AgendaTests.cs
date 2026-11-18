@@ -174,14 +174,17 @@ public class AgendaTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Range_is_at_most_62_days_and_dates_are_required()
+    public async Task Range_is_at_most_3_months_and_dates_are_required()
     {
         await SeedAsync();
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser("avokat1@ash.local");
 
-        (await client.GetAsync("/api/agenda?from=2026-11-01&to=2027-01-01", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK); // 62 days
-        await ShouldBe400(client, "from=2026-11-01&to=2027-01-02", "to"); // 63 days
+        // task 053n (the print of a quarter): 3 calendar months, both days included
+        (await client.GetAsync("/api/agenda?from=2026-11-01&to=2027-01-31", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await client.GetAsync("/api/agenda?from=2026-11-15&to=2027-02-14", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        await ShouldBe400(client, "from=2026-11-01&to=2027-02-01", "to");
+        await ShouldBe400(client, "from=2026-11-15&to=2027-02-15", "to");
         await ShouldBe400(client, "from=2026-11-10&to=2026-11-09", "to");
         await ShouldBe400(client, "to=2026-11-09", "from");
     }

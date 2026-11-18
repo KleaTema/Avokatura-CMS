@@ -31,6 +31,8 @@ internal sealed class CourtListFilterSource(IReferenceData reference) : ITableFi
                 options: levels.OrderBy(l => l.SortOrder).Select(l => new FilterOption(l.Code, l.Name)).ToList()),
             ReferenceFilters.Active,
             TableFilter.Of("foreign", "E huaj", FilterKinds.YesNo),
+            // task 053n: "Gjykata pa zyrë" on the admin dashboard opens covered=false (office_courts)
+            TableFilter.Of("covered", "Mbulohet nga një zyrë", FilterKinds.YesNo),
         ];
     }
 }

@@ -1086,3 +1086,20 @@ Supersedes the *Filtra* panel steps of 031, 045 and the case list above: no tabl
 7. **Unused filter:** add a filter, leave it empty, click a menu item → "Keni krijuar një filtër që nuk e keni përdorur. Dëshironi të dilni nga faqja?". *Anulo* stays, *Po* leaves. With a value: no dialog. Report builder: also after changing filters without *Gjenero*.
 8. **Server lists** (users: *Pozicioni*, *Hyrja e fundit*; notifications: *Lloji*, title, date; documents: title, upload date) return only matching rows, with the right total.
 9. 390 px: the bar wraps, no page-wide side scroll.
+
+## 053n — Agenda print; the administrator's dashboard
+**Agenda print**
+1. *Agjenda → Printo* opens a dialog: *Nga data* / *Deri më* (the calendar's current period to start), *Sot*, *Kjo javë*, *Java tjetër*, *Ky muaj*, the office / lawyer for who has those filters (Monitor; Kryetar: the lawyer), *Përfshi të anuluarat*.
+2. A period over 3 months (e.g. 01.11 – 01.02) → "Periudha mund të jetë deri në 3 muaj."; *Printo* disabled. To before from → its message.
+3. In the month view choose *Kjo javë* + *Printo* → the print shows the WHOLE week's hearings (not the month on screen), grouped by day: date, time, court, case code, type, lawyer.
+4. The header: "Agjenda e seancave", the period, the filters (or "Të gjitha seancat e periudhës"), "Printuar më … nga …", the number of hearings. Every page: "Faqja n nga m" bottom right. A 3-month period runs over several pages; a day's table header repeats on a new page.
+5. *Përfshi të anuluarat* on: cancelled hearings appear struck through with "(e anuluar)".
+6. More than 2,000 hearings → "Zgjidhni një periudhë më të shkurtër." in the dialog.
+
+**The administrator's dashboard** (admin@ash.local; works the same with no office set on the admin)
+1. No *Çështjet sipas zyrës*, *Punët në sfond*, *Particionet*, and no case cards. (The Monitor still has the case cards and the chart.) Job and partition health: `/health/ready` and the logs.
+2. Cards: *Përdorues aktivë / joaktivë*, *Pa asnjë rol*, *Nuk kanë hyrë asnjëherë*, *Krijuar këtë muaj*, *Me llogari hyrjeje të bllokuar*, *Pa llogari hyrjeje*, *Zyra pa Kryetar*, *Gjykata pa zyrë*, *Dokumente të pakontrolluara*.
+3. Each card opens its admin page with the filter applied, and the list's total equals the card: *Përdoruesit* (filters *Aktiv*, *Pa asnjë rol*, *Nuk ka hyrë asnjëherë*, *Krijuar më*, *Llogaria e hyrjes*), *Zyrat* (*Aktive* + *Ka Kryetar: Jo*), *Listat → Gjykatat* (*Aktive* + *Mbulohet nga një zyrë: Jo*).
+4. *Ndryshimet e fundit administrative*: the last 10 — what (in Albanian), who, when (Tirane). Deactivate a user → its row links to *Përdoruesit* showing only that user ("Vetëm: …", × shows all), inactive. An office / institution likewise. A court, judge, list item, import … : plain text, no link.
+5. *Importet me gabime*: upload a users CSV with a bad e-mail → the row (file, *Përdoruesit*, errors, when) opens *Përdoruesit* with the import dialog and *Me gabime: Po*.
+6. Database: the API account reads `ash_audit.v_admin_changes` only; `SELECT … FROM ash_audit.audit_log` as `ash_app` is denied.

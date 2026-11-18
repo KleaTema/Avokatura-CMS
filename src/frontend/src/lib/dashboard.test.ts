@@ -22,8 +22,8 @@ describe('listShapeOf', () => {
     expect(listShapeOf('institutionUpcoming')).toBe('hearings')
     expect(listShapeOf('myRegistrations')).toBe('registrations')
     expect(listShapeOf('mineActivity')).toBe('activity')
-    expect(listShapeOf('adminJobs')).toBe('jobs')
-    expect(listShapeOf('adminPartitions')).toBe('partitions')
+    expect(listShapeOf('adminRecentChanges')).toBe('changes')
+    expect(listShapeOf('adminImportErrors')).toBe('imports')
   })
 })
 

@@ -31,6 +31,7 @@ public static class IdentityModule
 		services.AddScoped<Application.Imports.UsersImport>();
 		services.AddScoped<UserAdminSupport>();
 		services.AddScoped<ListUsersHandler>();
+		services.AddScoped<IAdminOverview, AdminOverview>(); // task 053n: the administrator's dashboard
 		// task 053m: the filters of the admin tables (GET /api/filters/{table})
 		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Filters.UserListFilterSource>();
 		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Filters.OfficeListFilterSource>();

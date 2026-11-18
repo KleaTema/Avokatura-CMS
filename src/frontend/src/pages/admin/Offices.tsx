@@ -2,6 +2,8 @@ import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
 import { matchesFilters } from '../../components/filters/clientFilter'
 import { textOf } from '../../components/filters/filterTypes'
+import { OnlyItemChip } from '../../components/filters/OnlyItemChip'
+import { useOnlyItem } from '../../components/filters/useOnlyItem'
 import { TableFilterBar } from '../../components/filters/TableFilterBar'
 import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
@@ -35,6 +37,8 @@ function officeField(o: AdminOffice, key: string): unknown {
       return o.parent?.publicId
     case 'active':
       return o.isActive
+    case 'head':
+      return o.head != null
     default:
       return undefined
   }
@@ -55,7 +59,9 @@ export function OfficesPage() {
 
   // a few dozen offices: the filters applied in the browser, numbered pages
   const all = offices.data ?? []
-  const filtered = all.filter((o) => matchesFilters(o, filterDefs, url.values, officeField))
+  // task 053n: a dashboard row "what changed" opens one office (?office=), inactive included
+  const only = useOnlyItem('office')
+  const filtered = all.filter((o) => (only === '' || o.publicId === only) && matchesFilters(o, filterDefs, url.values, officeField))
   const paging = useClientPaging(filtered)
   if (isForbidden(offices.error)) return <ForbiddenPage />
   const rows = paging.items
@@ -75,6 +81,7 @@ export function OfficesPage() {
       />
 
       <TableFilterBar meta={meta} url={url} />
+      <OnlyItemChip param="office" name={all.find((o) => o.publicId === only)?.name} />
 
       {offices.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>

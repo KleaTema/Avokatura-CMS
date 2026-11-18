@@ -16,11 +16,6 @@ import {
   Paper,
   Stack,
   Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -30,7 +25,7 @@ import {
 } from '@mui/material'
 import dayjs from 'dayjs'
 import { ChevronLeft, ChevronRight, Printer, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
@@ -54,6 +49,8 @@ import {
 import { formatDateTime, formatLongDate, tiraneWallClockIso, todayInTirane } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
 import { tokens, tones, type Tone } from '../../theme/tokens'
+import { AgendaPrintDialog, AgendaPrintoutView, type AgendaPrintout } from './AgendaPrint'
+import { usePrintWhenReady } from './usePrintWhenReady'
 
 const t = sq.agenda
 
@@ -124,6 +121,11 @@ export function AgendaPage() {
   }
 
   const agenda = useAgenda({ ...range, lawyerId, officeId, includeCancelled })
+  // task 053n: "Printo" → the dialog (period, filters) → every hearing of that period on paper
+  const [printing, setPrinting] = useState(false)
+  const [printout, setPrintout] = useState<AgendaPrintout | null>(null)
+  const clearPrintout = useCallback(() => setPrintout(null), [])
+  usePrintWhenReady(printout, clearPrintout)
   // court and hearing type (the calendar's other columns): narrowed in the browser — the range is loaded whole
   const court = get('court')
   const type = get('type')
@@ -202,19 +204,14 @@ export function AgendaPage() {
 
   return (
     <>
-      {/* paper: A4 portrait; an open tooltip or menu is not printed */}
-      <GlobalStyles
-        styles={{
-          '@page': { size: 'A4 portrait', margin: '15mm' },
-          '@media print': { '.MuiPopper-root, .MuiTooltip-popper': { display: 'none !important' } },
-        }}
-      />
+      {/* paper: the printout only (A4, its own @page); an open tooltip or menu is not printed */}
+      <GlobalStyles styles={{ '@media print': { '.MuiPopper-root, .MuiTooltip-popper': { display: 'none !important' } } }} />
       <Box sx={{ displayPrint: 'none' }}>
         <PageHeader
           title={t.title}
           subtitle={t.subtitle}
           actions={
-            <Button variant="outlined" startIcon={<Printer size={20} aria-hidden />} onClick={() => window.print()}>
+            <Button variant="outlined" startIcon={<Printer size={20} aria-hidden />} onClick={() => setPrinting(true)}>
               {t.print}
             </Button>
           }
@@ -339,7 +336,23 @@ export function AgendaPage() {
         </Stack>
       </Box>
 
-      <PrintList title={title} items={items} />
+      {printing && (
+        <AgendaPrintDialog
+          initial={{ ...range, officeId, lawyerId, includeCancelled }}
+          canFilterOffice={canFilterOffice}
+          canFilterLawyer={canFilterLawyer}
+          officeOptions={officeOptions}
+          lawyerOptionsFor={(office) => lawyerOptionsOf(filterOptions.data?.lawyers ?? [], office)}
+          onClose={() => setPrinting(false)}
+          onLoaded={(loaded) => {
+            setPrinting(false)
+            setPrintout(loaded)
+          }}
+        />
+      )}
+      {printout && (
+        <AgendaPrintoutView printout={printout} printedBy={me.data ? `${me.data.firstName} ${me.data.lastName}` : ''} />
+      )}
     </>
   )
 }
@@ -404,69 +417,6 @@ function AgendaEvent({ item, time, list }: { item: AgendaItem; time: string; lis
         {typeOf(item)}
         {list && item.primaryLawyerName ? ` · ${item.primaryLawyerName}` : ''}
       </Box>
-    </Box>
-  )
-}
-
-/** Only on paper (A4 portrait): the range's hearings by day — date, time, court, case code, type, lawyer. */
-function PrintList({ title, items }: { title: string; items: AgendaItem[] }) {
-  const days = new Map<string, AgendaItem[]>()
-  for (const item of items) {
-    const day = formatDateTime(item.scheduledAt).slice(0, 10)
-    days.set(day, [...(days.get(day) ?? []), item])
-  }
-  const c = t.columns
-  return (
-    <Box sx={{ display: 'none', displayPrint: 'block', color: 'common.black' }}>
-      <Typography variant="h1" sx={{ fontSize: '1.4rem' }}>
-        {t.title}
-      </Typography>
-      <Typography sx={{ mb: 2 }}>{title}</Typography>
-      {items.length === 0 && <Typography>{t.empty}</Typography>}
-      {[...days.entries()].map(([day, hearings]) => (
-        <Box key={day} sx={{ mb: 2, breakInside: 'avoid' }}>
-          <Typography variant="h3" component="h2" sx={{ fontSize: '1rem', mb: 0.5 }}>
-            {formatLongDate(new Date(`${day.slice(6, 10)}-${day.slice(3, 5)}-${day.slice(0, 2)}T12:00:00Z`))}
-          </Typography>
-          <Table
-            size="small"
-            sx={{
-              // the same column widths for every day's table
-              tableLayout: 'fixed',
-              '& td, & th': { px: 1, py: 0.5, borderColor: 'divider', fontSize: '0.8rem' },
-              // time and case code never break ("2026-" / "000123/1")
-              '& td:nth-of-type(1), & td:nth-of-type(3)': { whiteSpace: 'nowrap' },
-            }}
-          >
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: '9%' }}>{c.time}</TableCell>
-                <TableCell sx={{ width: '33%' }}>{c.court}</TableCell>
-                <TableCell sx={{ width: '16%' }}>{c.caseCode}</TableCell>
-                <TableCell sx={{ width: '23%' }}>{c.type}</TableCell>
-                <TableCell sx={{ width: '19%' }}>{c.lawyer}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {hearings.map((i) => (
-                <TableRow
-                  key={i.hearingPublicId}
-                  sx={i.status === 'CANCELLED' ? { '& td': { textDecoration: 'line-through' } } : undefined}
-                >
-                  <TableCell>{formatDateTime(i.scheduledAt).slice(11)}</TableCell>
-                  <TableCell>{i.courtName}</TableCell>
-                  <TableCell>{i.caseCode}</TableCell>
-                  <TableCell>
-                    {typeOf(i)}
-                    {i.status === 'CANCELLED' ? ` (${t.cancelled})` : ''}
-                  </TableCell>
-                  <TableCell>{i.primaryLawyerName ?? '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      ))}
     </Box>
   )
 }

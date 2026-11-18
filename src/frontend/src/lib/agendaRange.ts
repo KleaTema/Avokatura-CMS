@@ -81,3 +81,47 @@ export function titleOf(view: AgendaView, date: string): string {
   if (from.slice(0, 4) === to.slice(0, 4)) return `${d(from).format('D')} ${month(from)} – ${end}`
   return `${d(from).format('D')} ${month(from)} ${d(from).format('YYYY')} – ${end}`
 }
+
+// ---------------------------------------------------------------- the print (task 053n)
+
+/** The print's quick periods: Sot, Kjo javë, Java tjetër, Ky muaj (both days included). */
+export const PRINT_PRESETS = ['today', 'thisWeek', 'nextWeek', 'thisMonth'] as const
+export type PrintPreset = (typeof PRINT_PRESETS)[number]
+
+export function presetRange(preset: PrintPreset, today: string): { from: string; to: string } {
+  switch (preset) {
+    case 'today':
+      return { from: today, to: today }
+    case 'thisWeek': {
+      const from = mondayOf(today)
+      return { from, to: addDays(from, 6) }
+    }
+    case 'nextWeek': {
+      const from = addDays(mondayOf(today), 7)
+      return { from, to: addDays(from, 6) }
+    }
+    case 'thisMonth': {
+      const from = firstOfMonth(today)
+      return { from, to: addDays(addMonths(from, 1), -1) }
+    }
+  }
+}
+
+/** The same date in a later month, clamped to that month's last day (31 Jan + 1 → 28/29 Feb), as .NET AddMonths. */
+export function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const first = new Date(Date.UTC(y, m - 1 + months, 1))
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate()
+  return `${first.getUTCFullYear()}-${String(first.getUTCMonth() + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`
+}
+
+/** The longest period the print (and GET /api/agenda) takes: 3 calendar months, both days included. */
+export const PRINT_MAX_MONTHS = 3
+
+/** Why a print period is not valid: 'missing', 'order' (to before from), 'tooLong'; null when it is. */
+export function printRangeError(from: string | null, to: string | null): 'missing' | 'order' | 'tooLong' | null {
+  if (!from || !to) return 'missing'
+  if (to < from) return 'order'
+  if (to > addDays(addMonths(from, PRINT_MAX_MONTHS), -1)) return 'tooLong'
+  return null
+}

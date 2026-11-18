@@ -517,6 +517,35 @@ public class BackgroundJobTests(MySqlFixture db) : IntegrationTest(db)
         missing.Description!.ShouldContain("migrator");
     }
 
+    /// <summary>
+    /// Task 053n: partition health moved from the admin dashboard to /health/ready ("partitions"). Healthy today; two
+    /// years ahead next month has no partition → unhealthy, naming it; the answer is kept for 5 minutes.
+    /// </summary>
+    [Fact]
+    public async Task Partitions_health_check_reports_a_missing_next_month_and_caches_its_answer()
+    {
+        var clock = new MovableClock(DateTime.UtcNow);
+        var check = new PartitionsHealthCheck(new PersistenceOptions(Db.AppConnectionString), clock);
+
+        (await check.CheckHealthAsync(new HealthCheckContext(), Ct)).Status.ShouldBe(HealthStatus.Healthy);
+
+        // within the cache: the same answer even though the clock moved on
+        clock.Now = clock.Now.AddMinutes(4);
+        (await check.CheckHealthAsync(new HealthCheckContext(), Ct)).Status.ShouldBe(HealthStatus.Healthy);
+
+        clock.Now = clock.Now.AddYears(2);
+        var later = await check.CheckHealthAsync(new HealthCheckContext(), Ct);
+        later.Status.ShouldBe(HealthStatus.Unhealthy);
+        later.Description!.ShouldContain("NEXT_MONTH_MISSING");
+        later.Description!.ShouldContain("audit_log");
+    }
+
+    private sealed class MovableClock(DateTime now) : IClock
+    {
+        public DateTime Now { get; set; } = now;
+        public DateTime UtcNow => Now;
+    }
+
     /// <summary>The "jobs" health check as if the scheduler were on, at <paramref name="now"/>.</summary>
     private sealed class StaleCheck(IServiceScopeFactory scopes, PersistenceOptions persistence, DateTime now)
     {

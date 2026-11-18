@@ -16,7 +16,7 @@ namespace Ash.Modules.Cases.Application.Agenda;
 /// - case.view_office (Kryetar): the case scope — the office's, the supervised (task 053d) and the own cases —
 ///   optionally of one lawyer of the office or one supervised lawyer, or of the office only;
 /// - case.view_all (Monitor/Admin): all, optionally of one office and/or lawyer.
-/// A lawyerId or officeId outside the user's scope → 403. Not paged: the range is limited to 62 days and the result
+/// A lawyerId or officeId outside the user's scope → 403. Not paged: the range is limited to 3 calendar months and the result
 /// to 2,000 hearings.
 /// TODO(client-q4): only hearings for now; deadlines, reminders and personal events may join later.
 /// TODO(client-q-ics): calendar subscription (Outlook/phone) not built — needs a decision on tokens/security.
@@ -30,7 +30,8 @@ internal sealed class GetAgendaHandler(
     ICurrentUser user,
     IClock clock)
 {
-    public const int MaxDays = 62;
+    /// <summary>The longest range: 3 calendar months (task 053n: the print of a quarter; the calendar asks 6 weeks at most).</summary>
+    public const int MaxMonths = 3;
     public const int MaxItems = 2000;
     private const string InvalidMessage = "Kërkimi nuk është i vlefshëm.";
 
@@ -53,9 +54,9 @@ internal sealed class GetAgendaHandler(
             {
                 errors.Add("to", "Data e fundit nuk mund të jetë para datës së fillimit.");
             }
-            else if (t.DayNumber - f.DayNumber + 1 > MaxDays)
+            else if (t > f.AddMonths(MaxMonths).AddDays(-1))
             {
-                errors.Add("to", $"Periudha mund të jetë deri në {MaxDays} ditë.");
+                errors.Add("to", $"Periudha mund të jetë deri në {MaxMonths} muaj.");
             }
         }
 

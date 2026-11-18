@@ -1,3 +1,4 @@
+using Ash.Modules.Identity.Application.Users;
 using Ash.Modules.Identity.Infrastructure;
 using Ash.SharedKernel.Filters;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +48,15 @@ internal sealed class UserListFilterSource(IdentityDbContext db) : ITableFilterS
                 options: institutions.Select(i => new FilterOption(i.PublicId.ToString(), i.Name)).ToList()),
             TableFilter.Of("position", "Pozicioni", FilterKinds.Text),
             TableFilter.Range("lastLogin", "Hyrja e fundit", FilterKinds.DateRange, "lastLoginFrom", "lastLoginTo"),
+            // task 053n: what the admin dashboard's cards open
+            TableFilter.Of("noRole", "Pa asnjë rol", FilterKinds.YesNo),
+            TableFilter.Of("neverLoggedIn", "Nuk ka hyrë asnjëherë", FilterKinds.YesNo),
+            TableFilter.Range("created", "Krijuar më", FilterKinds.DateRange, "createdFrom", "createdTo"),
+            TableFilter.Of("login", "Llogaria e hyrjes", FilterKinds.Select, options:
+            [
+                new(UserLoginFilter.Linked, "E lidhur"), new(UserLoginFilter.None, "Pa llogari hyrjeje"),
+                new(UserLoginFilter.Blocked, "E bllokuar"),
+            ]),
         ];
     }
 }
@@ -71,6 +81,8 @@ internal sealed class OfficeListFilterSource(IdentityDbContext db) : ITableFilte
             TableFilter.Of("active", "Aktive", FilterKinds.YesNo, isDefault: true),
             TableFilter.Of("parent", "Zyra mëmë", FilterKinds.Select,
                 options: parents.Select(o => new FilterOption(o.PublicId.ToString(), o.Name)).ToList()),
+            // task 053n: "Zyrat pa Kryetar" on the admin dashboard opens head=false
+            TableFilter.Of("head", "Ka Kryetar", FilterKinds.YesNo),
         ];
     }
 }

@@ -1,6 +1,8 @@
 import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
 import { textOf, yesNoOf } from '../../components/filters/filterTypes'
+import { OnlyItemChip } from '../../components/filters/OnlyItemChip'
+import { useOnlyItem } from '../../components/filters/useOnlyItem'
 import { TableFilterBar } from '../../components/filters/TableFilterBar'
 import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { CodeText } from '../../components/ui/CodeText'
@@ -33,8 +35,13 @@ export function InstitutionsPage() {
   const parentId = textOf(url.values, 'parent')
   const active = yesNoOf(url.values, 'active')
   const q = useDebounced(serverQuery(search), 300)
+  // task 053n: a dashboard row "what changed" opens one institution (?institutionId=), inactive included
+  const institutionId = useOnlyItem('institutionId')
   const paging = useKeysetPaging()
-  const institutions = useAdminInstitutionList({ q, type, active, parentId }, { cursor: paging.cursor, size: paging.size })
+  const institutions = useAdminInstitutionList(
+    { q, type, active, parentId, institutionId },
+    { cursor: paging.cursor, size: paging.size },
+  )
   const setActive = useSetInstitutionActive()
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ institution: AdminInstitution | null } | null>(null)
@@ -61,6 +68,7 @@ export function InstitutionsPage() {
       />
 
       <TableFilterBar meta={meta} url={url} />
+      <OnlyItemChip param="institutionId" name={rows[0]?.name} />
 
       {institutions.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>

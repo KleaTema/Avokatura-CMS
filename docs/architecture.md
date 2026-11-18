@@ -45,6 +45,12 @@ is a MySQL named lock here.
   deduplicated in the database in the same transaction (`case_reminders` uq_cr_once, `sent_reminders.dedupe_key`), so
   a second run — or a second instance — sends nothing twice.
 - Health check `jobs`: unhealthy when a job has not succeeded within 2 × its interval + 15 minutes.
+- **Where IT operations look (task 053n).** Job and partition health are no longer on the administrator's dashboard
+  (the administrator manages users, offices and lists; operations is IT's): `GET /health/ready` (checks `jobs` and
+  `partitions` — `PartitionsHealthCheck`, cached 5 minutes — 503 when unhealthy: wire it to the monitoring), and the
+  logs (`JobRunner` logs every failure with the job's name; the daily `PartitionCheckJob` logs `P_MAX_ROWS` /
+  `NEXT_MONTH_MISSING` and still notifies the administrators). `ash_ops.job_runs` keeps each job's last start, success
+  and error for a closer look.
 - Development only: `POST /api/admin/jobs/{name}/run` (administrators) runs a job now.
 
 | Job | Module | When | What |
@@ -165,6 +171,11 @@ The handoff of task 053c ("Përcjellja", `case_handoffs`, "Çështjet e ardhura"
   - `organika` (admin.org, task 053g): positions, units and managers of existing users.
   - `users` (admin.users): creates and updates users through the SAME handlers as the page (`CreateUserHandler`, `UpdateUserHandler`, `Grant` / `RevokeRoleHandler`, `SetUserActiveHandler`), so every guard and audit row applies. The preview checks those guards per row.
 - **Adding a kind.** One `IImportKind` class + its line in `ImportEndpoints.Kinds` + a value in `ck_oi_kind`.
+
+## The administrator's dashboard (task 053n)
+- **Who.** `audit.view` holders (ADMIN) get administration widgets only — no case or office numbers, no office needed; a user who is also a Monitor keeps the Monitor's case widgets. The Monitor keeps "Çështjet sipas zyrës".
+- **One source of truth.** `IAdminOverview` (Identity) counts with the queries of the pages the cards open: the users through `ListUsersHandler.CountAsync` (the list's own filters: active, `noRole`, `neverLoggedIn`, `createdFrom`, `login` = LINKED / NONE / BLOCKED), offices without a Kryetar, courts no active office covers (the rule of `OfficeDirectory.GetByCourtAsync`; the courts page reads it from `GET /api/identity/admin/covered-courts`), imports with errors from each kind's history. `DashboardTests` checks every card against its list.
+- **Recent changes.** `ash_audit.v_admin_changes` (script 033): a plain projection of ADMIN_CHANGE rows (merged, so the LIMIT reaches `ix_audit_action`), SQL SECURITY DEFINER, SELECT granted to `ash_app` only — still no grant on `audit_log` itself; `ash_audit_digest` stays dedicated to the chain check. The app reads the last 10 and resolves the items (users / offices / institutions → their public ids and names, one query per kind); `entity_id` never leaves the server. Users, offices and institutions link to their admin page filtered to that one item (`?userId=` / `?office=` / `?institutionId=`, inactive included, "Vetëm: …"); everything else is plain text.
 
 ## Table filters (task 053m)
 - **One bar.** Every table draws its filters with the shared `FilterBar` (`src/frontend/src/components/filters/`): 2–3 defaults on top, "+ Shto filtër" for every other column, × on an added one; the control by the filter's kind (`select`, `text`, `dateRange`, `numberRange`, `yesNo`). No page has its own filter row, "Filtra" button or static panel.

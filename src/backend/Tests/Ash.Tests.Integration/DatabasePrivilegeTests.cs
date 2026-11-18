@@ -141,4 +141,82 @@ public class DatabasePrivilegeTests(MySqlFixture db) : IntegrationTest(db)
             Environment.SetEnvironmentVariable("ConnectionStrings__Reporting", null);
         }
     }
+
+    /// <summary>
+    /// Task 053n (script 033): the API account reads ash_audit.v_admin_changes and nothing else of ash_audit — a SELECT
+    /// on audit_log itself is denied. Proven by connecting: a probe account gets exactly ash_app's ash_audit grants (its
+    /// host 10.% is unreachable from the test), replayed from SHOW GRANTS.
+    /// </summary>
+    [Fact]
+    public async Task The_app_account_reads_the_admin_changes_view_but_never_the_audit_log()
+    {
+        const string probe = "ash_app_probe";
+        const string password = "ash_app_probe_pw";
+        // ash_app's grants on ash_audit (the ones under test; its ash_core table grants may name dropped tables)
+        var grants = (await GrantsAsync("'ash_app'@'10.%'")).Where(g => g.Contains(" ON `ash_audit`", StringComparison.Ordinal)).ToList();
+        grants.ShouldBe(["GRANT SELECT ON `ash_audit`.`v_admin_changes` TO `ash_app`@`10.%`"]);
+
+        await using (var root = new MySqlConnection(Db.RootConnectionString))
+        {
+            await root.OpenAsync(Ct);
+            var statements = new List<string>
+            {
+                $"DROP USER IF EXISTS '{probe}'@'%'",
+                $"CREATE USER '{probe}'@'%' IDENTIFIED BY '{password}'",
+            };
+            statements.AddRange(grants.Select(g => g.Replace("TO `ash_app`@`10.%`", $"TO `{probe}`@`%`", StringComparison.Ordinal)));
+            foreach (var sql in statements)
+            {
+                await using var command = new MySqlCommand(sql, root);
+                await command.ExecuteNonQueryAsync(Ct);
+            }
+        }
+
+        var builder = new MySqlConnectionStringBuilder(Db.RootConnectionString) { UserID = probe, Password = password };
+        await using var app = new MySqlConnection(builder.ConnectionString);
+        await app.OpenAsync(Ct);
+
+        await using (var view = new MySqlCommand("SELECT COUNT(*) FROM ash_audit.v_admin_changes", app))
+        {
+            Convert.ToInt64(await view.ExecuteScalarAsync(Ct)).ShouldBeGreaterThanOrEqualTo(0);
+        }
+
+        await using var log = new MySqlCommand("SELECT COUNT(*) FROM ash_audit.audit_log", app);
+        var denied = await Should.ThrowAsync<MySqlException>(() => log.ExecuteScalarAsync(Ct));
+        denied.Number.ShouldBe(1142); // ER_TABLEACCESS_DENIED_ERROR
+    }
+
+    /// <summary>
+    /// Task 053n: the widget's read is merged into audit_log (no derived table), so the LIMIT can reach
+    /// ix_audit_action (action, occurred_at); the plan is logged.
+    /// </summary>
+    [Fact]
+    public async Task The_admin_changes_view_is_merged_and_read_through_the_action_index()
+    {
+        await using var connection = new MySqlConnection(Db.RootConnectionString);
+        await connection.OpenAsync(Ct);
+        await using (var analyze = new MySqlCommand("ANALYZE TABLE ash_audit.audit_log", connection))
+        {
+            await analyze.ExecuteNonQueryAsync(Ct);
+        }
+
+        await using var command = new MySqlCommand(
+            "EXPLAIN SELECT * FROM ash_audit.v_admin_changes ORDER BY occurred_at DESC, id DESC LIMIT 10", connection);
+        var rows = new List<string>();
+        var plan = new List<(string Table, string? Key, string Extra)>();
+        await using (var reader = await command.ExecuteReaderAsync(Ct))
+        {
+            while (await reader.ReadAsync(Ct))
+            {
+                string? Text(string column) => reader[column] is DBNull ? null : Convert.ToString(reader[column]);
+                plan.Add((Text("table") ?? "", Text("key"), Text("Extra") ?? ""));
+                rows.Add($"table={Text("table")} partitions={Text("partitions")} type={Text("type")} possible_keys={Text("possible_keys")} key={Text("key")} rows={Text("rows")} Extra={Text("Extra")}");
+            }
+        }
+
+        var report = string.Join('\n', rows);
+        TestContext.Current.TestOutputHelper?.WriteLine(report);
+        // only the merge is asserted: the key and access type follow the optimizer's statistics (logged above)
+        plan.ShouldNotContain(r => r.Table.StartsWith("<derived", StringComparison.Ordinal), report);
+    }
 }

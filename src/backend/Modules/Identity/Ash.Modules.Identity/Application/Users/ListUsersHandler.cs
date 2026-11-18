@@ -10,7 +10,33 @@ namespace Ash.Modules.Identity.Application.Users;
 
 public sealed record ListUsersQuery(
     string? Q, string? Role, Guid? OfficeId, Guid? InstitutionId, bool? Active, string? After, int? Limit,
-    string? Position = null, DateOnly? LastLoginFrom = null, DateOnly? LastLoginTo = null);
+    string? Position = null, DateOnly? LastLoginFrom = null, DateOnly? LastLoginTo = null)
+{
+    /// <summary>Task 053n (the admin dashboard's cards): true = no role at all, false = at least one.</summary>
+    public bool? NoRole { get; init; }
+
+    /// <summary>true = never signed in, false = signed in at least once.</summary>
+    public bool? NeverLoggedIn { get; init; }
+
+    /// <summary>Created on these Tirane days (users.created_at).</summary>
+    public DateOnly? CreatedFrom { get; init; }
+
+    public DateOnly? CreatedTo { get; init; }
+
+    /// <summary>The sign-in accounts (task 051): LINKED (an account that may sign in), NONE (no account), BLOCKED (one blocked).</summary>
+    public string? Login { get; init; }
+
+    /// <summary>One user (a dashboard row "what changed"): found whatever the other filters, inactive included.</summary>
+    public Guid? PublicId { get; init; }
+}
+
+/// <summary>The values of <see cref="ListUsersQuery.Login"/>.</summary>
+public static class UserLoginFilter
+{
+    public const string Linked = "LINKED";
+    public const string None = "NONE";
+    public const string Blocked = "BLOCKED";
+}
 
 /// <summary>
 /// Keyset paging by internal id (ascending); the cursor is opaque and ids never leave the server. ?q= matches anywhere
@@ -63,9 +89,57 @@ public sealed class ListUsersHandler(IdentityDbContext db, ParallelReads paralle
         return new KeysetPage<UserResponse>(items, next, await total);
     }
 
+    /// <summary>
+    /// How many users the list shows for these filters (task 053n): the admin dashboard's cards count with this, so a
+    /// card and the list it opens show the same number.
+    /// </summary>
+    public Task<int> CountAsync(ListUsersQuery q, CancellationToken ct) => Filtered(db, q).CountAsync(ct);
+
     private static IQueryable<UserRecord> Filtered(IdentityDbContext db, ListUsersQuery q)
     {
         var users = db.Users.AsNoTracking();
+
+        if (q.PublicId is { } publicId)
+        {
+            users = users.Where(u => u.PublicId == publicId);
+        }
+
+        if (q.NoRole is { } noRole)
+        {
+            users = noRole
+                ? users.Where(u => !db.UserRoles.Any(ur => ur.UserId == u.Id))
+                : users.Where(u => db.UserRoles.Any(ur => ur.UserId == u.Id));
+        }
+
+        if (q.NeverLoggedIn is { } never)
+        {
+            users = never ? users.Where(u => u.LastLoginAt == null) : users.Where(u => u.LastLoginAt != null);
+        }
+
+        if (q.CreatedFrom is { } createdFrom)
+        {
+            var start = Ash.SharedKernel.Time.TiraneTime.StartOfDayUtc(createdFrom);
+            users = users.Where(u => u.CreatedAt >= start);
+        }
+
+        if (q.CreatedTo is { } createdTo)
+        {
+            var end = Ash.SharedKernel.Time.TiraneTime.StartOfDayUtc(createdTo.AddDays(1));
+            users = users.Where(u => u.CreatedAt < end);
+        }
+
+        switch (q.Login)
+        {
+            case UserLoginFilter.Linked:
+                users = users.Where(u => db.UserIdentities.Any(i => i.UserId == u.Id && i.BlockedAt == null));
+                break;
+            case UserLoginFilter.None:
+                users = users.Where(u => !db.UserIdentities.Any(i => i.UserId == u.Id));
+                break;
+            case UserLoginFilter.Blocked:
+                users = users.Where(u => db.UserIdentities.Any(i => i.UserId == u.Id && i.BlockedAt != null));
+                break;
+        }
 
         if (!string.IsNullOrWhiteSpace(q.Q))
         {

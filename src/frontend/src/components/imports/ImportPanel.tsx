@@ -68,6 +68,7 @@ export function ImportPanel({ kind }: { kind: ImportKind }) {
       impQ: [i.fileName, i.uploadedBy],
       impApplied: i.appliedAt != null,
       impUploaded: i.uploadedAt,
+      impErrors: Number(i.summary.errors) > 0,
     }
     return fields[key]
   }

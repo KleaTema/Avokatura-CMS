@@ -25,7 +25,7 @@ public sealed record InstitutionAdminResponse(
 
 /// <summary>type = MINISTRY | AGENCY | …; parentId = the parent institution's public id.</summary>
 public sealed record ListInstitutionsAdminQuery(
-    string? Q, string? After, int? Limit, string? Type = null, bool? Active = null, Guid? ParentId = null);
+    string? Q, string? After, int? Limit, string? Type = null, bool? Active = null, Guid? ParentId = null, Guid? PublicId = null);
 
 public static partial class InstitutionAdminSupport
 {

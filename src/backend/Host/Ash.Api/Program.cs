@@ -92,7 +92,11 @@ builder.Services.AddHealthChecks()
     .AddCheck<MySqlSettingsHealthCheck>("mysql-settings")
     .AddCheck<StorageHealthCheck>("storage")
     .AddCheck<ScannerHealthCheck>("scanner")
-    .AddCheck<JobsHealthCheck>("jobs");
+    .AddCheck<JobsHealthCheck>("jobs")
+    // task 053n: partition health for IT operations (no longer on the administrator's dashboard); one instance (its cache)
+    .Add(new Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckRegistration(
+        "partitions", sp => sp.GetRequiredService<PartitionsHealthCheck>(), failureStatus: null, tags: null));
+builder.Services.AddSingleton<PartitionsHealthCheck>();
 builder.Services.AddHostedService<MySqlSettingsStartupCheck>();
 builder.Services.TryAddSingleton<IClock, SystemClock>();
 builder.Services.AddAshAuthentication(builder.Configuration, builder.Environment);

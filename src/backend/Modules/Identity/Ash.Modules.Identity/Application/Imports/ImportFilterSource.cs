@@ -19,5 +19,7 @@ internal sealed class ImportFilterSource : ITableFilterSource
             TableFilter.Of("impQ", "Kërko (skedari, ngarkuar nga)", FilterKinds.Text, isDefault: true),
             TableFilter.Of("impApplied", "Aplikuar", FilterKinds.YesNo, isDefault: true),
             TableFilter.Range("impUploaded", "Ngarkuar më", FilterKinds.DateRange, "impFrom", "impTo"),
+            // task 053n: "Importet me gabime" on the admin dashboard opens impErrors=true
+            TableFilter.Of("impErrors", "Me gabime", FilterKinds.YesNo),
         ]);
 }

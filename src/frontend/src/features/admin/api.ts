@@ -23,6 +23,13 @@ export interface UserFilters {
   position?: string
   lastLoginFrom?: string
   lastLoginTo?: string
+  /** task 053n (the admin dashboard's cards): '' | 'true' | 'false'; created days; LINKED | NONE | BLOCKED; one user */
+  noRole?: string
+  neverLoggedIn?: string
+  createdFrom?: string
+  createdTo?: string
+  login?: string
+  userId?: string
 }
 
 /** Filters of the institutions page: type code, '' | 'true' | 'false', the parent's public id. */
@@ -31,6 +38,8 @@ export interface InstitutionFilters {
   type: string
   active: string
   parentId: string
+  /** task 053n: one institution (a dashboard row "what changed"), inactive included */
+  institutionId?: string
 }
 
 /** Filters of the judges list: '' | 'true' | 'false', a court id. */
@@ -73,6 +82,12 @@ export const useAdminUsers = (f: UserFilters, p: PageRequest) =>
               position: f.position || undefined,
               lastLoginFrom: f.lastLoginFrom || undefined,
               lastLoginTo: f.lastLoginTo || undefined,
+              noRole: activeParam(f.noRole ?? ''),
+              neverLoggedIn: activeParam(f.neverLoggedIn ?? ''),
+              createdFrom: f.createdFrom || undefined,
+              createdTo: f.createdTo || undefined,
+              login: f.login || undefined,
+              userId: f.userId || undefined,
               after: p.cursor,
               limit: p.size,
             },
@@ -400,6 +415,13 @@ export const useAdminCourts = (enabled = true) =>
     queryFn: () => api.GET('/api/reference/admin/courts').then(unwrap),
   })
 
+/** Task 053n: the ids of the courts an active office covers (office_courts) — the courts list's "Mbulohet nga një zyrë". */
+export const useCoveredCourts = () =>
+  useQuery({
+    queryKey: ['admin-offices', 'covered-courts'] as const,
+    queryFn: () => api.GET('/api/identity/admin/covered-courts').then(unwrap),
+  })
+
 // Judges show their court's name, so a court change refreshes the judge list too.
 export const useSaveCourt = () => {
   const qc = useQueryClient()
@@ -626,6 +648,7 @@ export const useAdminInstitutionList = (f: InstitutionFilters, p: PageRequest) =
               type: f.type || undefined,
               active: activeParam(f.active),
               parentId: f.parentId || undefined,
+              institutionId: f.institutionId || undefined,
               after: p.cursor,
               limit: p.size,
             },

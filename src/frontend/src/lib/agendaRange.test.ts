@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { mondayOf, rangeOf, shift, titleOf, validDate } from './agendaRange'
+import { addMonths, mondayOf, presetRange, printRangeError, rangeOf, shift, titleOf, validDate } from './agendaRange'
+
+describe('the agenda print (task 053n)', () => {
+  // Wednesday 18 Nov 2026
+  const today = '2026-11-18'
+
+  it('offers Sot, Kjo javë, Java tjetër, Ky muaj', () => {
+    expect(presetRange('today', today)).toEqual({ from: today, to: today })
+    expect(presetRange('thisWeek', today)).toEqual({ from: '2026-11-16', to: '2026-11-22' })
+    expect(presetRange('nextWeek', today)).toEqual({ from: '2026-11-23', to: '2026-11-29' })
+    expect(presetRange('thisMonth', today)).toEqual({ from: '2026-11-01', to: '2026-11-30' })
+    expect(presetRange('thisMonth', '2028-02-10')).toEqual({ from: '2028-02-01', to: '2028-02-29' })
+  })
+
+  it('adds calendar months as the API does (the end of a shorter month is clamped)', () => {
+    expect(addMonths('2026-11-15', 3)).toBe('2027-02-15')
+    expect(addMonths('2026-11-30', 3)).toBe('2027-02-28')
+    expect(addMonths('2026-12-31', 1)).toBe('2027-01-31')
+  })
+
+  it('takes at most 3 months, both days included — the same rule as GET /api/agenda', () => {
+    expect(printRangeError('2026-11-01', '2027-01-31')).toBeNull()
+    expect(printRangeError('2026-11-01', '2027-02-01')).toBe('tooLong')
+    expect(printRangeError('2026-11-15', '2027-02-14')).toBeNull()
+    expect(printRangeError('2026-11-15', '2027-02-15')).toBe('tooLong')
+    expect(printRangeError('2026-11-10', '2026-11-09')).toBe('order')
+    expect(printRangeError(null, '2026-11-09')).toBe('missing')
+  })
+})
 
 describe('agenda ranges (task 031): what GET /api/agenda is asked for', () => {
   it('weeks start on Monday', () => {

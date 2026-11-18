@@ -12,6 +12,8 @@ import {
   TableRow,
 } from '@mui/material'
 import { hasValue, rangeOf, textOf, yesNoOf } from '../../components/filters/filterTypes'
+import { OnlyItemChip } from '../../components/filters/OnlyItemChip'
+import { useOnlyItem } from '../../components/filters/useOnlyItem'
 import { TableFilterBar } from '../../components/filters/TableFilterBar'
 import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { ImportPanel } from '../../components/imports/ImportPanel'
@@ -19,6 +21,7 @@ import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useActivateUser, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
 import { useTableFilters } from '../../features/filters/api'
 import { sq } from '../../i18n/sq'
@@ -53,14 +56,40 @@ export function UsersPage() {
   const lastLoginFrom = rangeOf(url.values, 'lastLogin', 'from')
   const lastLoginTo = rangeOf(url.values, 'lastLogin', 'to')
   const paging = useKeysetPaging()
+  // task 053n: the admin dashboard's cards open these; a "what changed" row opens one user (?userId=)
+  const userId = useOnlyItem('userId')
   const users = useAdminUsers(
-    { q, role, officeId, institutionId, active, position, lastLoginFrom, lastLoginTo },
+    {
+      q,
+      role,
+      officeId,
+      institutionId,
+      active,
+      position,
+      lastLoginFrom,
+      lastLoginTo,
+      noRole: yesNoOf(url.values, 'noRole'),
+      neverLoggedIn: yesNoOf(url.values, 'neverLoggedIn'),
+      createdFrom: rangeOf(url.values, 'created', 'from'),
+      createdTo: rangeOf(url.values, 'created', 'to'),
+      login: textOf(url.values, 'login'),
+      userId,
+    },
     { cursor: paging.cursor, size: paging.size },
   )
   const roles = useAdminRoles()
   const activate = useActivateUser()
   const [creating, setCreating] = useState(false)
-  const [importing, setImporting] = useState(false)
+  // the import dialog in the URL (?import=users): the admin dashboard's "Importet me gabime" opens it
+  const [params, setParams] = useSearchParams()
+  const importing = params.get('import') === 'users'
+  const setImporting = (open: boolean) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (open) next.set('import', 'users')
+      else for (const p of ['import', 'impQ', 'impApplied', 'impFrom', 'impTo', 'impErrors']) next.delete(p)
+      return next
+    })
   const [rolesFor, setRolesFor] = useState<AdminUser | null>(null)
   const [identitiesFor, setIdentitiesFor] = useState<AdminUser | null>(null)
   const [deactivating, setDeactivating] = useState<AdminUser | null>(null)
@@ -87,6 +116,7 @@ export function UsersPage() {
       />
 
       <TableFilterBar meta={meta} url={url} />
+      <OnlyItemChip param="userId" name={rows[0] ? `${rows[0].firstName} ${rows[0].lastName}` : undefined} />
 
       {users.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
