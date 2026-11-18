@@ -10,12 +10,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { matchesFilters } from '../../../components/filters/clientFilter'
+import { textOf } from '../../../components/filters/filterTypes'
+import { TableFilterBar } from '../../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../../components/filters/useUrlFilters'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
-import { AppSelect } from '../../../components/ui/AppSelect'
 import { PaginationFooter } from '../../../components/ui/DataTable'
 import {
   useSetSimpleItemActive,
@@ -23,11 +25,10 @@ import {
   type SimpleListItem,
   type SimpleListKey,
 } from '../../../features/admin/api'
+import { useTableFilters } from '../../../features/filters/api'
 import { sq } from '../../../i18n/sq'
 import { isForbidden, problemMessage } from '../../../lib/problem'
 import { useClientPaging } from '../../../lib/paging'
-import { matches } from '../../../lib/search'
-import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
 import { StatusChip } from './common'
 import { rowSx, useForbiddenRedirect } from './helpers'
@@ -43,18 +44,21 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
   const redirectIfForbidden = useForbiddenRedirect()
   // null = closed; { item: null } = create; { item } = edit
   const [editing, setEditing] = useState<{ item: SimpleListItem | null } | null>(null)
-  const [q, setQ] = useUrlSearch()
-  const [active, setActiveFilter] = useUrlSearch('active')
-  const [group, setGroup] = useUrlSearch('group')
+  // task 053m: the shared FilterBar (GET /api/filters/lists?list=…), kept in the URL, applied in the browser
+  const meta = useTableFilters('lists', { list })
+  const url = useUrlFilters(meta.data ?? [])
+  const q = textOf(url.values, 'q')
+  const field = (row: SimpleListItem, key: string): unknown => {
+    const fields: Record<string, unknown> = {
+      q: [row.code, row.name],
+      active: row.isActive,
+      group: row.reportGroup ?? row.outcomeGroup ?? '',
+    }
+    return fields[key]
+  }
 
   const all = rows.data ?? []
-  // client side: "contains" on code and name (accent-insensitive), then the column filters
-  const filtered = all.filter(
-    (row) =>
-      matches(q, row.code, row.name) &&
-      (active === '' || String(row.isActive) === active) &&
-      (group === '' || (row.reportGroup ?? row.outcomeGroup ?? '') === group),
-  )
+  const filtered = all.filter((row) => matchesFilters(row, url.filters, url.values, field))
   const paging = useClientPaging(filtered)
   if (isForbidden(rows.error)) return <ForbiddenPage />
   const visible = paging.items
@@ -75,36 +79,7 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
         </Button>
       </Stack>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-        <TextField
-          label={t.searchSimple}
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          sx={{ flexGrow: 1 }}
-        />
-        {config.group && (
-          <AppSelect
-            filter
-            label={groupHeader}
-            value={group}
-            onChange={setGroup}
-            options={Object.entries(groupLabels(config.group)).map(([value, label]) => ({ value, label }))}
-            sx={{ minWidth: 220 }}
-          />
-        )}
-        <AppSelect
-          filter
-          label={t.activeFilter.label}
-          value={active}
-          onChange={setActiveFilter}
-          options={[
-            { value: 'true', label: t.activeFilter.active },
-            { value: 'false', label: t.activeFilter.inactive },
-          ]}
-          sx={{ minWidth: 160 }}
-        />
-      </Stack>
+      <TableFilterBar meta={meta} url={url} />
 
       {rows.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -173,7 +148,7 @@ export function SimpleListPanel({ list }: { list: SimpleListKey }) {
                 </TableRow>
               )}
               {rows.isSuccess && all.length > 0 && visible.length === 0 && (
-                <SearchEmptyRow q={q} colSpan={columnCount} onClear={() => setQ('')} />
+                <SearchEmptyRow q={q} colSpan={columnCount} onClear={() => url.setKey('q', '')} />
               )}
             </TableBody>
           </Table>

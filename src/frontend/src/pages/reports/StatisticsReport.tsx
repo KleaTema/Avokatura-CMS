@@ -1,59 +1,41 @@
 import {
   Alert,
   Box,
-  Button,
   Chip,
   Drawer,
-  GlobalStyles,
   IconButton,
   Link,
-  Skeleton,
   Stack,
   TableCell,
   TableRow,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Lock, Printer, RefreshCw, TriangleAlert, X } from 'lucide-react'
+import { Lock, RefreshCw, TriangleAlert, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
-import { ApiError } from '../../api/client'
-import { InstitutionPicker } from '../../components/InstitutionPicker'
-import { OptionPicker } from '../../components/OptionPicker'
-import { AppSelect } from '../../components/ui/AppSelect'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { stickyCellSx } from '../../components/ui/tableStyles'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { SectionCard } from '../../components/ui/SectionCard'
 import { StatusChip } from '../../components/ui/StatusChip'
-import { lawyerOptionsOf, useFilterOptions } from '../../features/cases/api'
-import { useMe } from '../../features/identity/api'
 import {
   decimalText,
-  searchOf,
   useDrillDown,
-  useStatistics,
   type DrillCell,
   type StatisticsFilters,
   type StatisticsMeasure,
   type StatisticsResponse,
 } from '../../features/reports/api'
-import { ExportButton } from '../../features/reports/ExportButton'
 import { sq } from '../../i18n/sq'
-import { formatDateTime, formatTiraneDate, todayInTirane } from '../../lib/dates'
+import { formatTiraneDate, todayInTirane } from '../../lib/dates'
 import { formatDecimal } from '../../lib/money'
 import { formatCount } from '../../lib/numbers'
 import { problemMessage } from '../../lib/problem'
 import { tokens } from '../../theme/tokens'
-import { ReportFilterPanel, type FilterChip } from './ReportFilterPanel'
-import { PANEL_FIELD, useReportParams } from './reportParams'
 
 const t = sq.reports
-const FIRST_YEAR = 2020
-const STATS_PARAMS = ['year', 'table', 'office', 'lawyer', 'institution', 'institutionName', 'ministry', 'ministryName'] as const
 
 /** A column header: the measure's name from the API, its definition (the API's, never written here) in a tooltip. */
 function MeasureHeader({ measure }: { measure: StatisticsMeasure }) {
@@ -82,186 +64,6 @@ export interface OpenCell {
   measureName: string
   where: string
   count: number
-}
-
-/** "Statistikat" (tasks 044/045): Tabela 5 / 6 of a year, the cases behind every number, Rezultati, Në dorë. */
-export function StatisticsReport() {
-  const { get, set, clear } = useReportParams(STATS_PARAMS)
-  const me = useMe(true)
-  const permissions = me.data?.permissions ?? []
-  const canFilterOffice = permissions.includes('case.view_all')
-  const canFilterLawyer = permissions.includes('case.view_office') || canFilterOffice
-  const options = useFilterOptions(canFilterLawyer)
-  // an institution's user: Tabela 6 of their own institution (the API forces it too)
-  const ownInstitution = me.data?.institution ?? null
-  const thisYear = Number(todayInTirane().slice(0, 4))
-
-  const institutionKind = get('ministry') ? 'ministry' : 'institution'
-  const filters: StatisticsFilters = {
-    year: get('year') || String(thisYear),
-    table: ownInstitution ? '6' : get('table') || '5',
-    officeId: canFilterOffice ? get('office') : '',
-    lawyerId: canFilterLawyer ? get('lawyer') : '',
-    institutionId: ownInstitution ? ownInstitution.publicId : get('institution'),
-    ministryId: ownInstitution ? '' : get('ministry'),
-  }
-  const needsInstitution = filters.table === '6' && !filters.institutionId && !filters.ministryId
-  const stats = useStatistics(filters, me.isSuccess && !needsInstitution)
-  const [open, setOpen] = useState<OpenCell | null>(null)
-
-  const lawyerOptions = lawyerOptionsOf(options.data?.lawyers ?? [], filters.officeId)
-  const officeOptions = (options.data?.offices ?? []).map((o) => ({ value: o.publicId, label: o.name }))
-  const chips: FilterChip[] = []
-  const officeName = officeOptions.find((o) => o.value === filters.officeId)?.label
-  if (officeName) chips.push({ key: 'office', label: `${t.office}: ${officeName}`, onDelete: () => set({ office: '', lawyer: '' }) })
-  const lawyerName = lawyerOptions.find((o) => o.value === filters.lawyerId)?.label
-  if (lawyerName) chips.push({ key: 'lawyer', label: `${t.lawyer}: ${lawyerName}`, onDelete: () => set({ lawyer: '' }) })
-  if (!ownInstitution && get('institution')) {
-    chips.push({ key: 'institution', label: `${t.institution}: ${get('institutionName')}`, onDelete: () => set({ institution: '', institutionName: '' }) })
-  }
-  if (!ownInstitution && get('ministry')) {
-    chips.push({ key: 'ministry', label: `${t.ministry}: ${get('ministryName')}`, onDelete: () => set({ ministry: '', ministryName: '' }) })
-  }
-
-  const years = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, i) => String(thisYear - i))
-  const s = stats.data
-
-  return (
-    <>
-      {/* A4 landscape: the title, the year, the filters, the table, when and by whom (task 045) */}
-      <GlobalStyles
-        styles={{
-          '@media print': {
-            '@page': { size: 'A4 landscape', margin: '12mm' },
-            body: { background: '#fff' },
-            '.no-print': { display: 'none !important' },
-            '.print-only': { display: 'block !important' },
-            // on paper the whole table: no scroll box, no minimum width, smaller cells
-            '.MuiTableContainer-root': { overflow: 'visible !important', maxHeight: 'none !important' },
-            '.MuiTable-root': { minWidth: '0 !important' },
-            '.MuiTableCell-root': { padding: '2px 4px !important', fontSize: '8pt !important', position: 'static !important' },
-            '.MuiTableFooter-root': { position: 'static !important' },
-          },
-        }}
-      />
-      <Box className="print-only" sx={{ display: 'none', mb: 2 }}>
-        <Typography variant="h2" component="p">
-          {filters.table === '6' ? t.table6 : t.table5} — {filters.year}
-        </Typography>
-        <Typography variant="body2">{(s?.filters ?? []).map((f) => `${f.label}: ${f.value}`).join(' · ')}</Typography>
-        <Typography variant="caption">
-          {/* when these figures were loaded (the query's time), by whom */}
-          {t.generated(
-            stats.dataUpdatedAt ? formatDateTime(new Date(stats.dataUpdatedAt).toISOString()) : '',
-            me.data ? `${me.data.firstName} ${me.data.lastName}` : '',
-          )}
-        </Typography>
-      </Box>
-
-      <ReportFilterPanel
-        chips={chips}
-        onClear={clear}
-        action={
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' } }} className="no-print">
-            <Button variant="outlined" startIcon={<Printer size={20} aria-hidden />} onClick={() => window.print()} disabled={!s}>
-              {t.print}
-            </Button>
-            <ExportButton
-              url={`/api/reports/statistics/export?${searchOf(filters)}`}
-              rows={undefined}
-              fallbackName={`raporti-statistikat-${filters.year}.xlsx`}
-            />
-          </Stack>
-        }
-        main={
-          <>
-            <AppSelect
-              required
-              hideRequiredMark
-              size="small"
-              label={t.year}
-              value={filters.year}
-              onChange={(year) => set({ year })}
-              options={years.map((y) => ({ value: y, label: y }))}
-              sx={{ width: 120 }}
-            />
-            {!ownInstitution && (
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={filters.table}
-                onChange={(_, table: string | null) => table && set({ table })}
-                aria-label={t.table}
-              >
-                <ToggleButton value="5">{t.table5}</ToggleButton>
-                <ToggleButton value="6">{t.table6}</ToggleButton>
-              </ToggleButtonGroup>
-            )}
-            {filters.table === '6' && !ownInstitution && (
-              <>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={institutionKind}
-                  aria-label={t.institutionKind}
-                  onChange={(_, kind: string | null) =>
-                    kind && set({ institution: '', institutionName: '', ministry: '', ministryName: '' })
-                  }
-                >
-                  <ToggleButton value="institution">{t.institution}</ToggleButton>
-                  <ToggleButton value="ministry">{t.ministry}</ToggleButton>
-                </ToggleButtonGroup>
-                <Box sx={{ width: { xs: '100%', md: 320 } }}>
-                  <InstitutionPicker
-                    size="small"
-                    label={institutionKind === 'ministry' ? t.ministry : t.institution}
-                    onlyType={institutionKind === 'ministry' ? 'MINISTRY' : undefined}
-                    value={
-                      institutionKind === 'ministry'
-                        ? get('ministry') ? { publicId: get('ministry'), name: get('ministryName') } : null
-                        : get('institution') ? { publicId: get('institution'), name: get('institutionName') } : null
-                    }
-                    onChange={(picked) =>
-                      institutionKind === 'ministry'
-                        ? set({ ministry: picked?.publicId ?? '', ministryName: picked?.name ?? '', institution: '', institutionName: '' })
-                        : set({ institution: picked?.publicId ?? '', institutionName: picked?.name ?? '', ministry: '', ministryName: '' })
-                    }
-                    error={needsInstitution}
-                    helperText={needsInstitution ? t.institutionRequired : undefined}
-                  />
-                </Box>
-              </>
-            )}
-          </>
-        }
-        panel={
-          canFilterOffice || canFilterLawyer ? (
-            <>
-              {canFilterOffice && (
-                <Box sx={PANEL_FIELD}>
-                  <OptionPicker filter options={officeOptions} value={filters.officeId} onChange={(office) => set({ office, lawyer: '' })} label={t.office} size="small" />
-                </Box>
-              )}
-              {canFilterLawyer && (
-                <Box sx={PANEL_FIELD}>
-                  <OptionPicker filter options={lawyerOptions} value={filters.lawyerId} onChange={(lawyer) => set({ lawyer })} label={t.lawyer} size="small" />
-                </Box>
-              )}
-            </>
-          ) : undefined
-        }
-      />
-
-      {needsInstitution && <Alert severity="info">{t.institutionRequired}</Alert>}
-      {stats.isError && (
-        <Alert severity="error">{stats.error instanceof ApiError && stats.error.status === 503 ? t.tooSlow : problemMessage(stats.error)}</Alert>
-      )}
-      {stats.isPending && !needsInstitution && <Skeleton variant="rounded" height={320} />}
-      {s && <StatisticsBody s={s} year={Number(filters.year)} onOpen={setOpen} />}
-
-      <DrillDrawer filters={filters} open={open} onClose={() => setOpen(null)} />
-    </>
-  )
 }
 
 /** The badge of the year: frozen on a date, not frozen yet (the API's warning), or the current year. */

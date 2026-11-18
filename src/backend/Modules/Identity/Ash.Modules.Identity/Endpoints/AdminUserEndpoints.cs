@@ -22,8 +22,10 @@ public static class AdminUserEndpoints
 
         group.MapGet("", async (
                 string? q, string? role, Guid? officeId, Guid? institutionId, bool? active, string? after, int? limit,
+                string? position, DateOnly? lastLoginFrom, DateOnly? lastLoginTo,
                 ListUsersHandler handler, CancellationToken ct) =>
-                Results.Ok(await handler.Handle(new ListUsersQuery(q, role, officeId, institutionId, active, after, limit), ct)))
+                Results.Ok(await handler.Handle(new ListUsersQuery(q, role, officeId, institutionId, active, after, limit,
+                    position, lastLoginFrom, lastLoginTo), ct)))
             .RequirePermission(Permission)
             .Produces<KeysetPage<UserResponse>>()
             .WithName("ListAdminUsers");

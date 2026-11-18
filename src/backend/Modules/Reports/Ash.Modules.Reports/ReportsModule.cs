@@ -38,6 +38,7 @@ public static class ReportsModule
 		services.AddScoped<Contracts.ICaseFilterCatalog, Application.Builder.CaseFilterCatalog>();
 		services.AddScoped<Application.Builder.StatisticsBuilder>();
 		services.AddScoped<Application.Builder.SavedReports>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Builder.SavedReportFilterSource>(); // task 053m
 		services.AddScoped<ReportScope>();
 		services.AddScoped<ActiveCasesReport>();
 		services.AddScoped<ClosedCasesReport>();

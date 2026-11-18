@@ -15,6 +15,10 @@ export interface DocumentFilters {
   level: string
   /** scan status (PENDING / CLEAN / INFECTED / FAILED), '' = all */
   status: string
+  /** task 053m: a text of the title, the upload days (yyyy-MM-dd); '' = none */
+  q?: string
+  from?: string
+  to?: string
 }
 
 /** One page of the dossier timeline (every level the dossier has), newest first, with the total. */
@@ -31,6 +35,9 @@ export const useDocuments = (caseId: string, f: DocumentFilters, p: PageRequest)
               type: f.type || undefined,
               level: f.level ? Number(f.level) : undefined,
               status: f.status || undefined,
+              q: f.q || undefined,
+              from: f.from || undefined,
+              to: f.to || undefined,
               after: p.cursor,
               limit: p.size,
             },

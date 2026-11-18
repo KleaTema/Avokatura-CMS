@@ -733,6 +733,39 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     /// <summary>
+    /// Task 053m: the column filters "Kodi unik" and "Nr. i aktit" (code / actNumber) find their ids through the ngram
+    /// FULLTEXT index (the LIKE only narrows those rows), never by scanning the cases for the text.
+    /// </summary>
+    [Theory]
+    [InlineData("code", "2026")]
+    [InlineData("act", "AKT-12")]
+    public async Task Explain_the_code_and_act_filters_use_the_fulltext_index(string column, string text)
+    {
+        await SeedAsync();
+        await Execute("ANALYZE TABLE cases");
+
+        var services = new ServiceCollection();
+        services.AddAshInfrastructure(Db.AppConnectionString);
+        services.AddReferenceModule(new ConfigurationBuilder().Build());
+        services.AddCasesModule(new ConfigurationBuilder().Build());
+        services.AddScoped<Ash.Modules.Documents.Contracts.IDocumentService, NoDocumentService>();
+        var currentUser = await LoadUser("monitor@ash.local");
+        services.AddScoped<ICurrentUser>(_ => currentUser);
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var builder = scope.ServiceProvider.GetRequiredService<CaseListQueryBuilder>();
+
+        var open = CaseListFilter.Open(CaseListTab.All);
+        var filter = column == "code" ? open with { CodeContains = text } : open with { ActContains = text };
+        var sql = builder.Filtered(filter).Select(c => c.Id).ToQueryString();
+        var plan = await Explain(sql);
+        var report = $"{column} {text}\n{sql}\n" + string.Join('\n', plan.Select(r => $"{r.Table,-20} type={r.Type,-8} key={r.Key ?? "NULL",-28} rows={r.Rows} {r.Extra}"));
+        TestContext.Current.TestOutputHelper?.WriteLine(report);
+
+        plan.ShouldContain(r => r.Type == "fulltext" && r.Key != null, report);
+    }
+
+    /// <summary>
     /// Task 046: the list scope is written per user from v_case_access's branches (speed); it must grant exactly the
     /// cases the view grants, for every kind of user.
     /// </summary>

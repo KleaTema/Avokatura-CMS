@@ -40,9 +40,9 @@ public static class DocumentEndpoints
 
         endpoints.MapGet("/api/cases/{id:guid}/documents",
                 async (Guid id, string? type, int? level, string? after, int? limit, string? status,
-                    ListDocumentsHandler handler, CancellationToken ct) =>
+                    string? q, DateOnly? from, DateOnly? to, ListDocumentsHandler handler, CancellationToken ct) =>
                 {
-                    var result = await handler.Handle(id, new ListDocumentsQuery(type, level, after, limit, status), ct);
+                    var result = await handler.Handle(id, new ListDocumentsQuery(type, level, after, limit, status, q, from, to), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequireAuthorization()

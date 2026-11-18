@@ -30,9 +30,21 @@ internal sealed class NotificationQueries(
 
     private static Error NotFound => Error.NotFound("notification.not_found", "Njoftimi nuk u gjet.");
 
-    /// <summary>GET /api/notifications: newest first, keyset (created_at DESC, id DESC) over ix_notif_user_list.</summary>
-    public async Task<Result<KeysetPage<NotificationItem>>> ListAsync(bool unreadOnly, string? after, int? limit, CancellationToken ct)
+    /// <summary>
+    /// GET /api/notifications: newest first, keyset (created_at DESC, id DESC) over ix_notif_user_list. Task 053m: the
+    /// type, a text in the title and the created range (Tirane days) narrow the user's rows (the index's user prefix,
+    /// created_at its second column).
+    /// </summary>
+    public async Task<Result<KeysetPage<NotificationItem>>> ListAsync(bool unreadOnly, string? after, int? limit, CancellationToken ct,
+        string? type = null, string? q = null, DateOnly? from = null, DateOnly? to = null)
     {
+        var text = q?.Trim();
+        if (text is { Length: > 100 })
+        {
+            return Error.ValidationFields("Kërkimi nuk është i vlefshëm.",
+                new Dictionary<string, string[]> { ["q"] = ["Kërkimi ka më shumë se 100 shkronja."] });
+        }
+
         DateTime? afterAt = null;
         ulong afterId = 0;
         if (after is not null)
@@ -54,7 +66,34 @@ internal sealed class NotificationQueries(
         IQueryable<NotificationRow> Filtered(NotificationsDbContext context)
         {
             var rows = context.Notifications.AsNoTracking().Where(n => n.UserId == userId);
-            return unreadOnly ? rows.Where(n => n.ReadAt == null) : rows;
+            if (unreadOnly)
+            {
+                rows = rows.Where(n => n.ReadAt == null);
+            }
+
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                rows = rows.Where(n => n.NotificationType == type);
+            }
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                rows = rows.Where(n => n.Title.Contains(text));
+            }
+
+            if (from is { } start)
+            {
+                var since = TiraneTime.StartOfDayUtc(start);
+                rows = rows.Where(n => n.CreatedAt >= since);
+            }
+
+            if (to is { } end)
+            {
+                var before = TiraneTime.StartOfDayUtc(end.AddDays(1));
+                rows = rows.Where(n => n.CreatedAt < before);
+            }
+
+            return rows;
         }
 
         var total = parallel.RunAsync<NotificationsDbContext, int>((other, token) => Filtered(other).CountAsync(token), ct);

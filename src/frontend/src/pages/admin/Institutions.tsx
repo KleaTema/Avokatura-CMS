@@ -1,19 +1,20 @@
-import { Alert, Box, Button, Stack, TableCell, TableRow, TextField } from '@mui/material'
+import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
-import { InstitutionPicker } from '../../components/InstitutionPicker'
-import { AppSelect } from '../../components/ui/AppSelect'
+import { textOf, yesNoOf } from '../../components/filters/filterTypes'
+import { TableFilterBar } from '../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { CodeText } from '../../components/ui/CodeText'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminInstitutionList, useSetInstitutionActive, type AdminInstitution } from '../../features/admin/api'
+import { useTableFilters } from '../../features/filters/api'
 import { sq } from '../../i18n/sq'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { useKeysetPaging } from '../../lib/paging'
 import { isForbidden, problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
-import { useUrlSearch } from '../../lib/useUrlSearch'
 import { ForbiddenPage } from '../ErrorPages'
 import { InstitutionDialog } from './InstitutionDialog'
 import { StatusChip } from './lists/common'
@@ -24,11 +25,13 @@ const tl = sq.adminLists
 
 /** Institutions (task 015): search anywhere in the name, short name or NIPT; type, ministry and status filters. */
 export function InstitutionsPage() {
-  const [search, setSearch] = useUrlSearch()
-  const [type, setType] = useUrlSearch('type')
-  const [parentId, setParentId] = useUrlSearch('parent')
-  const [parentName, setParentName] = useUrlSearch('parentName')
-  const [active, setActiveFilter] = useUrlSearch('active')
+  // task 053m: the shared FilterBar (GET /api/filters/institutions), the values in the URL, sent to the API
+  const meta = useTableFilters('institutions')
+  const url = useUrlFilters(meta.data ?? [])
+  const search = textOf(url.values, 'q')
+  const type = textOf(url.values, 'type')
+  const parentId = textOf(url.values, 'parent')
+  const active = yesNoOf(url.values, 'active')
   const q = useDebounced(serverQuery(search), 300)
   const paging = useKeysetPaging()
   const institutions = useAdminInstitutionList({ q, type, active, parentId }, { cursor: paging.cursor, size: paging.size })
@@ -57,51 +60,7 @@ export function InstitutionsPage() {
         }
       />
 
-      <TextField
-        label={t.search}
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        fullWidth
-        sx={{ mb: 2 }}
-      />
-      {/* a filter for every column a user narrows by: type, ministry, status */}
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.institutionType}
-          value={type}
-          onChange={setType}
-          options={Object.entries(t.institutionTypes).map(([value, label]) => ({ value, label }))}
-          sx={{ width: { xs: '100%', md: 220 } }}
-        />
-        <Box sx={{ width: { xs: '100%', md: 300 } }}>
-          <InstitutionPicker
-            filter
-            size="small"
-            label={t.columns.parent}
-            onlyType="MINISTRY"
-            value={parentId ? { publicId: parentId, name: parentName } : null}
-            onChange={(picked) => {
-              setParentId(picked?.publicId ?? '')
-              setParentName(picked?.name ?? '')
-            }}
-          />
-        </Box>
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.status}
-          value={active}
-          onChange={setActiveFilter}
-          options={[
-            { value: 'true', label: tl.active },
-            { value: 'false', label: tl.inactive },
-          ]}
-          sx={{ width: { xs: '100%', md: 180 } }}
-        />
-      </Stack>
+      <TableFilterBar meta={meta} url={url} />
 
       {institutions.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -170,7 +129,7 @@ export function InstitutionsPage() {
               </TableRow>
             ))}
             {institutions.isSuccess && rows.length === 0 && q && (
-              <SearchEmptyRow q={search} colSpan={8} onClear={() => setSearch('')} />
+              <SearchEmptyRow q={search} colSpan={8} onClear={() => url.setKey('q', '')} />
             )}
       </DataTable>
 

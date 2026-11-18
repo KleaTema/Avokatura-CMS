@@ -65,6 +65,8 @@ public static class CasesModule
 		services.AddScoped<GetCaseHandler>();
 		services.AddScoped<GetHistoryHandler>();
 		services.AddScoped<RegistrationSearchHandler>();
+		// task 053m: the filter metadata of the case list (GET /api/filters/cases)
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, CaseListFilterSource>();
 		// task 053j: "Zyra që e ndjek" of the registration forms
 		services.AddScoped<RegistrationOfficesHandler>();
 		services.AddScoped<ListPartiesHandler>();
@@ -109,6 +111,7 @@ public static class CasesModule
 		services.AddScoped<UpdateDecisionHandler>();
 		// task 053d: the Monitor's "Mbikëqyrja"
 		services.AddScoped<Application.Supervision.SupervisionHandlers>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Supervision.SupervisionFilterSource>(); // task 053m
 		services.AddScoped<ArchiveDossierHandler>();
 		services.AddScoped<AgendaQueryBuilder>();
 		services.AddScoped<GetAgendaHandler>();

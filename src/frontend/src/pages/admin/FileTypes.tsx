@@ -1,6 +1,10 @@
 import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
+import { matchesFilters } from '../../components/filters/clientFilter'
+import { TableFilterBar } from '../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { CodeText } from '../../components/ui/CodeText'
+import { useTableFilters } from '../../features/filters/api'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { useClientPaging } from '../../lib/paging'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -11,7 +15,7 @@ import { isForbidden, problemMessage } from '../../lib/problem'
 import { ForbiddenPage } from '../ErrorPages'
 import { StatusChip } from './lists/common'
 import { FileTypeDialog } from './FileTypeDialog'
-import { formatMegabytes } from './fileTypeSize'
+import { BYTES_PER_MB, formatMegabytes } from './fileTypeSize'
 import { rowSx } from './lists/helpers'
 
 const t = sq.adminFileTypes
@@ -19,7 +23,19 @@ const t = sq.adminFileTypes
 export function FileTypesPage() {
   const fileTypes = useAdminFileTypes()
   const [editing, setEditing] = useState<{ fileType: AdminFileType | null } | null>(null)
-  const paging = useClientPaging(fileTypes.data ?? [])
+  // task 053m: the shared FilterBar (GET /api/filters/file-types), kept in the URL, applied in the browser
+  const meta = useTableFilters('file-types')
+  const url = useUrlFilters(meta.data ?? [])
+  const field = (f: AdminFileType, key: string): unknown => {
+    const fields: Record<string, unknown> = {
+      q: [f.extension, f.contentType],
+      appliesTo: f.appliesTo,
+      active: f.isActive,
+      maxSize: Number(f.maxSizeBytes) / BYTES_PER_MB,
+    }
+    return fields[key]
+  }
+  const paging = useClientPaging((fileTypes.data ?? []).filter((f) => matchesFilters(f, url.filters, url.values, field)))
 
   if (isForbidden(fileTypes.error)) return <ForbiddenPage />
 
@@ -34,6 +50,7 @@ export function FileTypesPage() {
         }
       />
 
+      <TableFilterBar meta={meta} url={url} />
       {fileTypes.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {problemMessage(fileTypes.error)}

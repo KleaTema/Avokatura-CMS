@@ -38,7 +38,9 @@ public sealed record ListCasesQuery(
     DateOnly? RegisteredFrom = null,
     DateOnly? RegisteredTo = null,
     Guid? InstitutionId = null,
-    string? Filter = null);
+    string? Filter = null,
+    string? Code = null,
+    string? ActNumber = null);
 
 /// <summary>A row of the case list. Public ids only; names from Reference (court) and Identity (lawyer).</summary>
 public sealed record CaseListItem(
@@ -276,6 +278,26 @@ internal sealed class ListCasesHandler(
             }
         }
 
+        // task 053m: the code / act number columns (a part of them, from 2 characters)
+        string? Contains(string? value, string field)
+        {
+            var text = value?.Trim();
+            if (string.IsNullOrEmpty(text))
+            {
+                return null;
+            }
+
+            if (text.Length is < 2 or > 50)
+            {
+                errors.Add(field, "Shkruani nga 2 deri në 50 karaktere.");
+            }
+
+            return text;
+        }
+
+        var code = Contains(q.Code, "code");
+        var actNumber = Contains(q.ActNumber, "actNumber");
+
         CaseListSpecialFilter? special = null;
         if (!string.IsNullOrWhiteSpace(q.Filter))
         {
@@ -315,6 +337,8 @@ internal sealed class ListCasesHandler(
             RegisteredFromUtc = q.RegisteredFrom is { } rf ? TiraneTime.StartOfDayUtc(rf) : null,
             RegisteredToUtc = q.RegisteredTo is { } rt ? TiraneTime.StartOfDayUtc(rt.AddDays(1)) : null,
             Special = special,
+            CodeContains = code,
+            ActContains = actNumber,
             Search = search is null ? null : await caseSearch.ResolveAsync(search, ct),
         };
     }

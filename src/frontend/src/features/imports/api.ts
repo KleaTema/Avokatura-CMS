@@ -6,6 +6,7 @@ import type { components } from '../../api/schema'
 export type ImportKind = 'organika' | 'users'
 
 export type ImportView = components['schemas']['ImportView']
+export type ImportListItem = components['schemas']['ImportListItem']
 export type ImportRowView = components['schemas']['ImportRowView']
 export type ImportSummary = components['schemas']['ImportSummary']
 export type ImportDefinitionView = components['schemas']['ImportDefinitionView']

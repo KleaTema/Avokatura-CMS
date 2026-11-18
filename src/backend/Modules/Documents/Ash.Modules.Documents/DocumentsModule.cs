@@ -22,6 +22,7 @@ public static class DocumentsModule
 		services.AddScoped<IDocumentService, DocumentService>();
 		services.AddScoped<UploadDocumentHandler>();
 		services.AddScoped<ListDocumentsHandler>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, DocumentFilterSource>(); // task 053m
 		services.AddScoped<DownloadDocumentHandler>();
 		services.AddScoped<DeleteDocumentHandler>();
 		services.AddSingleton<ScanQueueJob>();

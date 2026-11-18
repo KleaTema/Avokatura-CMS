@@ -56,6 +56,9 @@ export interface CaseListFilters {
   institutionId: string
   /** a dashboard filter code (task 046): missingData30, hearingOverdue, decisionPending, … ('' = none) */
   filter: string
+  /** task 053m: a part of the case code / of the act number ('' = none) */
+  code?: string
+  actNumber?: string
 }
 
 /** One page of a keyset list: the cursor of the page (none = page 1) and its size. */
@@ -119,6 +122,8 @@ export const useCaseList = (f: CaseListFilters, p: PageRequest, enabled: boolean
               officeId: f.officeId || undefined,
               institutionId: f.institutionId || undefined,
               filter: f.filter || undefined,
+              code: f.code || undefined,
+              actNumber: f.actNumber || undefined,
               after: p.cursor,
               limit: p.size,
             },

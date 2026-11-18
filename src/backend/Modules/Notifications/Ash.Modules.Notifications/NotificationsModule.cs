@@ -28,6 +28,7 @@ public static class NotificationsModule
 		services.AddScoped<CurrentActor>();
 		services.AddScoped<INotificationSender, NotificationSender>();
 		services.AddScoped<NotificationQueries>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, NotificationFilterSource>(); // task 053m
 
 		// task 053c: e-mail through an outbox, sent after the commit (Mailpit locally)
 		var email = configuration.GetSection(EmailOptions.Section).Get<EmailOptions>() ?? new EmailOptions();

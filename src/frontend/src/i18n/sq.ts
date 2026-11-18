@@ -160,7 +160,6 @@ export const sq = {
     endFor: (what: string) => `Përfundo mbikëqyrjen: ${what}`,
     endTitle: 'Përfundo mbikëqyrjen?',
     endText: (head: string, what: string) => `${head} nuk do ta mbikëqyrë më: ${what}. Kryetari njoftohet.`,
-    showEnded: 'Shfaq edhe të përfunduarat',
     empty: 'Nuk ka asnjë mbikëqyrje aktive.',
     created: 'Mbikëqyrja u shtua.',
     ended: 'Mbikëqyrja përfundoi.',
@@ -183,6 +182,25 @@ export const sq = {
    * Task 053l: the shared import panel (Organika, users). The instructions themselves (purpose, columns, rules) come
    * from the server's definition — the same text as the template's "Udhëzime" sheet.
    */
+  /** Task 053m: the shared FilterBar of every table */
+  filters: {
+    title: 'Filtrat',
+    add: 'Shto filtër',
+    remove: (label: string) => `Hiq filtrin ${label}`,
+    clear: 'Pastro filtrat',
+    locked: 'Sipas fushëveprimit tuaj',
+    chooseParentFirst: (parent: string) => `Zgjidhni më parë: ${parent}`,
+    from: 'nga',
+    to: 'deri',
+    min: 'min.',
+    max: 'maks.',
+    yes: 'Po',
+    no: 'Jo',
+    unusedLeave: 'Keni krijuar një filtër që nuk e keni përdorur. Dëshironi të dilni nga faqja?',
+    leave: 'Po',
+    stay: 'Anulo',
+    noMatch: 'Asnjë rresht nuk përputhet me filtrat.',
+  },
   imports: {
     instructionsTitle: 'Si duhet të jetë skedari',
     formats: 'Formatet e pranuara',

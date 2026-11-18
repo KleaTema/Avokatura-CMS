@@ -9,7 +9,8 @@ using MySql.Data.MySqlClient;
 namespace Ash.Modules.Identity.Application.Users;
 
 public sealed record ListUsersQuery(
-    string? Q, string? Role, Guid? OfficeId, Guid? InstitutionId, bool? Active, string? After, int? Limit);
+    string? Q, string? Role, Guid? OfficeId, Guid? InstitutionId, bool? Active, string? After, int? Limit,
+    string? Position = null, DateOnly? LastLoginFrom = null, DateOnly? LastLoginTo = null);
 
 /// <summary>
 /// Keyset paging by internal id (ascending); the cursor is opaque and ids never leave the server. ?q= matches anywhere
@@ -95,6 +96,25 @@ public sealed class ListUsersHandler(IdentityDbContext db, ParallelReads paralle
         if (q.Active is { } active)
         {
             users = users.Where(u => u.IsActive == active);
+        }
+
+        // task 053m: the other columns (a small table: plain predicates)
+        if (!string.IsNullOrWhiteSpace(q.Position))
+        {
+            var position = q.Position.Trim();
+            users = users.Where(u => u.Position != null && u.Position.Contains(position));
+        }
+
+        if (q.LastLoginFrom is { } from)
+        {
+            var start = Ash.SharedKernel.Time.TiraneTime.StartOfDayUtc(from);
+            users = users.Where(u => u.LastLoginAt >= start);
+        }
+
+        if (q.LastLoginTo is { } to)
+        {
+            var end = Ash.SharedKernel.Time.TiraneTime.StartOfDayUtc(to.AddDays(1));
+            users = users.Where(u => u.LastLoginAt < end);
         }
 
         return users;

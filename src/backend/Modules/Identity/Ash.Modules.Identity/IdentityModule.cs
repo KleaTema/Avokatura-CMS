@@ -31,6 +31,11 @@ public static class IdentityModule
 		services.AddScoped<Application.Imports.UsersImport>();
 		services.AddScoped<UserAdminSupport>();
 		services.AddScoped<ListUsersHandler>();
+		// task 053m: the filters of the admin tables (GET /api/filters/{table})
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Filters.UserListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Filters.OfficeListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Filters.InstitutionListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, Application.Imports.ImportFilterSource>();
 		services.AddScoped<CreateUserHandler>();
 		services.AddScoped<UpdateUserHandler>();
 		services.AddScoped<SetUserActiveHandler>();

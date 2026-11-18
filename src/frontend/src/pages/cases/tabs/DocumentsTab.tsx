@@ -2,10 +2,11 @@ import { Alert, Box, Button, CircularProgress, Divider, Stack, Typography } from
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Eye, FileImage, FileText, File as FileIcon, Trash2 } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
 import { DeleteDocumentDialog, DocumentPreviewDialog } from '../../../components/documents/DocumentDialogs'
 import { UploadQueue } from '../../../components/documents/UploadQueue'
-import { AppSelect } from '../../../components/ui/AppSelect'
+import { hasValue, rangeOf, textOf } from '../../../components/filters/filterTypes'
+import { TableFilterBar } from '../../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../../components/filters/useUrlFilters'
 import { PaginationFooter } from '../../../components/ui/DataTable'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { SectionCard } from '../../../components/ui/SectionCard'
@@ -20,11 +21,13 @@ import {
   type DocumentItem,
   type FetchedFile,
 } from '../../../features/documents/api'
-import { useDocumentTypes } from '../../../features/reference/api'
+import { useTableFilters } from '../../../features/filters/api'
 import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
 import { problemMessage } from '../../../lib/problem'
-import { useKeysetPaging, withoutPage } from '../../../lib/paging'
+import { pageKey, useKeysetPaging } from '../../../lib/paging'
+import { serverQuery } from '../../../lib/search'
+import { useDebounced } from '../../../lib/useDebounced'
 import { formatSize } from '../../../lib/uploads'
 
 const t = sq.cases.documents
@@ -50,24 +53,18 @@ const fallbackName = (d: DocumentItem) =>
 export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   const caseId = detail.header.publicId
   const qc = useQueryClient()
-  const types = useDocumentTypes()
-  // filters and page in the URL (prefix "docs"), so Back and refresh keep them
-  const [params, setParams] = useSearchParams()
+  // task 053m: the shared FilterBar (GET /api/filters/documents?case=…); filters and page in the URL (prefix "docs"),
+  // so Back and refresh keep them
+  const meta = useTableFilters('documents', { case: caseId })
+  const url = useUrlFilters(meta.data ?? [], { resetParams: [pageKey(DOCS)] })
   const filters: DocumentFilters = {
-    type: params.get('docsType') ?? '',
-    level: params.get('docsLevel') ?? '',
-    status: params.get('docsStatus') ?? '',
+    type: textOf(url.values, 'type'),
+    level: textOf(url.values, 'level'),
+    status: textOf(url.values, 'status'),
+    q: useDebounced(serverQuery(textOf(url.values, 'q')), 300),
+    from: rangeOf(url.values, 'uploaded', 'from'),
+    to: rangeOf(url.values, 'uploaded', 'to'),
   }
-  const setFilter = (name: 'docsType' | 'docsLevel' | 'docsStatus', value: string) =>
-    setParams(
-      (prev) => {
-        const next = withoutPage(prev, DOCS)
-        if (value) next.set(name, value)
-        else next.delete(name)
-        return next
-      },
-      { replace: true },
-    )
   const paging = useKeysetPaging(DOCS)
   const documents = useDocuments(caseId, filters, { cursor: paging.cursor, size: paging.size })
   const items = useMemo(() => documents.data?.items ?? [], [documents.data])
@@ -131,7 +128,7 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
   const groups = levels
     .map((l) => ({ code: l.caseCode, items: items.filter((d) => d.level === l.caseCode) }))
     .filter((g) => g.items.length > 0)
-  const filtered = filters.type !== '' || filters.level !== '' || filters.status !== ''
+  const filtered = url.filters.some((f) => hasValue(url.values[f.key]))
 
   return (
     <Stack spacing={2}>
@@ -149,41 +146,8 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
 
       <SectionCard title={t.title}>
         <Stack spacing={2}>
-          {/* every filter of the timeline's columns (type, level, status), whatever the number of levels */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
-            <AppSelect
-              filter
-              size="small"
-              label={t.filterType}
-              value={filters.type}
-              onChange={(value) => setFilter('docsType', value)}
-              options={(types.data ?? []).map((x) => ({ value: x.code, label: x.name }))}
-              sx={{ width: { xs: '100%', sm: 240 } }}
-            />
-            <AppSelect
-              filter
-              size="small"
-              label={t.filterLevel}
-              value={filters.level}
-              onChange={(value) => setFilter('docsLevel', value)}
-              options={levels.map((l) => ({ value: String(l.levelSeq), label: l.caseCode }))}
-              sx={{ width: { xs: '100%', sm: 200 } }}
-            />
-            <AppSelect
-              filter
-              size="small"
-              label={t.filterStatus}
-              value={filters.status}
-              onChange={(value) => setFilter('docsStatus', value)}
-              options={[
-                { value: 'PENDING', label: t.status.PENDING },
-                { value: 'CLEAN', label: t.status.CLEAN },
-                // INFECTED and FAILED: both shown as "Refuzuar"
-                { value: 'REJECTED', label: t.status.INFECTED },
-              ]}
-              sx={{ width: { xs: '100%', sm: 200 } }}
-            />
-          </Stack>
+          {/* type, level, status on top; "+ Shto filtër" for the title and the upload days */}
+          <TableFilterBar meta={meta} url={url} />
 
           {actionError && (
             <Alert severity="error" onClose={() => setActionError(null)}>

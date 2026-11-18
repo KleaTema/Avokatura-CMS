@@ -51,7 +51,18 @@ Every list, table and picker gets search unless it will never have more than ~10
 - Empty result: "Nuk u gjet asnjë rezultat për „{q}“." with a button to clear the search.
 - Search box placeholder lists what can be searched, e.g. "Kërko (emër, kod)".
 - Search: substring (min 2 chars) via ngram FULLTEXT on the server, 'contains' on the client; a search covers all statuses unless a status is chosen.
-- Filter panels show every filter relevant to the page; never hide filters per tab.
+- Filters (task 053m): every table uses the ONE shared FilterBar (`components/filters/`) — never a page's own filter
+  row, never a "Filtra" button or a static panel. 2–3 default filters on top (the table's main ones), "+ Shto filtër"
+  lists every other column, each added filter has ×; the control comes from the filter's kind (text, select,
+  dependent select, date range, number range, yes/no).
+- The metadata comes from ONE server source per table: an `ITableFilterSource` (SharedKernel) registered in its module,
+  served by `GET /api/filters/{table}` (`useTableFilters`). Its keys / `params` are the page's URL parameters; select
+  options in the user's scope, a child's options name their parent's value (shkalla → gjykata → gjyqtari).
+- Values live in the URL (`useUrlFilters`, added keys in `?af=`): a row and Back keep them, the menu (a clean URL)
+  clears them. `TableFilterBar` = error + FilterBar + `UnusedFilterGuard` (the leave dialog for an added, still-empty
+  filter, or a draft not yet generated).
+- A server table sends the values to its list endpoint (index-friendly predicates, EXPLAIN-tested on large tables); a
+  small fully loaded table matches its rows in the browser with `matchesFilters` (keys = row fields).
 
 ## Selects and tables
 - Selects: AppSelect/AppAutocomplete only; filters start with 'Të gjitha', optional fields with '— Asnjë —'.

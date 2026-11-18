@@ -1074,3 +1074,15 @@ environment is in `deploy/README.md`.
    - writing to `/app` fails (read-only);
    - `date` follows Europe/Tirane in the app (case deadlines);
    - Albanian month names appear in the PDF export.
+
+## 053m — Filters in every table (the shared FilterBar)
+Supersedes the *Filtra* panel steps of 031, 045 and the case list above: no table has a *Filtra* button any more.
+1. **Every table** (cases, *Vazhdo çështje ekzistuese*, reports, users, lists, offices, institutions, judges, file types, code format, documents, notifications, Organika / users import history, *Raportet e mia*, *Mbikëqyrja*): 2–3 filters on top, *+ Shto filtër* lists every other column; an added filter has ×.
+2. **Kinds:** text, select, dependent select, date range (nga / deri), number range, Po / Jo — each with its own control.
+3. **Dependent:** *Çështje → Shto filtër → Shkalla e gjykimit*: *Gjykata* offers only that level's courts; a new level clears the court; *Gjyqtari* follows the court; *Zyra → Avokati* the same (monitor).
+4. **Scope:** a lawyer has no *Zyra* / *Avokati*; the Kryetar has *Avokati* only; the monitor both. Options list only what exists in the user's cases.
+5. **URL:** add *Nr. i aktit*, type a number, open a row, Back → the filter and its value are still there. Refresh keeps them.
+6. **Menu clears:** go to *Agjenda* through the menu, then *Çështje* → no added filter, no value.
+7. **Unused filter:** add a filter, leave it empty, click a menu item → "Keni krijuar një filtër që nuk e keni përdorur. Dëshironi të dilni nga faqja?". *Anulo* stays, *Po* leaves. With a value: no dialog. Report builder: also after changing filters without *Gjenero*.
+8. **Server lists** (users: *Pozicioni*, *Hyrja e fundit*; notifications: *Lloji*, title, date; documents: title, upload date) return only matching rows, with the right total.
+9. 390 px: the bar wraps, no page-wide side scroll.

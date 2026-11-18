@@ -19,6 +19,10 @@ export interface UserFilters {
   officeId: string
   institutionId: string
   active: string
+  /** task 053m: the other columns ('' = none; dates yyyy-MM-dd) */
+  position?: string
+  lastLoginFrom?: string
+  lastLoginTo?: string
 }
 
 /** Filters of the institutions page: type code, '' | 'true' | 'false', the parent's public id. */
@@ -66,6 +70,9 @@ export const useAdminUsers = (f: UserFilters, p: PageRequest) =>
               officeId: f.officeId || undefined,
               institutionId: f.institutionId || undefined,
               active: activeParam(f.active),
+              position: f.position || undefined,
+              lastLoginFrom: f.lastLoginFrom || undefined,
+              lastLoginTo: f.lastLoginTo || undefined,
               after: p.cursor,
               limit: p.size,
             },

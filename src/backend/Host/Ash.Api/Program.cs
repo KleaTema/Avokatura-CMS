@@ -171,6 +171,8 @@ app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthC
     .AllowAnonymous();
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapVersion();
+// task 053m: the filter metadata of every table (the shared FilterBar)
+Ash.AspNetCore.Http.TableFilterEndpoints.MapTableFilters(app);
 // task 051: how the login page signs in (anonymous: read before the login)
 app.MapAuthConfig(DevFeatures.HeaderAuthEnabled(app.Configuration, app.Environment));
 

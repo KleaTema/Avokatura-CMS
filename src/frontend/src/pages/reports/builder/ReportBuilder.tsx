@@ -14,10 +14,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Columns3, Download, Link2, Play, Plus, Save } from 'lucide-react'
+import { Columns3, Download, Link2, Play, Save } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ApiError } from '../../../api/client'
+import { FilterBar } from '../../../components/filters/FilterBar'
+import { hasValue, type FilterDef } from '../../../components/filters/filterTypes'
+import { UnusedFilterGuard } from '../../../components/filters/UnusedFilterGuard'
 import { DataTable, PaginationFooter } from '../../../components/ui/DataTable'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { SuccessToast } from '../../../components/ui/SuccessToast'
@@ -37,7 +40,6 @@ import {
   type BuilderTable,
   type FilterValue,
   type FilterValues,
-  type ReportFilterMeta,
   type ReportTotals,
 } from '../../../features/reports/builder'
 import { sq } from '../../../i18n/sq'
@@ -50,7 +52,6 @@ import { tokens } from '../../../theme/tokens'
 import { isNumeric, reportCell } from '../reportCells'
 import { DrillDrawer, StatisticsBody, type OpenCell } from '../StatisticsReport'
 import { ColumnChooser } from './ColumnChooser'
-import { FilterField } from './FilterField'
 
 const t = sq.reports.builder
 const PAGE_SIZE = 25
@@ -96,7 +97,6 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
     statistics && !url.applied.year ? { ...url.applied, year: todayInTirane().slice(0, 4) } : url.applied,
   )
   const [added, setAdded] = useState<string[]>(() => Object.keys(url.applied))
-  const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null)
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -111,10 +111,9 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
   const allColumns = meta.data?.columns ?? []
   const chosen = url.columns.length > 0 ? url.columns.filter((k) => allColumns.some((c) => c.key === k)) : allColumns.map((c) => c.key)
 
-  const visible = filters.filter((f) => f.isDefault || f.locked || added.includes(f.key) || cleanValues(draft)[f.key] !== undefined)
-  const addable = filters.filter((f) => !visible.includes(f))
+  const unused = added.some((k) => !hasValue(effective[k])) || changed
 
-  const set = (filter: ReportFilterMeta, value: FilterValue) =>
+  const set = (filter: FilterDef, value: FilterValue) =>
     setDraft((current) => {
       const next = { ...current, [filter.key]: value }
       // a parent's new choice clears its children (their options change)
@@ -122,7 +121,7 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
       return next
     })
 
-  const remove = (filter: ReportFilterMeta) => {
+  const remove = (filter: FilterDef) => {
     setAdded((current) => current.filter((k) => k !== filter.key))
     setDraft((current) => {
       const next = { ...current }
@@ -142,40 +141,19 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
     setToast(t.linkCopied)
   }
 
-  const labelOf = (key: string | null | undefined) => filters.find((f) => f.key === key)?.label
-
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-start' } }}>
-        {visible.map((f) => (
-          <FilterField
-            key={f.key}
-            filter={f}
-            value={effective[f.key]}
-            onChange={(v) => set(f, v)}
-            onRemove={f.isDefault || f.locked ? undefined : () => remove(f)}
-            parentLabel={f.parent && cleanValues(effective)[f.parent] === undefined ? labelOf(f.parent) : undefined}
-          />
-        ))}
-        {addable.length > 0 && (
-          <Button variant="outlined" startIcon={<Plus size={18} aria-hidden />} onClick={(e) => setAddAnchor(e.currentTarget)} sx={{ mt: 1 }}>
-            {t.addFilter}
-          </Button>
-        )}
-        <Menu anchorEl={addAnchor} open={addAnchor !== null} onClose={() => setAddAnchor(null)}>
-          {addable.map((f) => (
-            <MenuItem
-              key={f.key}
-              onClick={() => {
-                setAdded((current) => [...current, f.key])
-                setAddAnchor(null)
-              }}
-            >
-              {f.label}
-            </MenuItem>
-          ))}
-        </Menu>
-      </Stack>
+      {/* task 053m: the shared FilterBar over the draft; the leave dialog while a filter is added but empty, or the
+          draft differs from the generated report */}
+      <FilterBar
+        filters={filters}
+        values={effective}
+        added={added}
+        onChange={set}
+        onAdd={(key) => setAdded((current) => [...current.filter((k) => k !== key), key])}
+        onRemove={remove}
+      />
+      <UnusedFilterGuard unused={unused} />
 
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', displayPrint: 'none' }}>
         <Button variant="contained" color="secondary" startIcon={<Play size={18} aria-hidden />} onClick={generate} disabled={meta.isPending}>

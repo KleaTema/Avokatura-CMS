@@ -10,20 +10,21 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { matchesFilters } from '../../../components/filters/clientFilter'
+import { textOf } from '../../../components/filters/filterTypes'
+import { TableFilterBar } from '../../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../../components/filters/useUrlFilters'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
-import { AppSelect } from '../../../components/ui/AppSelect'
 import { PaginationFooter } from '../../../components/ui/DataTable'
 import { useAdminCourts, useSetCourtActive, type AdminCourt } from '../../../features/admin/api'
+import { useTableFilters } from '../../../features/filters/api'
 import { useCourtLevels } from '../../../features/reference/api'
 import { sq } from '../../../i18n/sq'
 import { isForbidden, problemMessage } from '../../../lib/problem'
 import { useClientPaging } from '../../../lib/paging'
-import { matches } from '../../../lib/search'
-import { useUrlSearch } from '../../../lib/useUrlSearch'
 import { ForbiddenPage } from '../../ErrorPages'
 import { StatusChip } from './common'
 import { rowSx, useForbiddenRedirect } from './helpers'
@@ -37,21 +38,23 @@ export function CourtsPanel() {
   const setActive = useSetCourtActive()
   const redirectIfForbidden = useForbiddenRedirect()
   const [editing, setEditing] = useState<{ court: AdminCourt | null } | null>(null)
-  const [q, setQ] = useUrlSearch()
-  const [level, setLevel] = useUrlSearch('level')
-  const [foreign, setForeign] = useUrlSearch('foreign')
-  const [active, setActiveFilter] = useUrlSearch('active')
+  // task 053m: the shared FilterBar (GET /api/filters/courts), kept in the URL
+  const meta = useTableFilters('courts')
+  const url = useUrlFilters(meta.data ?? [])
 
   const levelName = (code: string) => levels.data?.find((l) => l.code === code)?.name ?? code
-  // about 100 courts: "contains" search and the column filters in the browser
+  const field = (c: AdminCourt, key: string): unknown => {
+    const fields: Record<string, unknown> = {
+      q: [c.name, c.city, levelName(c.courtLevel)],
+      level: c.courtLevel,
+      foreign: c.isForeign,
+      active: c.isActive,
+    }
+    return fields[key]
+  }
+  // about 100 courts: the filters applied in the browser
   const all = courts.data ?? []
-  const filtered = all.filter(
-    (c) =>
-      matches(q, c.name, c.city, levelName(c.courtLevel)) &&
-      (level === '' || c.courtLevel === level) &&
-      (foreign === '' || String(c.isForeign) === foreign) &&
-      (active === '' || String(c.isActive) === active),
-  )
+  const filtered = all.filter((c) => matchesFilters(c, url.filters, url.values, field))
   const paging = useClientPaging(filtered)
   if (isForbidden(courts.error)) return <ForbiddenPage />
   const visible = paging.items
@@ -67,45 +70,7 @@ export function CourtsPanel() {
         </Button>
       </Stack>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-        <TextField
-          label={t.searchCourts}
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          sx={{ flexGrow: 1 }}
-        />
-        <AppSelect
-          filter
-          label={t.columns.courtLevel}
-          value={level}
-          onChange={setLevel}
-          options={(levels.data ?? []).map((l) => ({ value: l.code, label: l.name }))}
-          sx={{ minWidth: 220 }}
-        />
-        <AppSelect
-          filter
-          label={t.columns.isForeign}
-          value={foreign}
-          onChange={setForeign}
-          options={[
-            { value: 'true', label: t.yes },
-            { value: 'false', label: t.no },
-          ]}
-          sx={{ minWidth: 140 }}
-        />
-        <AppSelect
-          filter
-          label={t.activeFilter.label}
-          value={active}
-          onChange={setActiveFilter}
-          options={[
-            { value: 'true', label: t.activeFilter.active },
-            { value: 'false', label: t.activeFilter.inactive },
-          ]}
-          sx={{ minWidth: 160 }}
-        />
-      </Stack>
+      <TableFilterBar meta={meta} url={url} />
 
       {courts.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -165,7 +130,7 @@ export function CourtsPanel() {
                 </TableRow>
               )}
               {courts.isSuccess && all.length > 0 && visible.length === 0 && (
-                <SearchEmptyRow q={q} colSpan={6} onClear={() => setQ('')} />
+                <SearchEmptyRow q={textOf(url.values, 'q')} colSpan={6} onClear={() => url.setKey('q', '')} />
               )}
             </TableBody>
           </Table>

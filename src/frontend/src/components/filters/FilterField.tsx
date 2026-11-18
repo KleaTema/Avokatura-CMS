@@ -1,41 +1,44 @@
 import { IconButton, Stack, TextField, Tooltip } from '@mui/material'
 import dayjs from 'dayjs'
 import { Lock, X } from 'lucide-react'
-import { AppDatePicker } from '../../../components/AppDatePicker'
-import { AppSelect } from '../../../components/ui/AppSelect'
-import { FilterKind, type FilterValue, type RangeValue, type ReportFilterMeta } from '../../../features/reports/builder'
-import { sq } from '../../../i18n/sq'
-import { isoDateOf } from '../../../lib/pickerValues'
+import { sq } from '../../i18n/sq'
+import { isoDateOf } from '../../lib/pickerValues'
+import { AppDatePicker } from '../AppDatePicker'
+import { AppSelect } from '../ui/AppSelect'
+import { FilterKind, type FilterDef, type FilterOptionDef, type FilterValue, type RangeValue } from './filterTypes'
 
-const t = sq.reports.builder
+const t = sq.filters
 const FIELD = { width: { xs: '100%', sm: 240 } }
 
-const rangeOf = (value: FilterValue | undefined): RangeValue =>
-  typeof value === 'object' && value !== null ? value : {}
+const rangeOf = (value: FilterValue | undefined): RangeValue => (typeof value === 'object' && value !== null ? value : {})
 
 /**
- * One filter of the report builder, drawn as its kind says (task 053h): a choice (its options come from the API —
- * only values in the user's scope and under the parent's choice), a contained text, a date range, a number range,
- * yes / no. A child without its parent's choice still lists everything in scope; a locked filter (an institution's own
- * institution) is read-only. `onRemove`: the filter was added with "+ Shto filtër" and can be taken away again.
+ * One filter, drawn as its kind says (tasks 053h / 053m): a choice (the options the server gives — only values in the
+ * user's scope, under the parent's choice), a contained text, a date range, a number range, yes / no. A locked filter
+ * (an institution's own institution) is read-only. `onRemove`: added with "+ Shto filtër", it can be taken away (×).
  */
 export function FilterField({
   filter,
   value,
+  options,
   onChange,
   onRemove,
   parentLabel,
+  autoFocus,
 }: {
-  filter: ReportFilterMeta
+  filter: FilterDef
   value: FilterValue | undefined
+  /** the select's options under the parent's choice (default: all of them) */
+  options?: readonly FilterOptionDef[]
   onChange: (value: FilterValue) => void
   onRemove?: () => void
   /** the parent filter's label, when the parent has no choice yet (a hint under the field) */
   parentLabel?: string
+  autoFocus?: boolean
 }) {
   const remove = onRemove && (
-    <Tooltip title={t.removeFilter(filter.label)}>
-      <IconButton size="small" onClick={onRemove} aria-label={t.removeFilter(filter.label)} sx={{ mt: 1 }}>
+    <Tooltip title={t.remove(filter.label)}>
+      <IconButton size="small" onClick={onRemove} aria-label={t.remove(filter.label)} sx={{ mt: 1 }}>
         <X size={16} aria-hidden />
       </IconButton>
     </Tooltip>
@@ -50,11 +53,12 @@ export function FilterField({
             required={filter.required}
             hideRequiredMark
             fullWidth
+            size="small"
             label={filter.label}
             value={typeof value === 'string' ? value : ''}
             onChange={onChange}
             disabled={filter.locked}
-            options={(filter.options ?? []).map((o) => ({ value: o.value, label: o.label }))}
+            options={(options ?? filter.options ?? []).map((o) => ({ value: o.value, label: o.label }))}
             helperText={
               filter.locked ? (
                 <Stack component="span" direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
@@ -75,12 +79,13 @@ export function FilterField({
           <AppSelect
             filter
             fullWidth
+            size="small"
             label={filter.label}
             value={value === true ? 'true' : value === false ? 'false' : ''}
             onChange={(v) => onChange(v === '' ? '' : v === 'true')}
             options={[
-              { value: 'true', label: sq.reports.yes },
-              { value: 'false', label: sq.reports.no },
+              { value: 'true', label: t.yes },
+              { value: 'false', label: t.no },
             ]}
           />
           {remove}
@@ -112,6 +117,7 @@ export function FilterField({
       return (
         <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: 'flex-start' }} role="group" aria-label={filter.label}>
           <TextField
+            size="small"
             label={`${filter.label} — ${t.min}`}
             value={range.min ?? ''}
             onChange={(e) => onChange({ ...range, min: e.target.value })}
@@ -119,6 +125,7 @@ export function FilterField({
             sx={{ width: { xs: '50%', sm: 190 } }}
           />
           <TextField
+            size="small"
             label={t.max}
             value={range.max ?? ''}
             onChange={(e) => onChange({ ...range, max: e.target.value })}
@@ -134,9 +141,12 @@ export function FilterField({
         <Stack direction="row" spacing={0.5} sx={FIELD}>
           <TextField
             fullWidth
+            size="small"
             label={filter.label}
             value={typeof value === 'string' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
+            autoFocus={autoFocus}
+            slotProps={{ htmlInput: { maxLength: 100 } }}
           />
           {remove}
         </Stack>

@@ -12,7 +12,11 @@ import {
   TableRow,
 } from '@mui/material'
 import { useState } from 'react'
+import { matchesFilters } from '../../components/filters/clientFilter'
+import { TableFilterBar } from '../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { CodeText } from '../../components/ui/CodeText'
+import { useTableFilters } from '../../features/filters/api'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { useClientPaging } from '../../lib/paging'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -31,7 +35,14 @@ export function CodeFormatPage() {
   const formats = useAdminCodeFormats()
   const [creating, setCreating] = useState(false)
   const [activating, setActivating] = useState<AdminCodeFormat | null>(null)
-  const paging = useClientPaging(formats.data ?? [])
+  // task 053m: the shared FilterBar (GET /api/filters/code-formats), kept in the URL, applied in the browser
+  const meta = useTableFilters('code-formats')
+  const url = useUrlFilters(meta.data ?? [])
+  const field = (f: AdminCodeFormat, key: string): unknown => {
+    const fields: Record<string, unknown> = { q: [f.template, f.note], active: f.isActive, created: f.createdAt }
+    return fields[key]
+  }
+  const paging = useClientPaging((formats.data ?? []).filter((f) => matchesFilters(f, url.filters, url.values, field)))
 
   if (isForbidden(formats.error)) return <ForbiddenPage />
 
@@ -46,6 +57,7 @@ export function CodeFormatPage() {
         }
       />
 
+      <TableFilterBar meta={meta} url={url} />
       {formats.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {problemMessage(formats.error)}

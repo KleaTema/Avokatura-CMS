@@ -1,18 +1,22 @@
-import { Alert, Box, Button, Link, Stack, TableCell, TableRow, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Button, Link, TableCell, TableRow, Tooltip, Typography } from '@mui/material'
 import { CheckCheck } from 'lucide-react'
-import { useSearchParams } from 'react-router'
 import { useNotificationsState } from '../app/notificationsContext'
+import { rangeOf, textOf } from '../components/filters/filterTypes'
+import { TableFilterBar } from '../components/filters/TableFilterBar'
+import { useUrlFilters } from '../components/filters/useUrlFilters'
 import { NotificationIcon } from '../components/NotificationIcon'
-import { AppSelect } from '../components/ui/AppSelect'
 import { DataTable, PaginationFooter } from '../components/ui/DataTable'
 import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { visuallyHidden } from '../components/ui/visuallyHidden'
+import { useTableFilters } from '../features/filters/api'
 import { useMarkAllRead, useNotifications } from '../features/notifications/api'
 import { sq } from '../i18n/sq'
 import { formatDateTime, formatRelative } from '../lib/dates'
-import { useKeysetPaging, withoutPage } from '../lib/paging'
+import { useKeysetPaging } from '../lib/paging'
 import { problemMessage } from '../lib/problem'
+import { serverQuery } from '../lib/search'
+import { useDebounced } from '../lib/useDebounced'
 
 const t = sq.notifications
 
@@ -23,24 +27,26 @@ const UNREAD = 'unread'
  * Të palexuara / Të gjitha lives in the URL (?show=unread). A row opens its case page and marks it read.
  */
 export function NotificationsPage() {
-  const [params, setParams] = useSearchParams()
-  const unreadOnly = params.get('show') === UNREAD
+  // task 053m: the shared FilterBar (GET /api/filters/notifications), the values in the URL, sent to the API
+  const meta = useTableFilters('notifications')
+  const url = useUrlFilters(meta.data ?? [])
+  const q = useDebounced(serverQuery(textOf(url.values, 'q')), 300)
+  const unreadOnly = textOf(url.values, 'show') === UNREAD
   const paging = useKeysetPaging()
-  const list = useNotifications(unreadOnly, { cursor: paging.cursor, size: paging.size })
+  const list = useNotifications(
+    {
+      unreadOnly,
+      type: textOf(url.values, 'type'),
+      q,
+      from: rangeOf(url.values, 'created', 'from'),
+      to: rangeOf(url.values, 'created', 'to'),
+    },
+    { cursor: paging.cursor, size: paging.size },
+  )
   const markAll = useMarkAllRead()
   const { unread, open } = useNotificationsState()
   const rows = list.data?.items ?? []
 
-  const setShow = (value: string) =>
-    setParams(
-      (prev) => {
-        const next = withoutPage(prev)
-        if (value === UNREAD) next.set('show', UNREAD)
-        else next.delete('show')
-        return next
-      },
-      { replace: true },
-    )
 
   return (
     <>
@@ -59,21 +65,7 @@ export function NotificationsPage() {
         }
       />
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
-        <AppSelect
-          required
-          hideRequiredMark
-          size="small"
-          label={t.filterLabel}
-          value={unreadOnly ? UNREAD : 'all'}
-          onChange={setShow}
-          options={[
-            { value: 'all', label: t.filterAll },
-            { value: UNREAD, label: t.filterUnread },
-          ]}
-          sx={{ width: { xs: '100%', md: 220 } }}
-        />
-      </Stack>
+      <TableFilterBar meta={meta} url={url} />
 
       {list.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>

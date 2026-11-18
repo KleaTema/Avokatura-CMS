@@ -55,6 +55,12 @@ public sealed record CaseListFilter(
 
     public DateTime? RegisteredToUtc { get; init; }
 
+    /// <summary>Task 053m: a part of the case code ("Kodi unik"), through the ngram index.</summary>
+    public string? CodeContains { get; init; }
+
+    /// <summary>Task 053m: a part of the act number, through the ngram index.</summary>
+    public string? ActContains { get; init; }
+
     /// <summary>Q resolved by CaseSearch.ResolveAsync (task 047) — set whenever Q is.</summary>
     public CaseSearchTerms? Search { get; init; }
 
@@ -80,7 +86,7 @@ public sealed record CaseListFilter(
         var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? OpenStatus, CourtId, CategoryId, Priority, Suspended,
             LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort, OfficeId,
             LevelCourtIds is null ? null : string.Join(',', LevelCourtIds), JudgeId, InstitutionId,
-            RegisteredFromUtc?.Ticks, RegisteredToUtc?.Ticks,
+            RegisteredFromUtc?.Ticks, RegisteredToUtc?.Ticks, CodeContains, ActContains,
             // the kind only: a cursor stays valid while "now" moves on between pages
             Special is null ? null : CaseListSpecialFilter.Code(Special.Kind));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
@@ -223,7 +229,38 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             cases = ApplySpecial(cases, special);
         }
 
+        // task 053m: the code / act number column filters — the ngram FULLTEXT index (script 014) finds the candidates,
+        // LIKE keeps the match inside that one column (never a scan of cases)
+        if (f.CodeContains is { } code)
+        {
+            var ids = ColumnMatch(code, "case_code", "code");
+            cases = cases.Where(c => ids.Contains(c.Id));
+        }
+
+        if (f.ActContains is { } act)
+        {
+            var ids = ColumnMatch(act, "act_number", "act");
+            cases = cases.Where(c => ids.Contains(c.Id));
+        }
+
         return f.IncludeEarlierLevels ? access.ApplyScopeWithEarlierLevels(cases) : access.ApplyScope(cases);
+    }
+
+    /// <summary>The ids whose <paramref name="column"/> contains the text (ngram words + an escaped LIKE).</summary>
+    private IQueryable<ulong> ColumnMatch(string text, string column, string name)
+    {
+        var words = NgramSearch.BooleanQuery(text);
+        if (words.Length == 0)
+        {
+            return db.Database.SqlQueryRaw<ulong>("SELECT id AS Value FROM cases WHERE FALSE");
+        }
+
+        var like = "%" + text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
+        // fixed text only (the column and the parameter names are this class's constants); the values are parameters
+        var sql = $"SELECT id AS Value FROM cases WHERE MATCH(case_code, act_number, summons_number) AGAINST (@{name}_words IN BOOLEAN MODE) AND {column} LIKE @{name}_like";
+        return db.Database.SqlQueryRaw<ulong>(sql,
+            new MySql.Data.MySqlClient.MySqlParameter($"@{name}_words", words),
+            new MySql.Data.MySqlClient.MySqlParameter($"@{name}_like", like));
     }
 
     /// <summary>The dashboard's named predicates (task 046); every one rides an existing index.</summary>

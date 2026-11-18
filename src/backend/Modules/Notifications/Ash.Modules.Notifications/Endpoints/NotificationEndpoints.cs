@@ -17,9 +17,10 @@ public static class NotificationEndpoints
     public static IEndpointRouteBuilder MapNotifications(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/notifications",
-                async (bool? unreadOnly, string? after, int? limit, NotificationQueries queries, CancellationToken ct) =>
+                async (bool? unreadOnly, string? after, int? limit, string? type, string? q, DateOnly? from, DateOnly? to,
+                    NotificationQueries queries, CancellationToken ct) =>
                 {
-                    var result = await queries.ListAsync(unreadOnly ?? false, after, limit, ct);
+                    var result = await queries.ListAsync(unreadOnly ?? false, after, limit, ct, type, q, from, to);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequireAuthorization()

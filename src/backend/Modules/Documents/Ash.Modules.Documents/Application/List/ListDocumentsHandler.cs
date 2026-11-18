@@ -12,9 +12,11 @@ namespace Ash.Modules.Documents.Application.List;
 
 /// <summary>
 /// Query string of GET /api/cases/{id}/documents: type = document type code, level = n of X/n, status = PENDING
-/// ("Në kontroll"), CLEAN ("Gati") or REJECTED ("Refuzuar": INFECTED or FAILED).
+/// ("Në kontroll"), CLEAN ("Gati") or REJECTED ("Refuzuar": INFECTED or FAILED). Task 053m: q = a text of the title,
+/// from / to = the upload days (Tirane).
 /// </summary>
-public sealed record ListDocumentsQuery(string? Type, int? Level, string? After, int? Limit, string? Status = null);
+public sealed record ListDocumentsQuery(string? Type, int? Level, string? After, int? Limit, string? Status = null,
+    string? Q = null, DateOnly? From = null, DateOnly? To = null);
 
 public sealed record DocumentTypeName(string Code, string Name);
 
@@ -109,6 +111,12 @@ internal sealed class ListDocumentsHandler(
             }
         }
 
+        var text = query.Q?.Trim();
+        if (text is { Length: > 100 })
+        {
+            errors.Add("q", "Kërkimi ka më shumë se 100 shkronja.");
+        }
+
         DateTime? afterAt = null;
         ulong afterId = 0;
         if (query.After is { } cursor)
@@ -159,6 +167,24 @@ internal sealed class ListDocumentsHandler(
             if (statuses is not null)
             {
                 filtered = filtered.Where(d => statuses.Contains(d.ScanStatus));
+            }
+
+            // task 053m: within the dossier (a few hundred rows at most), the title and the upload days
+            if (!string.IsNullOrEmpty(text))
+            {
+                filtered = filtered.Where(d => d.Title.Contains(text));
+            }
+
+            if (query.From is { } from)
+            {
+                var since = Ash.SharedKernel.Time.TiraneTime.StartOfDayUtc(from);
+                filtered = filtered.Where(d => d.UploadedAt >= since);
+            }
+
+            if (query.To is { } to)
+            {
+                var before = Ash.SharedKernel.Time.TiraneTime.StartOfDayUtc(to.AddDays(1));
+                filtered = filtered.Where(d => d.UploadedAt < before);
             }
 
             return filtered;

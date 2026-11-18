@@ -2,7 +2,11 @@ import { Alert, Button, Dialog, DialogActions, DialogTitle, Stack, TableCell, Ta
 import { Play, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { matchesFilters } from '../../../components/filters/clientFilter'
+import { TableFilterBar } from '../../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../../components/filters/useUrlFilters'
 import { DataTable } from '../../../components/ui/DataTable'
+import { useTableFilters } from '../../../features/filters/api'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { SuccessToast } from '../../../components/ui/SuccessToast'
 import {
@@ -43,12 +47,20 @@ export function SavedReportsTab() {
   const [deleting, setDeleting] = useState<SavedReportView | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const c = t.mineColumns
-  const items = saved.data ?? []
+  // task 053m: the shared FilterBar (GET /api/filters/saved-reports), kept in the URL, applied in the browser
+  const meta = useTableFilters('saved-reports')
+  const url = useUrlFilters(meta.data ?? [])
+  const field = (r: SavedReportView, key: string): unknown => {
+    const fields: Record<string, unknown> = { q: r.name, table: String(r.table), updated: r.updatedAt }
+    return fields[key]
+  }
+  const items = (saved.data ?? []).filter((r) => matchesFilters(r, url.filters, url.values, field))
 
   if (saved.isError) return <Alert severity="error">{problemMessage(saved.error)}</Alert>
 
   return (
     <Stack spacing={2}>
+      <TableFilterBar meta={meta} url={url} />
       <DataTable
         label={t.mineTable}
         loading={saved.isPending}
@@ -58,7 +70,11 @@ export function SavedReportsTab() {
           { key: 'updated', label: c.updated },
           { key: 'actions', label: c.actions, align: 'right' as const },
         ]}
-        empty={saved.isSuccess && items.length === 0 ? <EmptyState title={t.mineEmpty} /> : undefined}
+        empty={
+          saved.isSuccess && items.length === 0 ? (
+            <EmptyState title={saved.data.length === 0 ? t.mineEmpty : sq.filters.noMatch} />
+          ) : undefined
+        }
       >
         {items.map((r) => (
           <TableRow key={r.publicId}>

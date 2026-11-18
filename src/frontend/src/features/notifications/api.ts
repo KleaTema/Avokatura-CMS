@@ -11,7 +11,7 @@ export const notificationKeys = {
   count: ['notifications', 'unread-count'] as const,
   /** the bell's popover: the newest 10 */
   latest: ['notifications', 'latest'] as const,
-  list: (unreadOnly: boolean, p: PageRequest) => ['notifications', 'list', unreadOnly, p.cursor ?? null, p.size] as const,
+  list: (f: NotificationFilters, p: PageRequest) => ['notifications', 'list', f, p.cursor ?? null, p.size] as const,
 }
 
 /** The safety net while there is no SignalR backplane (task 040): the count is fetched again every 60 s. */
@@ -44,13 +44,34 @@ export const useLatestNotifications = (enabled: boolean) =>
   })
 
 /** One page of the notifications page, newest first, with the total. */
-export const useNotifications = (unreadOnly: boolean, p: PageRequest) =>
+/** The notifications page's filters (task 053m): '' = none; dates yyyy-MM-dd. */
+export interface NotificationFilters {
+  unreadOnly: boolean
+  type: string
+  q: string
+  from: string
+  to: string
+}
+
+export const useNotifications = (f: NotificationFilters, p: PageRequest) =>
   useQuery({
-    queryKey: notificationKeys.list(unreadOnly, p),
+    queryKey: notificationKeys.list(f, p),
     placeholderData: keepPreviousData,
     queryFn: () =>
       api
-        .GET('/api/notifications', { params: { query: { unreadOnly: unreadOnly || undefined, after: p.cursor, limit: p.size } } })
+        .GET('/api/notifications', {
+          params: {
+            query: {
+              unreadOnly: f.unreadOnly || undefined,
+              type: f.type || undefined,
+              q: f.q || undefined,
+              from: f.from || undefined,
+              to: f.to || undefined,
+              after: p.cursor,
+              limit: p.size,
+            },
+          },
+        })
         .then(unwrap),
   })
 

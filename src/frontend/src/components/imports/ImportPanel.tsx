@@ -24,10 +24,15 @@ import {
   useUploadImport,
   type ImportDefinitionView,
   type ImportKind,
+  type ImportListItem,
   type ImportRowView,
   type ImportView,
 } from '../../features/imports/api'
+import { useTableFilters } from '../../features/filters/api'
 import { sq } from '../../i18n/sq'
+import { matchesFilters } from '../filters/clientFilter'
+import { TableFilterBar } from '../filters/TableFilterBar'
+import { useUrlFilters } from '../filters/useUrlFilters'
 import { formatDateTime } from '../../lib/dates'
 import { downloadFile } from '../../lib/download'
 import { problemMessage } from '../../lib/problem'
@@ -55,6 +60,18 @@ export function ImportPanel({ kind }: { kind: ImportKind }) {
   const [current, setCurrent] = useState<ImportView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  // task 053m: the history's filters (GET /api/filters/imports), kept in the URL, applied in the browser
+  const filterMeta = useTableFilters('imports')
+  const filterUrl = useUrlFilters(filterMeta.data ?? [])
+  const field = (i: ImportListItem, key: string): unknown => {
+    const fields: Record<string, unknown> = {
+      impQ: [i.fileName, i.uploadedBy],
+      impApplied: i.appliedAt != null,
+      impUploaded: i.uploadedAt,
+    }
+    return fields[key]
+  }
+  const history = (imports.data ?? []).filter((i) => matchesFilters(i, filterUrl.filters, filterUrl.values, field))
 
   const download = (path: string, name: string) =>
     void downloadFile(`${importBase(kind)}${path}`, name, () => undefined, new AbortController().signal).catch((e: unknown) =>
@@ -133,11 +150,15 @@ export function ImportPanel({ kind }: { kind: ImportKind }) {
         </Typography>
         {imports.isPending && <CircularProgress aria-label={sq.errors.loading} />}
         {imports.isSuccess && imports.data.length === 0 && <Typography color="text.secondary">{t.noImports}</Typography>}
-        {imports.isSuccess && imports.data.length > 0 && (
+        {imports.isSuccess && imports.data.length > 0 && <TableFilterBar meta={filterMeta} url={filterUrl} />}
+        {imports.isSuccess && imports.data.length > 0 && history.length === 0 && (
+          <Typography color="text.secondary">{sq.filters.noMatch}</Typography>
+        )}
+        {history.length > 0 && (
           <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
             <Table size="small" aria-label={t.history}>
               <TableBody>
-                {imports.data.map((i) => (
+                {history.map((i) => (
                   <TableRow key={i.publicId} hover selected={i.publicId === current?.publicId}>
                     <TableCell>{i.fileName}</TableCell>
                     <TableCell>

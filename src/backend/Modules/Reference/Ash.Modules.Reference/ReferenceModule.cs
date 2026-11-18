@@ -19,6 +19,12 @@ public static class ReferenceModule
 		services.AddScoped<ReferenceDbContext>();
 		services.AddScoped<IReferenceData, ReferenceData>();
 		services.AddScoped<SearchJudgesHandler>();
+		// task 053m: the filters of the reference admin tables (GET /api/filters/{table})
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, CourtListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, JudgeListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, SimpleListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, FileTypeListFilterSource>();
+		services.AddScoped<Ash.SharedKernel.Filters.ITableFilterSource, CodeFormatListFilterSource>();
 		services.AddScoped<ListHearingTypesAdminHandler>();
 		services.AddScoped<CreateHearingTypeHandler>();
 		services.AddScoped<UpdateHearingTypeHandler>();

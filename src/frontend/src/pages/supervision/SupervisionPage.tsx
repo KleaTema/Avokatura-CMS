@@ -8,11 +8,9 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  FormControlLabel,
   Link as MuiLink,
   Paper,
   Stack,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -25,6 +23,10 @@ import { ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../../api/client'
+import { matchesFilters } from '../../components/filters/clientFilter'
+import { textOf } from '../../components/filters/filterTypes'
+import { TableFilterBar } from '../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -38,6 +40,7 @@ import {
   useSupervisions,
   type Supervision,
 } from '../../features/supervision/api'
+import { useTableFilters } from '../../features/filters/api'
 import { sq } from '../../i18n/sq'
 import { formatDate } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
@@ -53,12 +56,24 @@ const targetOf = (s: Supervision) => (s.kind === 'LAWYER' ? (s.lawyer?.name ?? '
  * them under "Në mbikëqyrje".
  */
 export function SupervisionPage() {
-  const [includeEnded, setIncludeEnded] = useState(false)
-  const list = useSupervisions(includeEnded)
+  // task 053m: the shared FilterBar (GET /api/filters/supervisions), kept in the URL; the status picks what is
+  // fetched (the active ones unless "Të përfunduara" / "Të gjitha"), the rest is applied in the browser
+  const meta = useTableFilters('supervisions')
+  const url = useUrlFilters(meta.data ?? [])
+  const status = textOf(url.values, 'status')
+  const list = useSupervisions(status !== '')
   const [adding, setAdding] = useState(false)
   const [ending, setEnding] = useState<Supervision | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const rows = list.data ?? []
+  const field = (s: Supervision, key: string): unknown => {
+    const fields: Record<string, unknown> = { q: [s.head.name, targetOf(s)], kind: s.kind, since: s.createdAt }
+    return fields[key]
+  }
+  const rows = (list.data ?? []).filter(
+    (s) =>
+      (status !== 'ENDED' || s.endedAt) &&
+      matchesFilters(s, url.filters.filter((f) => f.key !== 'status'), url.values, field),
+  )
 
   return (
     <Stack spacing={3}>
@@ -71,10 +86,7 @@ export function SupervisionPage() {
         }
       />
       <Typography color="text.secondary">{t.intro}</Typography>
-      <FormControlLabel
-        control={<Switch checked={includeEnded} onChange={(e) => setIncludeEnded(e.target.checked)} />}
-        label={t.showEnded}
-      />
+      <TableFilterBar meta={meta} url={url} />
       {list.isPending && <CircularProgress aria-label={sq.errors.loading} />}
       {list.isError && <Alert severity="error">{problemMessage(list.error)}</Alert>}
       {list.isSuccess && rows.length === 0 && <EmptyState icon={ShieldCheck} title={t.empty} />}

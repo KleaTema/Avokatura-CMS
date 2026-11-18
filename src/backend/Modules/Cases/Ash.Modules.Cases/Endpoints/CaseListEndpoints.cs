@@ -16,11 +16,11 @@ public static class CaseListEndpoints
                 async (string? tab, string? status, int? courtId, string? categoryCode, string? priority, bool? suspended,
                     DateOnly? hearingFrom, DateOnly? hearingTo, Guid? lawyerId, string? q, string? after, int? limit,
                     Guid? officeId, string? courtLevel, long? judgeId, DateOnly? registeredFrom, DateOnly? registeredTo,
-                    Guid? institutionId, string? filter, ListCasesHandler handler, CancellationToken ct) =>
+                    Guid? institutionId, string? filter, string? code, string? actNumber, ListCasesHandler handler, CancellationToken ct) =>
                 {
                     var result = await handler.Handle(new ListCasesQuery(tab, status, courtId, categoryCode, priority, suspended,
                         hearingFrom, hearingTo, lawyerId, q, after, limit, officeId, courtLevel, judgeId, registeredFrom,
-                        registeredTo, institutionId, filter), ct);
+                        registeredTo, institutionId, filter, code, actNumber), ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequireAuthorization()

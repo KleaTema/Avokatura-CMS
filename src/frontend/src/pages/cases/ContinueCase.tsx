@@ -4,17 +4,18 @@ import {
   Button,
   CircularProgress,
   Link as MuiLink,
-  Menu,
-  MenuItem,
   Stack,
   TableCell,
   TableRow,
   TextField,
   Typography,
 } from '@mui/material'
-import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { FilterBar } from '../../components/filters/FilterBar'
+import { descendantsOf, hasValue, type FilterDef, type FilterValue, type FilterValues } from '../../components/filters/filterTypes'
+import { UnusedFilterGuard } from '../../components/filters/UnusedFilterGuard'
+import { ADDED_PARAM } from '../../components/filters/useUrlFilters'
 import { JudgePicker, type PickedJudge } from '../../components/JudgePicker'
 import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
@@ -50,14 +51,13 @@ import {
   useCourts,
   useDecisionResults,
 } from '../../features/reference/api'
-import { cleanValues, descendants, filtersParam, parseValues, type FilterValue, type FilterValues, type ReportFilterMeta } from '../../features/reports/builder'
+import { cleanValues, filtersParam, parseValues } from '../../features/reports/builder'
 import { sq } from '../../i18n/sq'
 import { formatTiraneDate } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
-import { FilterField as MoreFilterField } from '../reports/builder/FilterField'
 
 const t = sq.cases.continue
 
@@ -105,8 +105,8 @@ const COLUMNS: DataColumn[] = [
   { key: 'action', label: t.columns.action },
 ]
 
-/** A "+ Shto filtër" filter as the report builder's FilterField draws it (never default, required or locked here). */
-const asReportFilter = (f: MoreFilter): ReportFilterMeta => ({
+/** A "+ Shto filtër" filter as the shared FilterBar draws it (never default, required or locked here). */
+const asReportFilter = (f: MoreFilter): FilterDef => ({
   key: f.key,
   label: f.label,
   kind: f.kind,
@@ -161,34 +161,33 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const statusParam = params.get('status') ?? ''
   const status: RegistrationStatus = isStatus(statusParam) ? statusParam : 'CONTINUABLE'
 
-  // "+ Shto filtër": the report builder's registry; the added ones stay shown while empty
+  // "+ Shto filtër" (task 053m: the shared FilterBar): the report builder's registry, the values in ?more=, the added
+  // ones in ?af= (shown while empty, kept by Back; the leave dialog asks before an unused one is lost)
   const moreValues = parseValues(safeJson(params.get(MORE)))
   const moreParam = Object.keys(cleanValues(moreValues)).length > 0 ? filtersParam(moreValues) : ''
   const more = useMoreFilters(moreParam)
   const moreFilters = (more.data ?? []).map(asReportFilter)
-  const [added, setAdded] = useState<string[]>(() => Object.keys(moreValues))
-  const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null)
-  const shownMore = moreFilters.filter((f) => added.includes(f.key) || cleanValues(moreValues)[f.key] !== undefined)
-  const addable = moreFilters.filter((f) => !shownMore.includes(f))
-  const setMore = (next: FilterValues) =>
-    set({ [MORE]: Object.keys(cleanValues(next)).length > 0 ? filtersParam(next) : '' })
-  const changeMore = (filter: ReportFilterMeta, value: FilterValue) => {
+  const added = (params.get(ADDED_PARAM) ?? '').split(',').filter((k) => k !== '')
+  const unused = added.some((k) => !hasValue(moreValues[k]))
+  const setMore = (next: FilterValues, nextAdded: string[] = added) =>
+    set({
+      [MORE]: Object.keys(cleanValues(next)).length > 0 ? filtersParam(next) : '',
+      [ADDED_PARAM]: nextAdded.join(','),
+    })
+  const changeMore = (filter: FilterDef, value: FilterValue) => {
     const next = { ...moreValues, [filter.key]: value }
-    for (const child of descendants(moreFilters, filter.key)) delete next[child]
+    for (const child of descendantsOf(moreFilters, filter.key)) delete next[child]
     setMore(next)
   }
-  const removeMore = (filter: ReportFilterMeta) => {
-    setAdded((current) => current.filter((k) => k !== filter.key))
+  const removeMore = (filter: FilterDef) => {
     const next = { ...moreValues }
     delete next[filter.key]
-    for (const child of descendants(moreFilters, filter.key)) delete next[child]
-    setMore(next)
+    for (const child of descendantsOf(moreFilters, filter.key)) delete next[child]
+    setMore(next, added.filter((k) => k !== filter.key))
   }
 
-  const clearAll = () => {
-    setAdded([])
-    set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, ''], [MORE, ''], ['status', '']]))
-  }
+  const clearAll = () =>
+    set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, ''], [MORE, ''], [ADDED_PARAM, ''], ['status', '']]))
 
   // texts count from 2 characters, after a pause; chosen values at once (debounced as a string: `raw` is new each render)
   const typed = JSON.parse(useDebounced(JSON.stringify(raw), 300)) as RegistrationFilterValues
@@ -202,7 +201,6 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const results = useRegistrationSearch(fields, values, status, moreParam, { cursor: paging.cursor, size: paging.size })
   const [notifyFor, setNotifyFor] = useState<RegistrationSearchItem | null>(null)
   const items = results.data?.items ?? []
-  const labelOf = (key: string | null | undefined) => moreFilters.find((f) => f.key === key)?.label
 
   return (
     <Stack spacing={3}>
@@ -235,47 +233,22 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
         />
       </Box>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-start' } }}>
-        {shownMore.map((f) => (
-          <MoreFilterField
-            key={f.key}
-            filter={f}
-            value={moreValues[f.key]}
-            onChange={(v) => changeMore(f, v)}
-            onRemove={() => removeMore(f)}
-            parentLabel={f.parent && cleanValues(moreValues)[f.parent] === undefined ? labelOf(f.parent) : undefined}
-          />
-        ))}
-        {addable.length > 0 && (
-          <Button
-            variant="outlined"
-            startIcon={<Plus size={18} aria-hidden />}
-            onClick={(e) => setAddAnchor(e.currentTarget)}
-            sx={{ mt: 1 }}
-          >
-            {t.addFilter}
-          </Button>
-        )}
-        <Menu anchorEl={addAnchor} open={addAnchor !== null} onClose={() => setAddAnchor(null)}>
-          {addable.map((f) => (
-            <MenuItem
-              key={f.key}
-              onClick={() => {
-                setAdded((current) => [...current, f.key])
-                setAddAnchor(null)
-              }}
-            >
-              {f.label}
-            </MenuItem>
-          ))}
-        </Menu>
-        {filtered && (
-          <Button onClick={clearAll} sx={{ mt: 1 }}>
-            {t.clearFilters}
-          </Button>
-        )}
-      </Stack>
-
+      <FilterBar
+        filters={moreFilters}
+        values={moreValues}
+        added={added}
+        onChange={changeMore}
+        onAdd={(key) => setMore(moreValues, [...added.filter((k) => k !== key), key])}
+        onRemove={removeMore}
+        after={
+          filtered && (
+            <Button onClick={clearAll} sx={{ mt: 0.25 }}>
+              {t.clearFilters}
+            </Button>
+          )
+        }
+      />
+      <UnusedFilterGuard unused={unused} />
       {results.isError && <Alert severity="error">{problemMessage(results.error)}</Alert>}
 
       <DataTable

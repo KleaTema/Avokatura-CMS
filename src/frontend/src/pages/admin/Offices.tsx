@@ -1,17 +1,19 @@
-import { Alert, Box, Button, Stack, TableCell, TableRow, TextField } from '@mui/material'
+import { Alert, Box, Button, TableCell, TableRow } from '@mui/material'
 import { useState } from 'react'
+import { matchesFilters } from '../../components/filters/clientFilter'
+import { textOf } from '../../components/filters/filterTypes'
+import { TableFilterBar } from '../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
-import { AppSelect } from '../../components/ui/AppSelect'
 import { CodeText } from '../../components/ui/CodeText'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useAdminOffices, useSetOfficeActive, type AdminOffice } from '../../features/admin/api'
+import { useTableFilters } from '../../features/filters/api'
 import { sq } from '../../i18n/sq'
 import { useClientPaging } from '../../lib/paging'
 import { isForbidden, problemMessage } from '../../lib/problem'
-import { matches } from '../../lib/search'
-import { useUrlSearch } from '../../lib/useUrlSearch'
 import { ForbiddenPage } from '../ErrorPages'
 import { StatusChip } from './lists/common'
 import { rowSx, useForbiddenRedirect } from './lists/helpers'
@@ -22,6 +24,22 @@ import { OfficeHeadDialog } from './OfficeHeadDialog'
 const t = sq.adminOffices
 const tl = sq.adminLists
 
+/** A row's value for a filter key of GET /api/filters/offices. */
+function officeField(o: AdminOffice, key: string): unknown {
+  switch (key) {
+    case 'q':
+      return [o.code, o.name, o.head?.name]
+    case 'type':
+      return o.officeType
+    case 'parent':
+      return o.parent?.publicId
+    case 'active':
+      return o.isActive
+    default:
+      return undefined
+  }
+}
+
 export function OfficesPage() {
   const offices = useAdminOffices()
   const setActive = useSetOfficeActive()
@@ -29,24 +47,18 @@ export function OfficesPage() {
   const [editing, setEditing] = useState<{ office: AdminOffice | null } | null>(null)
   const [headFor, setHeadFor] = useState<AdminOffice | null>(null)
   const [courtsFor, setCourtsFor] = useState<AdminOffice | null>(null)
-  const [q, setQ] = useUrlSearch()
-  const [type, setType] = useUrlSearch('type')
-  const [parent, setParent] = useUrlSearch('parent')
-  const [active, setActiveFilter] = useUrlSearch('active')
+  // task 053m: the shared FilterBar (metadata GET /api/filters/offices), kept in the URL
+  const meta = useTableFilters('offices')
+  const filterDefs = meta.data ?? []
+  const url = useUrlFilters(filterDefs)
+  const q = textOf(url.values, 'q')
 
-  // a few dozen offices: "contains" search and the column filters in the browser, numbered pages
+  // a few dozen offices: the filters applied in the browser, numbered pages
   const all = offices.data ?? []
-  const filtered = all.filter(
-    (o) =>
-      matches(q, o.code, o.name, o.head?.name) &&
-      (type === '' || o.officeType === type) &&
-      (parent === '' || o.parent?.publicId === parent) &&
-      (active === '' || String(o.isActive) === active),
-  )
+  const filtered = all.filter((o) => matchesFilters(o, filterDefs, url.values, officeField))
   const paging = useClientPaging(filtered)
   if (isForbidden(offices.error)) return <ForbiddenPage />
   const rows = paging.items
-  const parents = all.filter((o) => all.some((child) => child.parent?.publicId === o.publicId))
 
   const toggle = (office: AdminOffice) =>
     setActive.mutate({ publicId: office.publicId, active: !office.isActive }, { onError: redirectIfForbidden })
@@ -62,46 +74,7 @@ export function OfficesPage() {
         }
       />
 
-      <TextField
-        label={t.search}
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        fullWidth
-        sx={{ mb: 2 }}
-      />
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.officeType}
-          value={type}
-          onChange={setType}
-          options={Object.entries(t.officeTypes).map(([value, label]) => ({ value, label }))}
-          sx={{ width: { xs: '100%', md: 220 } }}
-        />
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.parent}
-          value={parent}
-          onChange={setParent}
-          options={parents.map((o) => ({ value: o.publicId, label: o.name }))}
-          sx={{ width: { xs: '100%', md: 260 } }}
-        />
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.status}
-          value={active}
-          onChange={setActiveFilter}
-          options={[
-            { value: 'true', label: tl.active },
-            { value: 'false', label: tl.inactive },
-          ]}
-          sx={{ width: { xs: '100%', md: 180 } }}
-        />
-      </Stack>
+      <TableFilterBar meta={meta} url={url} />
 
       {offices.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -166,7 +139,7 @@ export function OfficesPage() {
                 </TableRow>
               ))}
               {offices.isSuccess && offices.data.length > 0 && rows.length === 0 && (
-                <SearchEmptyRow q={q} colSpan={8} onClear={() => setQ('')} />
+                <SearchEmptyRow q={q} colSpan={8} onClear={() => url.setKey('q', '')} />
               )}
       </DataTable>
 

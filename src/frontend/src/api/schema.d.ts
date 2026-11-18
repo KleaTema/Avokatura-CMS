@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/filters/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListTableFilters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/config": {
         parameters: {
             query?: never;
@@ -3302,6 +3318,11 @@ export interface components {
             publicId: string;
             name: string;
         };
+        FilterOption: {
+            value: string;
+            label: string;
+            parent?: null | string;
+        };
         FilterOptionsResponse: {
             offices: components["schemas"]["FilterOffice"][];
             lawyers: components["schemas"]["FilterLawyer"][];
@@ -4182,6 +4203,15 @@ export interface components {
             name: string;
             officeName: null | string;
         };
+        TableFilter: {
+            key: string;
+            label: string;
+            kind: string;
+            parent: null | string;
+            isDefault: boolean;
+            params: string[];
+            options?: null | components["schemas"]["FilterOption"][];
+        };
         TransferLawyerRequest: {
             /** Format: uuid */
             newPrimaryUserPublicId: null | string;
@@ -4409,6 +4439,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionResponse"];
+                };
+            };
+        };
+    };
+    ListTableFilters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableFilter"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -4911,6 +4972,8 @@ export interface operations {
                 registeredTo?: string;
                 institutionId?: string;
                 filter?: string;
+                code?: string;
+                actNumber?: string;
             };
             header?: never;
             path?: never;
@@ -5934,6 +5997,9 @@ export interface operations {
                 after?: string;
                 limit?: number | string;
                 status?: string;
+                q?: string;
+                from?: string;
+                to?: string;
             };
             header?: never;
             path: {
@@ -6210,6 +6276,10 @@ export interface operations {
                 unreadOnly?: boolean;
                 after?: string;
                 limit?: number | string;
+                type?: string;
+                q?: string;
+                from?: string;
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -6396,6 +6466,9 @@ export interface operations {
                 active?: boolean;
                 after?: string;
                 limit?: number | string;
+                position?: string;
+                lastLoginFrom?: string;
+                lastLoginTo?: string;
             };
             header?: never;
             path?: never;

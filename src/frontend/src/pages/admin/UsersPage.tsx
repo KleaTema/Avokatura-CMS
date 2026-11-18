@@ -10,17 +10,17 @@ import {
   Stack,
   TableCell,
   TableRow,
-  TextField,
 } from '@mui/material'
+import { hasValue, rangeOf, textOf, yesNoOf } from '../../components/filters/filterTypes'
+import { TableFilterBar } from '../../components/filters/TableFilterBar'
+import { useUrlFilters } from '../../components/filters/useUrlFilters'
 import { ImportPanel } from '../../components/imports/ImportPanel'
-import { InstitutionPicker } from '../../components/InstitutionPicker'
-import { OptionPicker } from '../../components/OptionPicker'
-import { AppSelect } from '../../components/ui/AppSelect'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useState } from 'react'
-import { useActivateUser, useAdminOffices, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
+import { useActivateUser, useAdminRoles, useAdminUsers, type AdminUser } from '../../features/admin/api'
+import { useTableFilters } from '../../features/filters/api'
 import { sq } from '../../i18n/sq'
 import { formatDateTime } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
@@ -28,7 +28,6 @@ import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { problemMessage } from '../../lib/problem'
 import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
-import { useUrlSearch } from '../../lib/useUrlSearch'
 import { UsersCreateDialog } from './UsersCreateDialog'
 import { UsersDeactivateDialog } from './UsersDeactivateDialog'
 import { UsersRolesDialog } from './UsersRolesDialog'
@@ -36,19 +35,29 @@ import { UsersIdentitiesDialog } from './UsersIdentitiesDialog'
 
 const t = sq.adminUsers
 
-/** Users (task 013): search anywhere in the name or email, a filter for every column, keyset pages of 10. */
+/**
+ * Users (task 013): search anywhere in the name or email, keyset pages of 10. Task 053m: the shared FilterBar — search,
+ * role, active on top, "+ Shto filtër" for office, institution, position, last login (all sent to the API).
+ */
 export function UsersPage() {
-  const [search, setSearch] = useUrlSearch()
-  const [role, setRole] = useUrlSearch('role')
-  const [officeId, setOfficeId] = useUrlSearch('office')
-  const [institutionId, setInstitutionId] = useUrlSearch('institution')
-  const [institutionName, setInstitutionName] = useUrlSearch('institutionName')
-  const [active, setActive] = useUrlSearch('active')
+  const meta = useTableFilters('users')
+  const filterDefs = meta.data ?? []
+  const url = useUrlFilters(filterDefs)
+  const search = textOf(url.values, 'q')
   const q = useDebounced(serverQuery(search), 300)
+  const position = useDebounced(textOf(url.values, 'position').trim(), 300)
+  const role = textOf(url.values, 'role')
+  const officeId = textOf(url.values, 'office')
+  const institutionId = textOf(url.values, 'institution')
+  const active = yesNoOf(url.values, 'active')
+  const lastLoginFrom = rangeOf(url.values, 'lastLogin', 'from')
+  const lastLoginTo = rangeOf(url.values, 'lastLogin', 'to')
   const paging = useKeysetPaging()
-  const users = useAdminUsers({ q, role, officeId, institutionId, active }, { cursor: paging.cursor, size: paging.size })
+  const users = useAdminUsers(
+    { q, role, officeId, institutionId, active, position, lastLoginFrom, lastLoginTo },
+    { cursor: paging.cursor, size: paging.size },
+  )
   const roles = useAdminRoles()
-  const offices = useAdminOffices()
   const activate = useActivateUser()
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -58,7 +67,7 @@ export function UsersPage() {
 
   const rows = users.data?.items ?? []
   const roleName = (code: string) => roles.data?.find((r) => r.code === code)?.name ?? code
-  const filtered = q !== '' || role !== '' || officeId !== '' || institutionId !== '' || active !== ''
+  const filtered = filterDefs.some((f) => hasValue(url.values[f.key]))
 
   return (
     <Box>
@@ -77,60 +86,7 @@ export function UsersPage() {
         }
       />
 
-      <TextField
-        label={t.search}
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        fullWidth
-        sx={{ mb: 2 }}
-      />
-      {/* a filter for every column: roles, office / institution, status */}
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.roles}
-          value={role}
-          onChange={setRole}
-          options={(roles.data ?? []).map((r) => ({ value: r.code, label: r.name }))}
-          sx={{ width: { xs: '100%', md: 220 } }}
-        />
-        <Box sx={{ width: { xs: '100%', md: 260 } }}>
-          <OptionPicker
-            filter
-            size="small"
-            label={t.create.office}
-            options={(offices.data ?? []).map((o) => ({ value: o.publicId, label: o.name }))}
-            value={officeId}
-            onChange={setOfficeId}
-          />
-        </Box>
-        <Box sx={{ width: { xs: '100%', md: 300 } }}>
-          <InstitutionPicker
-            filter
-            size="small"
-            label={t.create.institution}
-            value={institutionId ? { publicId: institutionId, name: institutionName } : null}
-            onChange={(picked) => {
-              setInstitutionId(picked?.publicId ?? '')
-              setInstitutionName(picked?.name ?? '')
-            }}
-          />
-        </Box>
-        <AppSelect
-          filter
-          size="small"
-          label={t.columns.status}
-          value={active}
-          onChange={setActive}
-          options={[
-            { value: 'true', label: t.active },
-            { value: 'false', label: t.inactive },
-          ]}
-          sx={{ width: { xs: '100%', md: 180 } }}
-        />
-      </Stack>
+      <TableFilterBar meta={meta} url={url} />
 
       {users.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -223,7 +179,7 @@ export function UsersPage() {
               )
             })}
             {users.isSuccess && rows.length === 0 && q && (
-              <SearchEmptyRow q={search} colSpan={8} onClear={() => setSearch('')} />
+              <SearchEmptyRow q={search} colSpan={8} onClear={() => url.setKey('q', '')} />
             )}
       </DataTable>
 

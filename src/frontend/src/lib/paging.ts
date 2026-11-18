@@ -4,7 +4,7 @@ import { useLocation, useSearchParams } from 'react-router'
 export const PAGE_SIZES = [10, 25, 50] as const
 export const DEFAULT_PAGE_SIZE = 10
 
-const pageKey = (prefix: string) => `${prefix}page`
+export const pageKey = (prefix: string) => `${prefix}page`
 const sizeKey = (prefix: string) => `${prefix}size`
 
 /** Every page parameter (`page`, `docspage`, …): changing one table's page must not reset another's cursors. */
