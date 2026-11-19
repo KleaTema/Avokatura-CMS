@@ -49,11 +49,12 @@ public sealed class ListJudgesAdminHandler(ReferenceDbContext db, ParallelReads 
 
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
-            var words = NgramSearch.BooleanQuery(q.Q.Trim());
-            var matches = db.Database.SqlQueryRaw<uint>(
-                "SELECT id AS Value FROM judges WHERE MATCH(first_name, last_name) AGAINST (@judges_q IN BOOLEAN MODE)",
-                new MySqlParameter("@judges_q", words));
-            judges = words.Length == 0 ? judges.Where(_ => false) : judges.Where(x => matches.Contains(x.Id));
+            // live search (TextSearch): every term a substring, from 1 character
+            // fixed text (column and parameter names); the values are parameters
+            var search = TextSearch.Parse(q.Q);
+            var sql = $"SELECT id AS Value FROM judges WHERE {search.Predicate("judges", "first_name", "last_name")}";
+            var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("judges").ToArray<object>());
+            judges = judges.Where(x => matches.Contains(x.Id));
         }
 
         if (q.Active is { } active)

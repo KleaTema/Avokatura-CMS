@@ -29,8 +29,7 @@ import { formatDateTime } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { problemMessage } from '../../lib/problem'
-import { serverQuery } from '../../lib/search'
-import { useDebounced } from '../../lib/useDebounced'
+import { useLiveSearch } from '../../lib/useLiveSearch'
 import { UsersCreateDialog } from './UsersCreateDialog'
 import { UsersDeactivateDialog } from './UsersDeactivateDialog'
 import { UsersRolesDialog } from './UsersRolesDialog'
@@ -47,8 +46,8 @@ export function UsersPage() {
   const filterDefs = meta.data ?? []
   const url = useUrlFilters(filterDefs)
   const search = textOf(url.values, 'q')
-  const q = useDebounced(serverQuery(search), 300)
-  const position = useDebounced(textOf(url.values, 'position').trim(), 300)
+  const q = useLiveSearch(search)
+  const position = useLiveSearch(textOf(url.values, 'position'))
   const role = textOf(url.values, 'role')
   const officeId = textOf(url.values, 'office')
   const institutionId = textOf(url.values, 'institution')
@@ -115,7 +114,7 @@ export function UsersPage() {
         }
       />
 
-      <TableFilterBar meta={meta} url={url} />
+      <TableFilterBar meta={meta} url={url} busy={users.isFetching} />
       <OnlyItemChip param="userId" name={rows[0] ? `${rows[0].firstName} ${rows[0].lastName}` : undefined} />
 
       {users.isError && (

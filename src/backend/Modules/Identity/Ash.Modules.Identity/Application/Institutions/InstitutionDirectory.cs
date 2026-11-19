@@ -1,3 +1,4 @@
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Identity.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -33,12 +34,17 @@ public sealed class InstitutionDirectory(IdentityDbContext db) : IInstitutionDir
             .ToListAsync(ct);
     }
 
-    // ftn_institutions_search (script 014)
-    public async Task<IReadOnlyList<long>> SearchIdsAsync(string booleanWords, int limit, CancellationToken ct = default) =>
-        string.IsNullOrWhiteSpace(booleanWords)
-            ? []
-            : (await db.Database.SqlQueryRaw<uint>(
-                    "SELECT id AS Value FROM institutions WHERE MATCH(name, short_name, nipt) AGAINST ({0} IN BOOLEAN MODE) LIMIT {1}",
-                    booleanWords, limit)
-                .ToListAsync(ct)).Select(id => (long)id).ToList();
+    // ftn_institutions_search (script 014) + the contains rule (TextSearch)
+    public async Task<IReadOnlyList<long>> SearchIdsAsync(string text, int limit, CancellationToken ct = default)
+    {
+        var search = TextSearch.Parse(text);
+        if (search.IsEmpty)
+        {
+            return [];
+        }
+
+        var sql = $"SELECT id AS Value FROM institutions WHERE {search.Predicate("inst", "name", "short_name", "nipt")} LIMIT {limit}";
+        return (await db.Database.SqlQueryRaw<uint>(sql, search.Parameters("inst").ToArray<object>()).ToListAsync(ct))
+            .Select(id => (long)id).ToList();
+    }
 }

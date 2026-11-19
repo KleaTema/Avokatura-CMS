@@ -23,8 +23,7 @@ import { sq } from '../../../i18n/sq'
 import { SearchEmptyRow } from '../../../components/SearchEmptyRow'
 import { useKeysetPaging } from '../../../lib/paging'
 import { isForbidden, problemMessage } from '../../../lib/problem'
-import { serverQuery } from '../../../lib/search'
-import { useDebounced } from '../../../lib/useDebounced'
+import { useLiveSearch } from '../../../lib/useLiveSearch'
 import { ForbiddenPage } from '../../ErrorPages'
 import { StatusChip } from './common'
 import { rowSx, useForbiddenRedirect } from './helpers'
@@ -40,7 +39,7 @@ export function JudgesPanel() {
   const search = textOf(url.values, 'q')
   const active = yesNoOf(url.values, 'active')
   const courtId = textOf(url.values, 'court')
-  const q = useDebounced(serverQuery(search), 300)
+  const q = useLiveSearch(search)
   const paging = useKeysetPaging()
   const judges = useAdminJudges({ q, active, courtId }, { cursor: paging.cursor, size: paging.size })
   const setActive = useSetJudgeActive()
@@ -62,7 +61,7 @@ export function JudgesPanel() {
         </Button>
       </Stack>
 
-      <TableFilterBar meta={meta} url={url} />
+      <TableFilterBar meta={meta} url={url} busy={judges.isFetching} />
 
       {judges.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>

@@ -28,8 +28,20 @@ internal sealed class GetHistoryHandler(CasesDbContext db, ParallelReads paralle
     public const int DefaultLimit = 50;
     public const int MaxLimit = 100;
 
-    public async Task<Result<KeysetPage<CaseHistoryItem>>> Handle(Guid casePublicId, string? after, int? limit, CancellationToken ct)
+    /// <param name="q">
+    /// Live search: every term of the text inside the row's summary (TextSearch's escaped LIKE, from 1 character,
+    /// accent-insensitive by the column's collation) — within the levels the user can view, as without it.
+    /// </param>
+    public async Task<Result<KeysetPage<CaseHistoryItem>>> Handle(Guid casePublicId, string? after, int? limit, CancellationToken ct, string? q = null)
     {
+        var search = TextSearch.Parse(q);
+        if (search.Text.Length > TextSearch.MaxLength)
+        {
+            var tooLong = new FieldErrors();
+            tooLong.Add("q", "Kërkimi ka më shumë se 100 shkronja.");
+            return tooLong.ToError("Kërkimi nuk është i vlefshëm.");
+        }
+
         var c = await db.Cases.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == casePublicId, ct);
         if (c is null || !await access.CanViewAsync((long)c.Id, ct))
         {
@@ -69,8 +81,18 @@ internal sealed class GetHistoryHandler(CasesDbContext db, ParallelReads paralle
 
         // ix_che_dossier (dossier_id, occurred_at)
         var dossierId = c.DossierId;
-        IQueryable<CaseHistoryEvent> Visible(CasesDbContext context) => context.CaseHistoryEvents.AsNoTracking()
-            .Where(e => e.DossierId == dossierId && (e.CaseId == null || visible.Contains(e.CaseId.Value)));
+        var likes = search.Terms.Select(TextSearch.LikePattern).ToList();
+        IQueryable<CaseHistoryEvent> Visible(CasesDbContext context)
+        {
+            var events = context.CaseHistoryEvents.AsNoTracking()
+                .Where(e => e.DossierId == dossierId && (e.CaseId == null || visible.Contains(e.CaseId.Value)));
+            foreach (var like in likes)
+            {
+                events = events.Where(e => EF.Functions.Like(e.Summary, like));
+            }
+
+            return events;
+        }
 
         // the total (no cursor) on its own connection, beside the page query
         var total = parallel.RunAsync<CasesDbContext, int>((other, token) => Visible(other).CountAsync(token), ct);

@@ -18,28 +18,23 @@ public sealed record InstitutionSearchResult(
 public sealed class SearchInstitutionsHandler(IdentityDbContext db)
 {
     public const int MaxLimit = 20;
-    public const int MinQueryLength = 2;
-    public const int MaxQueryLength = 100;
+    public const int MinQueryLength = 1;
+    public const int MaxQueryLength = TextSearch.MaxLength;
 
     public async Task<Result<IReadOnlyList<InstitutionSearchResult>>> Handle(string? q, int? limit, CancellationToken ct)
     {
-        var text = q?.Trim() ?? string.Empty;
-        if (text.Length is < MinQueryLength or > MaxQueryLength)
+        var search = TextSearch.Parse(q);
+        if (search.Text.Length is < MinQueryLength or > MaxQueryLength)
         {
             return Error.Validation("institution.search_query_invalid",
-                "Shkruani nga 2 deri në 100 karaktere për të kërkuar institucionin.");
+                "Shkruani nga 1 deri në 100 karaktere për të kërkuar institucionin.");
         }
 
         var take = Math.Clamp(limit ?? MaxLimit, 1, MaxLimit);
-        var words = NgramSearch.BooleanQuery(text);
-        if (words.Length == 0)
-        {
-            return Array.Empty<InstitutionSearchResult>();
-        }
-
-        var matches = db.Database.SqlQueryRaw<uint>(
-            "SELECT id AS Value FROM institutions WHERE MATCH(name, short_name, nipt) AGAINST (@institution_q IN BOOLEAN MODE)",
-            new MySqlParameter("@institution_q", words));
+        // live search (TextSearch): every term a substring, from 1 character
+        // fixed text (column and parameter names); the values are parameters
+        var sql = $"SELECT id AS Value FROM institutions WHERE {search.Predicate("institution", "name", "short_name", "nipt")}";
+        var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("institution").ToArray<object>());
         var rows = await (from i in db.Institutions.AsNoTracking()
                           where i.IsActive && matches.Contains(i.Id)
                           join p in db.Institutions.AsNoTracking() on i.ParentInstitutionId equals (uint?)p.Id into parents

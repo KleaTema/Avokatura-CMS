@@ -1,8 +1,7 @@
 import { useState, type Ref } from 'react'
 import { useJudgeSearch } from '../features/reference/api'
 import { sq } from '../i18n/sq'
-import { MIN_SERVER_QUERY } from '../lib/search'
-import { useDebounced } from '../lib/useDebounced'
+import { useLiveSearch } from '../lib/useLiveSearch'
 import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 const t = sq.cases.register
@@ -44,7 +43,8 @@ export function JudgePicker({
   size?: 'small' | 'medium'
 }) {
   const [input, setInput] = useState(value?.name ?? '')
-  const q = useDebounced(input, 300)
+  // live search: from 1 character, 300 ms after the last keystroke
+  const q = useLiveSearch(input)
   const disabled = !showAll && courtId === null
   // the label of the chosen judge is not a search
   const searchText = value && input === value.name ? '' : q
@@ -59,7 +59,7 @@ export function JudgePicker({
 
   const noOptionsText = disabled
     ? t.chooseCourtFirst
-    : showAll && searchText.trim().length < MIN_SERVER_QUERY
+    : showAll && searchText === ''
       ? t.typeJudge
       : t.noJudges
 

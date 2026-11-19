@@ -15,32 +15,70 @@ import {
   Typography,
 } from '@mui/material'
 import { useId, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { CodeText } from '../../../components/ui/CodeText'
 import { PaginationFooter } from '../../../components/ui/DataTable'
+import { SearchField } from '../../../components/ui/SearchField'
 import { useCaseHistory, type CaseHistoryItem } from '../../../features/cases/api'
 import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
 import { detailRows, historyLine, textOf } from '../../../lib/historyDetails'
-import { useKeysetPaging } from '../../../lib/paging'
+import { pageKey, useKeysetPaging } from '../../../lib/paging'
 import { problemMessage } from '../../../lib/problem'
+import { useLiveSearch } from '../../../lib/useLiveSearch'
 
 const h = sq.cases.page.history
 
+const SEARCH_PARAM = 'histq'
+
 /**
  * Historiku — every level of the dossier the user can view, newest first, with readable before/after details;
- * keyset pages of 10 (page and size in the URL: histpage, histsize).
+ * keyset pages of 10 (page and size in the URL: histpage, histsize). Live search over the rows' text (?histq=, back to
+ * the first page on a new text; the previous rows stay while the new ones load).
  */
 export function HistoryTab({ casePublicId }: { casePublicId: string }) {
+  const [params, setParams] = useSearchParams()
+  const text = params.get(SEARCH_PARAM) ?? ''
+  const q = useLiveSearch(text)
+  const setText = (value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(SEARCH_PARAM, value)
+        else next.delete(SEARCH_PARAM)
+        next.delete(pageKey('hist'))
+        return next
+      },
+      { replace: true },
+    )
   const paging = useKeysetPaging('hist')
-  const history = useCaseHistory(casePublicId, { cursor: paging.cursor, size: paging.size }, true)
+  const history = useCaseHistory(casePublicId, { cursor: paging.cursor, size: paging.size }, true, q)
   const items = history.data?.items ?? []
 
+  const search = (
+    <Box sx={{ maxWidth: 360 }}>
+      <SearchField label={h.search} value={text} onChange={setText} busy={history.isFetching && text !== ''} />
+    </Box>
+  )
   if (history.isPending) return <CircularProgress aria-label={sq.errors.loading} />
-  if (history.isError) return <Alert severity="error">{problemMessage(history.error)}</Alert>
-  if (items.length === 0) return <Typography color="text.secondary">{h.empty}</Typography>
+  if (history.isError)
+    return (
+      <Stack spacing={2}>
+        {search}
+        <Alert severity="error">{problemMessage(history.error)}</Alert>
+      </Stack>
+    )
+  if (items.length === 0)
+    return (
+      <Stack spacing={2}>
+        {(q !== '' || text !== '') && search}
+        <Typography color="text.secondary">{q !== '' ? sq.search.noResults(q) : h.empty}</Typography>
+      </Stack>
+    )
 
   return (
     <Stack spacing={1}>
+      {search}
       <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {items.map((item, index) => (
           <HistoryEntry key={`${item.occurredAt}-${index}`} item={item} />

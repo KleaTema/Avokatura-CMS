@@ -7,7 +7,6 @@ import {
   Stack,
   TableCell,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
@@ -23,6 +22,7 @@ import { CaseCode } from '../../components/ui/CaseCode'
 import { DataTable, PaginationFooter, type DataColumn } from '../../components/ui/DataTable'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { SearchField } from '../../components/ui/SearchField'
 import { StatusChip } from '../../components/ui/StatusChip'
 import { stickyCellSx } from '../../components/ui/tableStyles'
 import { NotifyNotClosedDialog } from '../../components/registration/NotifyNotClosedDialog'
@@ -56,8 +56,8 @@ import { sq } from '../../i18n/sq'
 import { formatTiraneDate } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
-import { serverQuery } from '../../lib/search'
 import { useDebounced } from '../../lib/useDebounced'
+import { LIVE_SEARCH_DEBOUNCE_MS } from '../../lib/useLiveSearch'
 
 const t = sq.cases.continue
 
@@ -189,12 +189,14 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const clearAll = () =>
     set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, ''], [MORE, ''], [ADDED_PARAM, ''], ['status', '']]))
 
-  // texts count from 2 characters, after a pause; chosen values at once (debounced as a string: `raw` is new each render)
-  const typed = JSON.parse(useDebounced(JSON.stringify(raw), 300)) as RegistrationFilterValues
+  // live search: texts from 1 character, 300 ms after the last keystroke, '' at once when cleared; chosen values at
+  // once (debounced as a string: `raw` is new each render)
+  const typed = JSON.parse(useDebounced(JSON.stringify(raw), LIVE_SEARCH_DEBOUNCE_MS)) as RegistrationFilterValues
   const values: RegistrationFilterValues = Object.fromEntries(
     fields.map((f) => {
       const key = f.name as RegistrationFilterName
-      return [f.name, f.input === 'Text' ? serverQuery(typed[key] ?? '') : (raw[key] ?? '')]
+      const now = (raw[key] ?? '').trim()
+      return [f.name, f.input === 'Text' ? (now === '' ? '' : (typed[key] ?? '').trim()) : (raw[key] ?? '')]
     }),
   )
   const filtered = Object.values(values).some((v) => v) || moreParam !== '' || status !== 'CONTINUABLE'
@@ -223,6 +225,7 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
             onChange={(value) => change(f.name, value)}
             onJudge={(judge) => set({ judgeId: judge?.id ?? '', [JUDGE_NAME]: judge?.name ?? '' })}
             autoFocus={i === 0}
+            busy={results.isFetching && (raw[f.name as RegistrationFilterName] ?? '') !== ''}
           />
         ))}
         <AppSelect
@@ -325,6 +328,7 @@ function FilterField({
   onChange,
   onJudge,
   autoFocus,
+  busy,
 }: {
   filter: RegistrationFilter
   value: string
@@ -334,6 +338,8 @@ function FilterField({
   onChange: (value: string) => void
   onJudge: (judge: PickedJudge | null) => void
   autoFocus: boolean
+  /** a text field: the results are loading */
+  busy: boolean
 }) {
   const label = t.filters[filter.name] ?? filter.name
   const levels = useCourtLevels()
@@ -412,15 +418,8 @@ function FilterField({
         />
       )
     default:
-      return (
-        <TextField
-          label={label}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoFocus={autoFocus}
-          slotProps={{ htmlInput: { maxLength: 100 } }}
-        />
-      )
+      // live search: the shared SearchField (X clears, a spinner while the rows load)
+      return <SearchField size="medium" label={label} value={value} onChange={onChange} autoFocus={autoFocus} busy={busy} />
   }
 }
 

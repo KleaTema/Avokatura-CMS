@@ -7,6 +7,6 @@ internal sealed class CodeSearchFilter : TextFilter
     public override int Order => 10;
 
     // the ngram index narrows the rows; LIKE keeps the match inside the case code (not the act or summons number)
-    protected override string Predicate(string words, string like) =>
-        $"MATCH(a.case_code, a.act_number, a.summons_number) AGAINST ({words} IN BOOLEAN MODE) AND a.case_code LIKE {like}";
+    protected override string Predicate(Ash.Infrastructure.Persistence.TextSearch search, string name) =>
+        search.Predicate(name, ["a.case_code", "a.act_number", "a.summons_number"], ["a.case_code"]);
 }

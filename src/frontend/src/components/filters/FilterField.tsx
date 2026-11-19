@@ -5,6 +5,7 @@ import { sq } from '../../i18n/sq'
 import { isoDateOf } from '../../lib/pickerValues'
 import { AppDatePicker } from '../AppDatePicker'
 import { AppSelect } from '../ui/AppSelect'
+import { SearchField } from '../ui/SearchField'
 import { FilterKind, type FilterDef, type FilterOptionDef, type FilterValue, type RangeValue } from './filterTypes'
 import { RangeGroup } from './RangeGroup'
 
@@ -25,6 +26,7 @@ export function FilterField({
   onChange,
   onRemove,
   autoFocus,
+  busy = false,
 }: {
   filter: FilterDef
   value: FilterValue | undefined
@@ -33,6 +35,8 @@ export function FilterField({
   onChange: (value: FilterValue) => void
   onRemove?: () => void
   autoFocus?: boolean
+  /** a text filter: the list is loading its rows */
+  busy?: boolean
 }) {
   const remove = onRemove && (
     <Tooltip title={t.remove(filter.label)}>
@@ -140,16 +144,15 @@ export function FilterField({
       )
     }
     default:
+      // live search: a contained text is the shared SearchField (X to clear, a spinner while the rows load)
       return (
         <Stack direction="row" spacing={0.5} sx={FIELD}>
-          <TextField
-            fullWidth
-            size="small"
+          <SearchField
             label={filter.label}
             value={typeof value === 'string' ? value : ''}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={onChange}
             autoFocus={autoFocus}
-            slotProps={{ htmlInput: { maxLength: 100 } }}
+            busy={busy}
           />
           {remove}
         </Stack>

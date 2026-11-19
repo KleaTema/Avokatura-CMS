@@ -1125,3 +1125,13 @@ Supersedes the "Gjenero" steps of 045 / 053h. The client's files: `docs/client/T
 1. **Profili → Pozicioni:** only *Pozicioni* and *Njësia*; the note says "Pozicioni dhe njësia vendosen nga administratori përmes Organikës."; the word "Eprori" is nowhere on the page.
 2. **Administrimi → Organika:** "Shkarko shabllonin" → the sheet *Organika* has three columns (email, pozicioni, njesia); *Udhëzime* and the "Si duhet të jetë skedari" card say nothing about an eprori. Upload a sheet → the preview, the result report and "Apliko" show / write only position and unit.
 3. **Database:** `SHOW COLUMNS FROM ash_core.users LIKE 'manager%'` and the same on `user_org_history` return nothing.
+
+## Live search (search-as-you-type)
+**Setup:** restart the API, `npm run gen:api`, `npm run dev`. No script.
+
+1. **Çështjet:** type "5" in *Kërko* → the table updates (no button, no Enter) with every case containing 5; go on to "56" → it narrows; the total and page 1 follow. A small spinner in the box while loading; the old rows stay (no empty table). The X empties the box and the full list is back at once. Refresh and Back keep the text (`?q=` in the URL).
+2. **Accents and symbols:** "pergjigje" finds "Përgjigje", "c" finds "Çela"; "2026-12" finds codes containing exactly "2026-12" (not "2026 … 12"); "%" or "_" find only rows that contain that character.
+3. **Fast typing:** DevTools → Network: typing "abcdef" quickly sends one request (300 ms after the last key); typing on while one runs cancels it (status "canceled"); the rows shown are always those of the text in the box.
+4. **The same everywhere:** the header search (from 1 character), Dokumentet (case tab), Njoftimet, Vazhdo çështjen (every text field), Përdoruesit, Institucionet, Gjyqtarët, the other admin lists (filtered in the browser), the report builder's text filters, the judge and institution pickers — all with the same box (search icon, X) and the same behaviour.
+5. **New searches:** *Chat* (box above the conversations: by case code, party, object), case → *Historia* (box above the history), *Agjenda* (box beside the filters: code, court, lawyer), *Ndihmësit ligjorë* (assistant or lawyer name). Each keeps its text in the URL.
+6. **Scope:** as a lawyer, "c" in Çështjet / the header search shows only the lawyer's own cases.

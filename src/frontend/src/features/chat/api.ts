@@ -11,7 +11,7 @@ export type MessagePage = components['schemas']['MessagePage']
 export const chatKeys = {
   all: ['chat'] as const,
   unread: ['chat', 'unread-total'] as const,
-  conversations: (cursor: string | undefined) => ['chat', 'conversations', cursor ?? null] as const,
+  conversations: (cursor: string | undefined, q = '') => ['chat', 'conversations', q, cursor ?? null] as const,
   conversationsAll: ['chat', 'conversations'] as const,
   caseConversation: (casePublicId: string) => ['chat', 'case', casePublicId] as const,
   participants: (conversationId: string) => ['chat', 'participants', conversationId] as const,
@@ -31,18 +31,21 @@ export const useChatUnread = (enabled: boolean) =>
         .then((r) => ({ unread: Number(r.unread), capped: r.capped })),
   })
 
-const conversationsQuery = (cursor: string | undefined) => ({
-  queryKey: chatKeys.conversations(cursor),
-  queryFn: () => api.GET('/api/chat/conversations', { params: { query: { after: cursor, limit: 20 } } }).then(unwrap),
+const conversationsQuery = (cursor: string | undefined, q: string) => ({
+  queryKey: chatKeys.conversations(cursor, q),
+  // live search: a newer text aborts this request
+  queryFn: ({ signal }: { signal: AbortSignal }) =>
+    api.GET('/api/chat/conversations', { params: { query: { after: cursor, limit: 20, q: q || undefined } }, signal }).then(unwrap),
 })
 
 /**
  * My conversations (most recent activity first): the first page and every page after it the user asked for with
- * "Shfaq më shumë" (keyset cursors). A list beside the thread, not a table: it grows instead of paging.
+ * "Shfaq më shumë" (keyset cursors). A list beside the thread, not a table: it grows instead of paging. `q`: live
+ * search (the conversations of the cases the case search finds); a new q starts again from the first page.
  */
-export const useConversationPages = (cursors: readonly string[]) =>
+export const useConversationPages = (cursors: readonly string[], q = '') =>
   useQueries({
-    queries: [undefined, ...cursors].map((cursor) => ({ ...conversationsQuery(cursor), placeholderData: keepPreviousData })),
+    queries: [undefined, ...cursors].map((cursor) => ({ ...conversationsQuery(cursor, q), placeholderData: keepPreviousData })),
   })
 
 /** The case's chat, created on first use (POST is idempotent; it also brings the participants up to date). */

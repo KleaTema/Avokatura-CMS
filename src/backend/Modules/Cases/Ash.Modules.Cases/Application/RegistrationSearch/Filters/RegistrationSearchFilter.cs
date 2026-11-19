@@ -57,35 +57,35 @@ internal abstract class RegistrationSearchFilter
 }
 
 /// <summary>
-/// Free text over ngram FULLTEXT indexes (script 014): <c>@name</c> is the boolean query (every word required),
-/// <c>@name_like</c> the escaped "%text%" for filters that must also match inside one column.
+/// Free text (live search, <see cref="TextSearch"/>): every term a substring, from 1 character, accent-insensitive;
+/// the ngram FULLTEXT index (script 014) narrows from 2 characters, the escaped LIKE decides. The parameters are named
+/// after <see cref="RegistrationSearchFilter.Name"/>.
 /// </summary>
 internal abstract class TextFilter : RegistrationSearchFilter
 {
-    public const int MinLength = 2;
-    public const int MaxLength = 100;
+    public const int MaxLength = TextSearch.MaxLength;
 
     public override RegistrationFilterInput Input => RegistrationFilterInput.Text;
 
-    protected abstract string Predicate(string words, string like);
+    /// <summary>The predicate of <paramref name="search"/> on this filter's columns (search.Predicate(name, …)).</summary>
+    protected abstract string Predicate(TextSearch search, string name);
 
     public override Task<FilterBinding> BindAsync(string value, IReferenceData reference, CancellationToken ct)
     {
-        var text = value.Trim();
-        if (text.Length is < MinLength or > MaxLength)
+        var search = TextSearch.Parse(value);
+        if (search.Text.Length > MaxLength)
         {
-            return Task.FromResult(FilterBinding.Invalid($"Shkruani nga {MinLength} deri në {MaxLength} karaktere."));
+            return Task.FromResult(FilterBinding.Invalid($"Deri në {MaxLength} karaktere."));
         }
 
-        var words = NgramSearch.BooleanQuery(text);
-        if (words.Length == 0)
+        if (search.IsEmpty)
         {
             return Task.FromResult(FilterBinding.NoMatch);
         }
 
-        var like = "%" + text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
         return Task.FromResult(FilterBinding.Of(
-            Predicate($"@{Name}", $"@{Name}_like"), ($"@{Name}", words), ($"@{Name}_like", like)));
+            Predicate(search, Name),
+            search.Parameters(Name).Select(p => (p.ParameterName, (object)p.Value!)).ToArray()));
     }
 }
 
@@ -94,10 +94,10 @@ internal abstract class PartyFilter : TextFilter
 {
     protected abstract string ReportGroup { get; }
 
-    protected override string Predicate(string words, string like) => $"""
+    protected override string Predicate(TextSearch search, string name) => $"""
         a.id IN (SELECT p.case_id FROM case_parties p JOIN party_roles r ON r.id = p.party_role_id
                  WHERE p.deleted_at IS NULL AND r.report_group = '{ReportGroup}'
-                   AND MATCH(p.display_name, p.identifier) AGAINST ({words} IN BOOLEAN MODE))
+                   AND {search.Predicate(name, "p.display_name", "p.identifier")})
         """;
 }
 

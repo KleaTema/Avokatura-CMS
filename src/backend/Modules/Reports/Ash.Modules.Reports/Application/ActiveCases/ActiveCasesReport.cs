@@ -162,7 +162,6 @@ public sealed class ActiveCasesReport(
                 return null;
             }
 
-            p.Add("search_words", terms.Words);
             where.Append($" AND c.id IN ({terms.Sql})");
         }
 

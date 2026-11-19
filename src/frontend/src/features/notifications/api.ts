@@ -57,9 +57,11 @@ export const useNotifications = (f: NotificationFilters, p: PageRequest) =>
   useQuery({
     queryKey: notificationKeys.list(f, p),
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search: a newer text aborts this request
+    queryFn: ({ signal }) =>
       api
         .GET('/api/notifications', {
+          signal,
           params: {
             query: {
               unreadOnly: f.unreadOnly || undefined,

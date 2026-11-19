@@ -17,7 +17,7 @@ export const SEARCH_LIMIT = 8
 export const useGlobalSearch = (q: string) =>
   useQuery({
     queryKey: ['global-search', q],
-    enabled: q.length >= 2,
+    enabled: q !== '',
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     queryFn: ({ signal }) => api.GET('/api/search', { params: { query: { q, limit: SEARCH_LIMIT } }, signal }).then(unwrap),

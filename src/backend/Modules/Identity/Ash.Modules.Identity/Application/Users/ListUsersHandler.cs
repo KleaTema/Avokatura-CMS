@@ -143,11 +143,12 @@ public sealed class ListUsersHandler(IdentityDbContext db, ParallelReads paralle
 
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
-            var words = NgramSearch.BooleanQuery(q.Q.Trim());
-            var matches = db.Database.SqlQueryRaw<uint>(
-                "SELECT id AS Value FROM users WHERE MATCH(first_name, last_name, email) AGAINST (@users_q IN BOOLEAN MODE)",
-                new MySqlParameter("@users_q", words));
-            users = words.Length == 0 ? users.Where(_ => false) : users.Where(u => matches.Contains(u.Id));
+            // live search (TextSearch): every term a substring, from 1 character
+            // fixed text (column and parameter names); the values are parameters
+            var search = TextSearch.Parse(q.Q);
+            var sql = $"SELECT id AS Value FROM users WHERE {search.Predicate("users", "first_name", "last_name", "email")}";
+            var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("users").ToArray<object>());
+            users = users.Where(u => matches.Contains(u.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(q.Role))

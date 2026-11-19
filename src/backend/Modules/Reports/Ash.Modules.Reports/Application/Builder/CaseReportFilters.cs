@@ -295,9 +295,8 @@ internal static class CaseReportFilters
                     return string.Empty;
                 }
 
-                // a contained text; % and _ typed by the user are literal
-                var escaped = value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
-                p.Add(name[1..], $"%{escaped}%");
+                // a contained text from 1 character (live search); % _ \ typed by the user are literal
+                p.Add(name[1..], Ash.Infrastructure.Persistence.TextSearch.LikePattern(value.Trim()));
                 return def.SelectWhere is { } custom ? custom(name) : $"{def.Column} LIKE {name}";
             }
 

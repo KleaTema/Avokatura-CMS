@@ -15,8 +15,7 @@ import { sq } from '../../i18n/sq'
 import { SearchEmptyRow } from '../../components/SearchEmptyRow'
 import { useKeysetPaging } from '../../lib/paging'
 import { isForbidden, problemMessage } from '../../lib/problem'
-import { serverQuery } from '../../lib/search'
-import { useDebounced } from '../../lib/useDebounced'
+import { useLiveSearch } from '../../lib/useLiveSearch'
 import { ForbiddenPage } from '../ErrorPages'
 import { InstitutionDialog } from './InstitutionDialog'
 import { StatusChip } from './lists/common'
@@ -34,7 +33,7 @@ export function InstitutionsPage() {
   const type = textOf(url.values, 'type')
   const parentId = textOf(url.values, 'parent')
   const active = yesNoOf(url.values, 'active')
-  const q = useDebounced(serverQuery(search), 300)
+  const q = useLiveSearch(search)
   // task 053n: a dashboard row "what changed" opens one institution (?institutionId=), inactive included
   const institutionId = useOnlyItem('institutionId')
   const paging = useKeysetPaging()
@@ -67,7 +66,7 @@ export function InstitutionsPage() {
         }
       />
 
-      <TableFilterBar meta={meta} url={url} />
+      <TableFilterBar meta={meta} url={url} busy={institutions.isFetching} />
       <OnlyItemChip param="institutionId" name={rows[0]?.name} />
 
       {institutions.isError && (

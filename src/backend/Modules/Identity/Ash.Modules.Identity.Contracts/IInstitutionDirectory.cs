@@ -12,8 +12,8 @@ public interface IInstitutionDirectory
     Task<IReadOnlyList<InstitutionInfo>> GetByIdsAsync(IReadOnlyCollection<long> ids, CancellationToken ct = default);
 
     /// <summary>
-    /// Ids of the institutions whose name, short name or NIPT matches a search (task 047): <paramref name="booleanWords"/>
-    /// is NgramSearch.BooleanQuery(q) on the ngram index, at most <paramref name="limit"/>.
+    /// Ids of the institutions whose name, short name or NIPT contains the search text (tasks 047 / live search:
+    /// TextSearch — every term a substring, from 1 character, accent-insensitive), at most <paramref name="limit"/>.
     /// </summary>
-    Task<IReadOnlyList<long>> SearchIdsAsync(string booleanWords, int limit, CancellationToken ct = default);
+    Task<IReadOnlyList<long>> SearchIdsAsync(string text, int limit, CancellationToken ct = default);
 }

@@ -1,12 +1,12 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Ash.Infrastructure.Persistence;
 using Ash.Modules.Cases.Application.ListCases;
 using Ash.Modules.Cases.Infrastructure;
 using Ash.Modules.Identity.Contracts;
 using Ash.Modules.Reference.Contracts;
 using Ash.SharedKernel.Results;
 using Microsoft.EntityFrameworkCore;
-using MySql.Data.MySqlClient;
 
 namespace Ash.Modules.Cases.Application.Search;
 
@@ -65,10 +65,11 @@ internal sealed partial class GlobalSearchHandler(
     public async Task<Result<SearchResponse>> Handle(string? q, int? limit, CancellationToken ct)
     {
         var text = q?.Trim() ?? string.Empty;
-        if (text.Length is < 2 or > 100)
+        // live search: from 1 character (TextSearch)
+        if (text.Length is 0 or > TextSearch.MaxLength)
         {
             return Error.ValidationFields("Kërkimi nuk është i vlefshëm.",
-                new Dictionary<string, string[]> { ["q"] = ["Shkruani nga 2 deri në 100 karaktere për të kërkuar."] });
+                new Dictionary<string, string[]> { ["q"] = ["Shkruani nga 1 deri në 100 karaktere për të kërkuar."] });
         }
 
         var take = Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit);
@@ -111,8 +112,8 @@ internal sealed partial class GlobalSearchHandler(
                     c.DossierId, c.LevelSeq, c.LifecycleStatus, c.CourtId, c.RegisteredAt, d.ArchivedAt != null))
             .ToListAsync(ct);
 
-        var numberHits = await IdsAsync("SELECT id FROM cases WHERE id IN ({ids}) AND MATCH(case_code, act_number, summons_number) AGAINST (@w IN BOOLEAN MODE)", ids, terms, ct);
-        var objectHits = await IdsAsync("SELECT id FROM cases WHERE id IN ({ids}) AND MATCH(object_text) AGAINST (@w IN BOOLEAN MODE)", ids, terms, ct);
+        var numberHits = await IdsAsync(ids, terms.Search.InlinePredicate("case_code", "act_number", "summons_number"), ct);
+        var objectHits = await IdsAsync(ids, terms.Search.InlinePredicate("object_text"), ct);
         var parties = await PartyHitsAsync(ids, terms, ct);
         var institutionCases = terms.InstitutionIds.Count == 0 ? [] : await InstitutionHitsAsync(ids, terms, ct);
 
@@ -224,7 +225,7 @@ internal sealed partial class GlobalSearchHandler(
     {
         var text = WhitespaceRegex().Replace(objectText, " ").Trim();
         var at = -1;
-        foreach (var word in WordRegex().Matches(q).Select(m => m.Value).Where(w => w.Length >= 2))
+        foreach (var word in WordRegex().Matches(q).Select(m => m.Value))
         {
             at = CultureInfo.InvariantCulture.CompareInfo.IndexOf(text, word, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace);
             if (at >= 0)
@@ -243,13 +244,11 @@ internal sealed partial class GlobalSearchHandler(
         return $"{(start > 0 ? "…" : "")}{part}{(start + SnippetLength < text.Length ? "…" : "")}";
     }
 
-    private async Task<HashSet<ulong>> IdsAsync(string sql, List<ulong> ids, CaseSearchTerms terms, CancellationToken ct)
+    /// <summary>The candidates (numbers from the database) that match <paramref name="predicate"/> (TextSearch, escaped).</summary>
+    private async Task<HashSet<ulong>> IdsAsync(List<ulong> ids, string predicate, CancellationToken ct)
     {
-        var rows = await db.Database
-            .SqlQueryRaw<ulong>(sql.Replace("SELECT id FROM", "SELECT id AS Value FROM").Replace("{ids}", string.Join(',', ids)),
-                new MySqlParameter("@w", terms.Words))
-            .ToListAsync(ct);
-        return rows.ToHashSet();
+        var sql = $"SELECT id AS Value FROM cases WHERE id IN ({string.Join(',', ids)}) AND {predicate}";
+        return (await db.Database.SqlQueryRaw<ulong>(sql).ToListAsync(ct)).ToHashSet();
     }
 
     private sealed record PartyHit(ulong CaseId, string DisplayName);
@@ -257,10 +256,10 @@ internal sealed partial class GlobalSearchHandler(
     /// <summary>The first matching (not deleted) party of each candidate: its name for the snippet.</summary>
     private async Task<Dictionary<ulong, string>> PartyHitsAsync(List<ulong> ids, CaseSearchTerms terms, CancellationToken ct)
     {
-        // the ids are numbers from the database; the text goes in as a parameter
+        // the ids are numbers from the database; the text is in TextSearch's escaped literals
         var sql = "SELECT case_id AS CaseId, display_name AS DisplayName FROM case_parties WHERE deleted_at IS NULL "
-                  + $"AND case_id IN ({string.Join(',', ids)}) AND MATCH(display_name, identifier) AGAINST (@w IN BOOLEAN MODE) ORDER BY id";
-        var hits = await db.Database.SqlQueryRaw<PartyHit>(sql, new MySqlParameter("@w", terms.Words)).ToListAsync(ct);
+                  + $"AND case_id IN ({string.Join(',', ids)}) AND {terms.Search.InlinePredicate("display_name", "identifier")} ORDER BY id";
+        var hits = await db.Database.SqlQueryRaw<PartyHit>(sql).ToListAsync(ct);
         return hits.GroupBy(h => h.CaseId).ToDictionary(g => g.Key, g => g.First().DisplayName);
     }
 

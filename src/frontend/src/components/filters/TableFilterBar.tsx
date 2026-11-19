@@ -12,13 +12,15 @@ interface Props {
   url: ReturnType<typeof useUrlFilters>
   before?: ReactNode
   after?: ReactNode
+  /** the list is loading the rows of the current filters (live search: the search field's spinner) */
+  busy?: boolean
 }
 
 /**
  * Task 053m — a list page's filter row: the metadata error, the shared FilterBar over the URL-kept values, and the
  * "unused filter" leave dialog.
  */
-export function TableFilterBar({ meta, url, before, after }: Props) {
+export function TableFilterBar({ meta, url, before, after, busy }: Props) {
   return (
     <Box sx={{ mb: 2 }}>
       {meta.isError && (
@@ -35,6 +37,7 @@ export function TableFilterBar({ meta, url, before, after }: Props) {
         onRemove={url.remove}
         before={before}
         after={after}
+        busy={busy}
       />
       <UnusedFilterGuard unused={url.unused} />
     </Box>

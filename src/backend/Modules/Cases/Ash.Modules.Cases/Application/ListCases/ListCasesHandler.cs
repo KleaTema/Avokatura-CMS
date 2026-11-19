@@ -271,14 +271,19 @@ internal sealed class ListCasesHandler(
         string? search = null;
         if (q.Q is not null)
         {
+            // live search: from 1 character (TextSearch); an empty text is no filter
             search = q.Q.Trim();
-            if (search.Length is < 2 or > 100)
+            if (search.Length == 0)
             {
-                errors.Add("q", "Shkruani nga 2 deri në 100 karaktere për të kërkuar.");
+                search = null;
+            }
+            else if (search.Length > TextSearch.MaxLength)
+            {
+                errors.Add("q", "Kërkimi ka më shumë se 100 shkronja.");
             }
         }
 
-        // task 053m: the code / act number columns (a part of them, from 2 characters)
+        // task 053m: the code / act number columns (a part of them, from 1 character)
         string? Contains(string? value, string field)
         {
             var text = value?.Trim();
@@ -287,9 +292,9 @@ internal sealed class ListCasesHandler(
                 return null;
             }
 
-            if (text.Length is < 2 or > 50)
+            if (text.Length > 50)
             {
-                errors.Add(field, "Shkruani nga 2 deri në 50 karaktere.");
+                errors.Add(field, "Deri në 50 karaktere.");
             }
 
             return text;

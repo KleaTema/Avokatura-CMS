@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { MIN_INSTITUTION_QUERY, useInstitutionSearch } from '../features/admin/api'
+import { useInstitutionSearch } from '../features/admin/api'
 import { sq } from '../i18n/sq'
-import { useDebounced } from '../lib/useDebounced'
+import { useLiveSearch } from '../lib/useLiveSearch'
 import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 export interface PickedInstitution {
@@ -38,7 +38,8 @@ export function InstitutionPicker({
   size?: 'small' | 'medium'
 }) {
   const [input, setInput] = useState(value?.name ?? '')
-  const q = useDebounced(input.trim(), 300)
+  // live search: from 1 character, 300 ms after the last keystroke
+  const q = useLiveSearch(input)
   // the name of the chosen institution is not a search
   const search = useInstitutionSearch(value && input === value.name ? '' : q)
 
@@ -59,7 +60,7 @@ export function InstitutionPicker({
       getOptionKey={(o) => o.publicId}
       loading={search.isFetching}
       loadingText={t.loading}
-      noOptionsText={q.length < MIN_INSTITUTION_QUERY ? t.typeToSearch : t.noResults}
+      noOptionsText={q === '' ? t.typeToSearch : t.noResults}
       label={label}
       required={required}
       filter={filter}

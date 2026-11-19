@@ -37,8 +37,7 @@ import { sq } from '../../i18n/sq'
 import { addDays, formatDateTime, tiraneDateOf, todayInTirane } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
-import { serverQuery } from '../../lib/search'
-import { useDebounced } from '../../lib/useDebounced'
+import { useLiveSearch } from '../../lib/useLiveSearch'
 
 const t = sq.cases.list
 
@@ -138,10 +137,11 @@ export function CaseListPage() {
   const text = (key: string) => textOf(url.values, key)
   const range = (key: string, side: 'from' | 'to') => rangeOf(url.values, key, side)
 
+  // live search: from 1 character, 300 ms after the last keystroke; '' at once when cleared
   const search = text('q')
-  const q = useDebounced(serverQuery(search), 300)
-  const code = useDebounced(serverQuery(text('code')), 300)
-  const actNumber = useDebounced(serverQuery(text('actNumber')), 300)
+  const q = useLiveSearch(search)
+  const code = useLiveSearch(text('code'))
+  const actNumber = useLiveSearch(text('actNumber'))
   const filters: CaseListFilters = {
     tab,
     q,
@@ -223,6 +223,7 @@ export function CaseListPage() {
         onChange={url.set}
         onAdd={url.add}
         onRemove={url.remove}
+        busy={list.isFetching}
         after={
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', minHeight: 40 }}>
             {/* a dashboard card's filter (task 046): not a column — a chip, removable */}

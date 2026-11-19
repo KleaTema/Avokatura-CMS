@@ -65,11 +65,12 @@ public sealed class ListInstitutionsAdminHandler(IdentityDbContext db, ParallelR
 
         if (!string.IsNullOrWhiteSpace(q.Q))
         {
-            var words = NgramSearch.BooleanQuery(q.Q.Trim());
-            var matches = db.Database.SqlQueryRaw<uint>(
-                "SELECT id AS Value FROM institutions WHERE MATCH(name, short_name, nipt) AGAINST (@institutions_q IN BOOLEAN MODE)",
-                new MySqlParameter("@institutions_q", words));
-            institutions = words.Length == 0 ? institutions.Where(_ => false) : institutions.Where(i => matches.Contains(i.Id));
+            // live search (TextSearch): every term a substring, from 1 character
+            // fixed text (column and parameter names); the values are parameters
+            var search = TextSearch.Parse(q.Q);
+            var sql = $"SELECT id AS Value FROM institutions WHERE {search.Predicate("institutions", "name", "short_name", "nipt")}";
+            var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("institutions").ToArray<object>());
+            institutions = institutions.Where(i => matches.Contains(i.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(q.Type))

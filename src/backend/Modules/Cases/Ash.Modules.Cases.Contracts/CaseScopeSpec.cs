@@ -53,14 +53,14 @@ public interface ICaseScope
 }
 
 /// <summary>
-/// The shared case search (task 047) as SQL for modules that query with SQL (the reports): <see cref="Sql"/> selects
-/// the matching case ids as a column named Value and uses ONE parameter, @search_words = <see cref="Words"/>.
-/// Unscoped: the caller combines it with its own scope.
+/// The shared case search (task 047; live search) as SQL for modules that query with SQL (the reports): <see cref="Sql"/>
+/// selects the matching case ids as a column named Value; it is self-contained (the search values are escaped literals,
+/// no parameters). Unscoped: the caller combines it with its own scope.
 /// </summary>
-public sealed record CaseSearchSql(string Sql, string Words);
+public sealed record CaseSearchSql(string Sql);
 
 public interface ICaseSearchSql
 {
-    /// <summary>Null when the text has no searchable word (then nothing matches).</summary>
+    /// <summary>Null when the text is empty (then nothing is filtered by text).</summary>
     Task<CaseSearchSql?> ResolveAsync(string q, CancellationToken ct = default);
 }

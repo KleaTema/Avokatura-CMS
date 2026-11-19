@@ -18,11 +18,13 @@ import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { SearchField } from '../../components/ui/SearchField'
 import { useConversationPages, type ChatConversation } from '../../features/chat/api'
 import { ChatThread } from '../../features/chat/ChatThread'
 import { ParticipantsButton } from '../../features/chat/ParticipantsButton'
 import { sq } from '../../i18n/sq'
 import { formatDateTime, formatRelative } from '../../lib/dates'
+import { useLiveSearch } from '../../lib/useLiveSearch'
 import { tokens } from '../../theme/tokens'
 
 const t = sq.chat
@@ -85,8 +87,13 @@ export function ChatPage() {
   const narrow = useMediaQuery(theme.breakpoints.down('md'))
   const [params, setParams] = useSearchParams()
   const selectedId = params.get('c') ?? undefined
-  const [cursors, setCursors] = useState<string[]>([])
-  const pages = useConversationPages(cursors)
+  // live search: the text in the URL (?q=), sent 300 ms after the last keystroke; a new text starts from the first page
+  const text = params.get('q') ?? ''
+  const q = useLiveSearch(text)
+  const [paged, setPaged] = useState<{ q: string; cursors: string[] }>({ q: '', cursors: [] })
+  const cursors = paged.q === q ? paged.cursors : []
+  const setCursors = (next: string[]) => setPaged({ q, cursors: next })
+  const pages = useConversationPages(cursors, q)
   const more = pages[pages.length - 1]
   const items = dedupe(pages.flatMap((p) => p.data?.items ?? []))
   const nextCursor = pages[pages.length - 1].data?.nextCursor ?? undefined
@@ -100,18 +107,31 @@ export function ChatPage() {
       else next.delete('c')
       return next
     })
+  const setText = (value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set('q', value)
+        else next.delete('q')
+        return next
+      },
+      { replace: true },
+    )
 
   const list = (
     <Paper variant="outlined" component="section" aria-label={t.conversations} sx={{ display: 'flex', flexDirection: 'column', height: THREAD_HEIGHT, minHeight: 0 }}>
-      <Typography variant="h3" component="h2" sx={{ px: 2, py: 1.75, borderBottom: `1px solid ${tokens.color.cardBorder}` }}>
-        {t.conversations}
-      </Typography>
+      <Box sx={{ px: 2, pt: 1.75, pb: 1.5, borderBottom: `1px solid ${tokens.color.cardBorder}` }}>
+        <Typography variant="h3" component="h2" sx={{ mb: 1.5 }}>
+          {t.conversations}
+        </Typography>
+        <SearchField label={t.search} value={text} onChange={setText} busy={first.isFetching && text !== ''} />
+      </Box>
       <Box sx={{ flex: 1, overflowY: 'auto' }}>
         {first.isPending && [0, 1, 2].map((i) => <Skeleton key={i} variant="rectangular" height={64} sx={{ m: 1 }} />)}
         {first.isError && <Alert severity="error" sx={{ m: 2 }}>{t.loadError}</Alert>}
         {first.isSuccess && items.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-            {t.noConversations}
+            {q !== '' ? sq.search.noResults(q) : t.noConversations}
           </Typography>
         )}
         <List disablePadding>
@@ -121,7 +141,7 @@ export function ChatPage() {
         </List>
         {nextCursor && (
           <Box sx={{ p: 1.5, textAlign: 'center' }}>
-            <Button onClick={() => setCursors((c) => [...c, nextCursor])} disabled={more.isFetching}>
+            <Button onClick={() => setCursors([...cursors, nextCursor])} disabled={more.isFetching}>
               {t.loadMore}
             </Button>
           </Box>

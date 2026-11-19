@@ -31,6 +31,7 @@ import { OptionPicker } from '../../components/OptionPicker'
 import { AppSelect } from '../../components/ui/AppSelect'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { SearchField } from '../../components/ui/SearchField'
 import { useAgenda, type AgendaItem } from '../../features/agenda/api'
 import { lawyerOptionsOf, useFilterOptions } from '../../features/cases/api'
 import { useMe } from '../../features/identity/api'
@@ -48,13 +49,14 @@ import {
 } from '../../lib/agendaRange'
 import { formatDateTime, formatLongDate, tiraneWallClockIso, todayInTirane } from '../../lib/dates'
 import { problemMessage } from '../../lib/problem'
+import { matches } from '../../lib/search'
 import { tokens, tones, type Tone } from '../../theme/tokens'
 import { AgendaPrintDialog, AgendaPrintoutView, type AgendaPrintout } from './AgendaPrint'
 import { usePrintWhenReady } from '../../lib/usePrintWhenReady'
 
 const t = sq.agenda
 
-type Param = 'view' | 'date' | 'office' | 'lawyer' | 'cancelled' | 'court' | 'type'
+type Param = 'view' | 'date' | 'office' | 'lawyer' | 'cancelled' | 'court' | 'type' | 'q'
 
 const STATUS_TONE: Record<string, Tone> = { SCHEDULED: 'blue', HELD: 'green', POSTPONED: 'orange', CANCELLED: 'neutral' }
 
@@ -129,10 +131,18 @@ export function AgendaPage() {
   // court and hearing type (the calendar's other columns): narrowed in the browser — the range is loaded whole
   const court = get('court')
   const type = get('type')
+  // live search over the loaded period (case code, court, type, lawyer): matches() — the server's rule, in the browser
+  const text = get('q')
   const loaded = useMemo(() => agenda.data ?? [], [agenda.data])
   const items = useMemo(
-    () => loaded.filter((i) => (court === '' || i.courtName === court) && (type === '' || i.hearingType.code === type)),
-    [loaded, court, type],
+    () =>
+      loaded.filter(
+        (i) =>
+          (court === '' || i.courtName === court) &&
+          (type === '' || i.hearingType.code === type) &&
+          matches(text, i.caseCode, i.courtName, i.hearingType.name, i.otherTypeText, i.primaryLawyerName),
+      ),
+    [loaded, court, type, text],
   )
   const courtOptions = [...new Set(loaded.map((i) => i.courtName))]
     .sort((a, b) => a.localeCompare(b, 'sq'))
@@ -249,7 +259,10 @@ export function AgendaPage() {
                 </ToggleButtonGroup>
               </Stack>
 
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'center' } }}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap' }}>
+                <Box sx={{ width: { xs: '100%', md: 260 } }}>
+                  <SearchField label={t.search} value={text} onChange={(value) => set({ q: value })} />
+                </Box>
                 {canFilterOffice && (
                   <Box sx={{ width: { xs: '100%', md: 280 } }}>
                     <OptionPicker filter options={officeOptions} value={officeId} onChange={setOffice} label={t.office} size="small" />

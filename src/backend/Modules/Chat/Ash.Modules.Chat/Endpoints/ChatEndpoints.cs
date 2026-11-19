@@ -15,8 +15,9 @@ public static class ChatEndpoints
     {
         var group = endpoints.MapGroup("/api/chat").RequireAuthorization();
 
-        group.MapGet("/conversations", async (string? after, int? limit, ChatService chat, CancellationToken ct) =>
-                Results.Ok(await chat.ListAsync(after, limit, ct)))
+        // live search: ?q= — the conversations of the cases the case search finds (code, act, party, object …)
+        group.MapGet("/conversations", async (string? after, int? limit, string? q, ChatService chat, CancellationToken ct) =>
+                Results.Ok(await chat.ListAsync(after, limit, ct, q)))
             .Produces<ConversationPage>()
             .WithName("ListChatConversations");
 

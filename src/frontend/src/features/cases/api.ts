@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClie
 import { z } from 'zod'
 import { api, ApiError, unwrap } from '../../api/client'
 import type { components, paths } from '../../api/schema'
+import { liveListQuery } from '../../lib/liveQuery'
 import { normalize } from '../../lib/search'
 
 export type RegisterCaseRequest = components['schemas']['RegisterCaseRequest']
@@ -96,13 +97,13 @@ export const searchTabOf = (tabs: { tab: string }[]) =>
  */
 export const useCaseList = (f: CaseListFilters, p: PageRequest, enabled: boolean) =>
   useQuery({
-    queryKey: caseListKeys.list(f, p),
     enabled,
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search (lib/liveQuery): keyed by the text, a newer one aborts this request, the old rows stay meanwhile
+    ...liveListQuery(caseListKeys.list(f, p), (signal) =>
       api
         .GET('/api/cases', {
+          signal,
           params: {
             query: {
               tab: f.tab || undefined,
@@ -130,6 +131,7 @@ export const useCaseList = (f: CaseListFilters, p: PageRequest, enabled: boolean
           },
         })
         .then(unwrap),
+    ),
   })
 
 // ---------------------------------------------------------------- case page (task 022)
@@ -193,16 +195,20 @@ export const useCase = (id: string) =>
     queryFn: () => api.GET('/api/cases/{id}', { params: { path: { id } } }).then(unwrap),
   })
 
-/** One page of the dossier's history (all levels the user can view), newest first, with the total. */
-export const useCaseHistory = (id: string, p: PageRequest, enabled: boolean) =>
+/**
+ * One page of the dossier's history (all levels the user can view), newest first, with the total. `q`: live search
+ * over the rows' text (from 1 character); a newer text aborts this request.
+ */
+export const useCaseHistory = (id: string, p: PageRequest, enabled: boolean, q = '') =>
   useQuery({
-    queryKey: [...caseKeys.history(id), p.cursor ?? null, p.size] as const,
+    queryKey: [...caseKeys.history(id), q, p.cursor ?? null, p.size] as const,
     enabled,
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api
         .GET('/api/cases/{id}/history', {
-          params: { path: { id }, query: { after: p.cursor, limit: p.size } },
+          signal,
+          params: { path: { id }, query: { after: p.cursor, limit: p.size, q: q || undefined } },
         })
         .then(unwrap),
   })
@@ -663,9 +669,11 @@ export const useRegistrationSearch = (
     queryKey: ['registration-search', query, status, more, p.cursor ?? null, p.size] as const,
     enabled: filters.length > 0,
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search: a newer text aborts this request
+    queryFn: ({ signal }) =>
       api
         .GET('/api/cases/registration-search', {
+          signal,
           params: { query: { ...query, status, more: more || undefined, after: p.cursor, limit: p.size } },
         })
         .then(unwrap),

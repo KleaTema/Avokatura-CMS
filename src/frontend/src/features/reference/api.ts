@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '../../api/client'
 import type { components } from '../../api/schema'
-import { serverQuery } from '../../lib/search'
 
 /** Public reference lists (pickers). Keys follow the API path: ['reference', 'hearing-types'], ['reference', 'courts'], … */
 export const referenceKeys = {
@@ -56,18 +55,19 @@ export const useDecisionResults = () =>
   })
 
 /**
- * Active judges (server search, at most 50): of one court (q optional), or of all courts (q of 2+ characters).
- * Disabled when neither a court nor a long enough q is given, or when `enabled` is false.
+ * Active judges (server search, at most 50): of one court (q optional), or of all courts (q from 1 character — live
+ * search). Disabled when neither a court nor a q is given, or when `enabled` is false. The older request is aborted.
  */
 export const useJudgeSearch = (courtId: number | null, q: string, enabled = true) => {
-  const query = serverQuery(q)
+  const query = q.trim()
   return useQuery({
     queryKey: ['reference', 'judges', courtId ?? 'all', query] as const,
     enabled: enabled && (courtId !== null || query !== ''),
     staleTime: 60_000,
-    queryFn: () =>
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) =>
       api
-        .GET('/api/reference/judges', { params: { query: { courtId: courtId ?? undefined, q: query || undefined } } })
+        .GET('/api/reference/judges', { params: { query: { courtId: courtId ?? undefined, q: query || undefined } }, signal })
         .then(unwrap),
   })
 }

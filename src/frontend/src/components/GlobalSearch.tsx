@@ -6,7 +6,7 @@ import { searchTabOf, useCaseTabs } from '../features/cases/api'
 import { MATCH_ORDER, useGlobalSearch, type SearchResult } from '../features/search/api'
 import { sq } from '../i18n/sq'
 import { highlightParts } from '../lib/highlight'
-import { useDebounced } from '../lib/useDebounced'
+import { useLiveSearch } from '../lib/useLiveSearch'
 import { tokens } from '../theme/tokens'
 import { StatusChip } from './ui/StatusChip'
 
@@ -50,8 +50,8 @@ export function GlobalSearch({ variant, onDone }: { variant: 'header' | 'sheet';
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null)
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
-  const debounced = useDebounced(text.trim(), 250)
-  const q = debounced.length >= 2 ? debounced : ''
+  // live search: from 1 character, 300 ms after the last keystroke (the older request is aborted)
+  const q = useLiveSearch(text)
   // the highlighted row belongs to the text it was chosen for: a new text starts with none
   const [selection, setSelection] = useState({ q: '', index: -1 })
   const active = selection.q === q ? selection.index : -1
@@ -121,7 +121,7 @@ export function GlobalSearch({ variant, onDone }: { variant: 'header' | 'sheet';
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (active >= 0 && active < optionCount) choose(active)
-      else if (text.trim().length >= 2) finish(listUrl())
+      else if (text.trim() !== '') finish(listUrl())
     } else if (e.key === 'Escape') {
       if (open) {
         e.preventDefault()

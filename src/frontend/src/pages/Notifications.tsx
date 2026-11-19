@@ -15,8 +15,7 @@ import { sq } from '../i18n/sq'
 import { formatDateTime, formatRelative } from '../lib/dates'
 import { useKeysetPaging } from '../lib/paging'
 import { problemMessage } from '../lib/problem'
-import { serverQuery } from '../lib/search'
-import { useDebounced } from '../lib/useDebounced'
+import { useLiveSearch } from '../lib/useLiveSearch'
 
 const t = sq.notifications
 
@@ -30,7 +29,7 @@ export function NotificationsPage() {
   // task 053m: the shared FilterBar (GET /api/filters/notifications), the values in the URL, sent to the API
   const meta = useTableFilters('notifications')
   const url = useUrlFilters(meta.data ?? [])
-  const q = useDebounced(serverQuery(textOf(url.values, 'q')), 300)
+  const q = useLiveSearch(textOf(url.values, 'q'))
   const unreadOnly = textOf(url.values, 'show') === UNREAD
   const paging = useKeysetPaging()
   const list = useNotifications(
@@ -65,7 +64,7 @@ export function NotificationsPage() {
         }
       />
 
-      <TableFilterBar meta={meta} url={url} />
+      <TableFilterBar meta={meta} url={url} busy={list.isFetching} />
 
       {list.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>

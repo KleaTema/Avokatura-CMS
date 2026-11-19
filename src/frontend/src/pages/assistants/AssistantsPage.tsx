@@ -15,9 +15,11 @@ import {
 } from '@mui/material'
 import { UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { OptionPicker } from '../../components/OptionPicker'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { SearchField } from '../../components/ui/SearchField'
 import { SuccessToast } from '../../components/ui/SuccessToast'
 import {
   useAssistantLinks,
@@ -28,6 +30,7 @@ import {
 } from '../../features/assistants/api'
 import { sq } from '../../i18n/sq'
 import { problemMessage } from '../../lib/problem'
+import { matches } from '../../lib/search'
 
 const t = sq.assistantLinks
 
@@ -41,15 +44,35 @@ export function AssistantsPage() {
   const [adding, setAdding] = useState<OfficeAssistant | null>(null)
   const [removing, setRemoving] = useState<{ assistant: OfficeAssistant; link: AssistantLink } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const assistants = links.data?.assistants ?? []
+  // live search (the list is loaded whole): the assistant's or a linked lawyer's name; the text in the URL (?q=)
+  const [params, setParams] = useSearchParams()
+  const text = params.get('q') ?? ''
+  const setText = (value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set('q', value)
+        else next.delete('q')
+        return next
+      },
+      { replace: true },
+    )
+  const all = links.data?.assistants ?? []
+  const assistants = all.filter((a) => matches(text, a.name, ...a.lawyers.map((l) => l.lawyerName)))
 
   return (
     <Stack spacing={3}>
       <PageHeader title={t.title} />
       <Typography color="text.secondary">{t.intro}</Typography>
+      {all.length > 0 && (
+        <Box sx={{ maxWidth: 360 }}>
+          <SearchField label={t.search} value={text} onChange={setText} />
+        </Box>
+      )}
       {links.isPending && <CircularProgress aria-label={sq.errors.loading} />}
       {links.isError && <Alert severity="error">{problemMessage(links.error)}</Alert>}
-      {links.isSuccess && assistants.length === 0 && <EmptyState icon={Users} title={t.empty} />}
+      {links.isSuccess && all.length === 0 && <EmptyState icon={Users} title={t.empty} />}
+      {all.length > 0 && assistants.length === 0 && <Typography color="text.secondary">{sq.search.noResults(text.trim())}</Typography>}
       <Stack spacing={2} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
         {assistants.map((a) => (
           <Paper key={a.publicId} component="li" variant="outlined" sx={{ p: 2 }}>

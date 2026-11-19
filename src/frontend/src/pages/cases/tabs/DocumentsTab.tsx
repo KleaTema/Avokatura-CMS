@@ -26,8 +26,7 @@ import { sq } from '../../../i18n/sq'
 import { formatDateTime } from '../../../lib/dates'
 import { problemMessage } from '../../../lib/problem'
 import { pageKey, useKeysetPaging } from '../../../lib/paging'
-import { serverQuery } from '../../../lib/search'
-import { useDebounced } from '../../../lib/useDebounced'
+import { useLiveSearch } from '../../../lib/useLiveSearch'
 import { formatSize } from '../../../lib/uploads'
 
 const t = sq.cases.documents
@@ -61,7 +60,7 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
     type: textOf(url.values, 'type'),
     level: textOf(url.values, 'level'),
     status: textOf(url.values, 'status'),
-    q: useDebounced(serverQuery(textOf(url.values, 'q')), 300),
+    q: useLiveSearch(textOf(url.values, 'q')),
     from: rangeOf(url.values, 'uploaded', 'from'),
     to: rangeOf(url.values, 'uploaded', 'to'),
   }
@@ -147,7 +146,7 @@ export function DocumentsTab({ detail }: { detail: CaseDetail }) {
       <SectionCard title={t.title}>
         <Stack spacing={2}>
           {/* type, level, status on top; "+ Shto filtër" for the title and the upload days */}
-          <TableFilterBar meta={meta} url={url} />
+          <TableFilterBar meta={meta} url={url} busy={documents.isFetching} />
 
           {actionError && (
             <Alert severity="error" onClose={() => setActionError(null)}>

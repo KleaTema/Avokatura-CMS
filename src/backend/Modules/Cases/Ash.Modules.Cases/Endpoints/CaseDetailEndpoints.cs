@@ -24,9 +24,9 @@ public static class CaseDetailEndpoints
             .WithName("GetCase");
 
         endpoints.MapGet("/api/cases/{id:guid}/history",
-                async (Guid id, string? after, int? limit, GetHistoryHandler handler, CancellationToken ct) =>
+                async (Guid id, string? after, int? limit, string? q, GetHistoryHandler handler, CancellationToken ct) =>
                 {
-                    var result = await handler.Handle(id, after, limit, ct);
+                    var result = await handler.Handle(id, after, limit, ct, q);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
             .RequireAuthorization()

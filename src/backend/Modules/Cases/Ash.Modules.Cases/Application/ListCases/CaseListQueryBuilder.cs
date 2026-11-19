@@ -246,21 +246,16 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
         return f.IncludeEarlierLevels ? access.ApplyScopeWithEarlierLevels(cases) : access.ApplyScope(cases);
     }
 
-    /// <summary>The ids whose <paramref name="column"/> contains the text (ngram words + an escaped LIKE).</summary>
+    /// <summary>
+    /// The ids whose <paramref name="column"/> contains the text (TextSearch: the ngram index narrows from 2 characters,
+    /// the escaped LIKE decides; a 1-character text is the LIKE alone).
+    /// </summary>
     private IQueryable<ulong> ColumnMatch(string text, string column, string name)
     {
-        var words = NgramSearch.BooleanQuery(text);
-        if (words.Length == 0)
-        {
-            return db.Database.SqlQueryRaw<ulong>("SELECT id AS Value FROM cases WHERE FALSE");
-        }
-
-        var like = "%" + text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
+        var search = TextSearch.Parse(text);
         // fixed text only (the column and the parameter names are this class's constants); the values are parameters
-        var sql = $"SELECT id AS Value FROM cases WHERE MATCH(case_code, act_number, summons_number) AGAINST (@{name}_words IN BOOLEAN MODE) AND {column} LIKE @{name}_like";
-        return db.Database.SqlQueryRaw<ulong>(sql,
-            new MySql.Data.MySqlClient.MySqlParameter($"@{name}_words", words),
-            new MySql.Data.MySqlClient.MySqlParameter($"@{name}_like", like));
+        var sql = $"SELECT id AS Value FROM cases WHERE {search.Predicate(name, ["case_code", "act_number", "summons_number"], [column])}";
+        return db.Database.SqlQueryRaw<ulong>(sql, search.Parameters(name).ToArray<object>());
     }
 
     /// <summary>The dashboard's named predicates (task 046); every one rides an existing index.</summary>

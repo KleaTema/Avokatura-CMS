@@ -44,13 +44,28 @@ Every list, table and picker gets search unless it will never have more than ~10
 - Up to ~200 rows loaded at once (offices, courts, lookup lists): client-side filter, no backend change.
 - More rows or growing data (users, judges, institutions, cases, documents, chat, audit): server-side `?q=` with keyset paging.
 - Match name, code and other short identifiers the user would type (short name, email, NIPT, case number).
-- Accent- and case-insensitive: "shendetesise" finds "Shëndetësisë". Client-side: normalize with
+- Accent- and case-insensitive: "shendetesise" finds "Shëndetësisë". Client-side: `normalize()` / `matches()` in
+  lib/search (never a page's own copy); for reference, normalize is
   `s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()`; server-side relies on the ai collation.
-- Server search: debounce 300 ms, min 2 characters, keep `q` in the URL (`?q=`) so refresh/back keep the search.
+- **Live search (search-as-you-type) — the rule for EVERY list, table and searched picker:**
+  - Every search input is the ONE `SearchField` (`components/ui/SearchField.tsx`) — never a page's own TextField, never
+    a "Kërko" button, never "press Enter". FilterBar draws its text filters with it automatically.
+  - Server lists: the text goes through `useLiveSearch(text)` (`lib/useLiveSearch.ts`): 300 ms after the last keystroke,
+    from 1 character (no minimum), '' at once when cleared (the X restores the full list immediately).
+  - The text lives in the URL (`?q=`, or the table's prefixed key) so Back and refresh keep it; a new text goes back to
+    page 1 (useUrlFilters drops the page) and the total follows it.
+  - The list hook keys the query by the text and passes react-query's `signal` (`queryFn: ({ signal }) => api.GET(…, { signal })`)
+    with `placeholderData: keepPreviousData`: the older request is aborted, a late answer never replaces newer rows, the
+    previous rows stay while the new ones load, and `SearchField busy` (or `TableFilterBar busy={list.isFetching}`)
+    shows the small spinner — no flicker, no empty table.
+  - Lists loaded whole: `matches(q, …fields)` (`lib/search.ts`) — every whitespace-separated term contained in a field.
+  - Matching is "contains", case- and accent-insensitive, the SAME on both sides: "pergjigje" finds "Përgjigje", "c"
+    finds "ç" (client: `normalize()` in lib/search; server: `TextSearch` in Ash.Infrastructure — the ngram index
+    narrows from 2 characters, an escaped `LIKE '%term%'` decides, so 1 character and "2026-12" work and % _ are literal).
 - Pickers with more than ~10 options: MUI Autocomplete with typing, not a plain Select.
 - Empty result: "Nuk u gjet asnjë rezultat për „{q}“." with a button to clear the search.
-- Search box placeholder lists what can be searched, e.g. "Kërko (emër, kod)".
-- Search: substring (min 2 chars) via ngram FULLTEXT on the server, 'contains' on the client; a search covers all statuses unless a status is chosen.
+- Search box label lists what can be searched, e.g. "Kërko (emër, kod)".
+- A search covers all statuses unless a status is chosen.
 - Filters (task 053m): every table uses the ONE shared FilterBar (`components/filters/`) — never a page's own filter
   row, never a "Filtra" button or a static panel. 2–3 default filters on top (the table's main ones), "+ Shto filtër"
   lists every other column, each added filter has ×; the control comes from the filter's kind (text, select,

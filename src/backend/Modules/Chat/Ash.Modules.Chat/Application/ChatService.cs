@@ -32,6 +32,7 @@ public sealed class ChatService(
     ChatRateLimiter rateLimiter,
     IAuditLog audit,
     IInstitutionDirectory institutionDirectory,
+    ICaseSearchSql caseSearch,
     ILogger<ChatService> logger)
 {
     public const int DefaultPage = 50;
@@ -76,7 +77,12 @@ public sealed class ChatService(
 
     // ------------------------------------------------------------------ conversations
 
-    public async Task<ConversationPage> ListAsync(string? after, int? limit, CancellationToken ct)
+    /// <summary>
+    /// My conversations, newest activity first (keyset). Live search: <paramref name="q"/> keeps the conversations of the
+    /// cases the shared case search finds for it (the case list's rule: code, act, party, object, judge, institution —
+    /// from 1 character, accent-insensitive); only my own conversations, so nothing outside my scope.
+    /// </summary>
+    public async Task<ConversationPage> ListAsync(string? after, int? limit, CancellationToken ct, string? q = null)
     {
         var take = Math.Clamp(limit ?? 20, 1, 50);
         var me = Me;
@@ -84,6 +90,12 @@ public sealed class ChatService(
                    join c in db.Conversations.AsNoTracking() on p.ConversationId equals c.Id
                    where p.UserId == me && p.LeftAt == null
                    select new { c, p.LastReadMessageId, SortAt = c.LastMessageAt ?? c.CreatedAt };
+        if (!string.IsNullOrWhiteSpace(q) && await caseSearch.ResolveAsync(q.Trim(), ct) is { } search)
+        {
+            // the case search's self-contained SQL (ICaseSearchSql): the matching case ids
+            var caseIds = db.Database.SqlQueryRaw<ulong>(search.Sql);
+            mine = mine.Where(x => x.c.CaseId != null && caseIds.Contains(x.c.CaseId.Value));
+        }
         if (Cursor.TryDecode(after, out var sortKey, out var afterId)
             && long.TryParse(sortKey, NumberStyles.None, CultureInfo.InvariantCulture, out var ticks))
         {

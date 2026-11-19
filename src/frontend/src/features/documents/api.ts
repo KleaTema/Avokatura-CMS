@@ -26,9 +26,11 @@ export const useDocuments = (caseId: string, f: DocumentFilters, p: PageRequest)
   useQuery({
     queryKey: [...caseKeys.documents(caseId), f, p.cursor ?? null, p.size] as const,
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search: a newer text aborts this request
+    queryFn: ({ signal }) =>
       api
         .GET('/api/cases/{id}/documents', {
+          signal,
           params: {
             path: { id: caseId },
             query: {

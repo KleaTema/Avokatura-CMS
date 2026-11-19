@@ -120,6 +120,7 @@ export const sq = {
   /** Task 053e: the Kryetar attaches legal assistants to lawyers of the office. */
   assistantLinks: {
     title: 'Ndihmësit ligjorë',
+    search: 'Kërko (ndihmësi, avokati)',
     intro:
       'Lidhni çdo ndihmës ligjor me avokatët që ndihmon. Ndihmësi sheh automatikisht çdo çështje ku ai avokat është primar — edhe ato që do t\'i caktohen më vonë. Kur çështja transferohet te një avokat tjetër, ajo kalon te ndihmësi i atij avokati.',
     empty: 'Zyra nuk ka ndihmës ligjorë.',
@@ -529,6 +530,9 @@ export const sq = {
     noResults: (q: string) => `Nuk u gjet asnjë rezultat për „${q}“.`,
     clear: 'Pastro kërkimin',
     noOptions: 'Asnjë opsion',
+    /** live search: the shared SearchField */
+    label: 'Kërko',
+    searching: 'Po kërkohet…',
   },
   /** task 047: the header typeahead */
   globalSearch: {
@@ -595,6 +599,7 @@ export const sq = {
     title: 'Chat',
     subtitle: 'Bisedat e çështjeve ku jeni pjesë e ekipit.',
     conversations: 'Bisedat',
+    search: 'Kërko (kodi, pala, objekti)',
     noConversations: 'Nuk keni ende biseda. Biseda e një çështjeje hapet nga skeda "Chat" e çështjes.',
     chooseConversation: 'Zgjidhni një bisedë nga lista.',
     loadError: 'Bisedat nuk u ngarkuan.',
@@ -944,6 +949,7 @@ export const sq = {
   agenda: {
     title: 'Agjenda',
     subtitle: 'Seancat e çështjeve, sipas orës së Tiranës',
+    search: 'Kërko (kodi, gjykata, avokati)',
     views: { dita: 'Dita', java: 'Java', muaji: 'Muaji', lista: 'Listë' } as Record<string, string>,
     viewsLabel: 'Pamja',
     previous: 'Periudha e mëparshme',
@@ -1380,6 +1386,7 @@ export const sq = {
       },
       history: {
         empty: 'Nuk ka ngjarje në historik.',
+        search: 'Kërko në historik',
         system: 'Sistemi',
         by: (actor: string) => `nga ${actor}`,
         judgeChanged: (from: string, to: string) => `Gjyqtari u ndryshua: ${from} → ${to}`,

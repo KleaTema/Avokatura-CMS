@@ -349,8 +349,8 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
     [InlineData("tab=all&categoryCode=NOPE", "categoryCode")]
     [InlineData("tab=all&lawyerId=00000000-0000-0000-0000-000000000001", "lawyerId")]
     [InlineData("tab=all&hearingFrom=2026-11-05&hearingTo=2026-11-01", "hearingTo")]
-    [InlineData("tab=all&q=a", "q")]
-    [InlineData("tab=all&q=%20%20", "q")]
+    // live search: 1 character is a search (200), only more than 100 is refused
+    [InlineData("tab=all&q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1", "q")]
     [InlineData("tab=all&courtId=-1", "courtId")]
     public async Task Invalid_query_is_400_with_the_field(string query, string field)
     {
@@ -373,7 +373,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
     [Theory]
     [InlineData("2026-000124", "c.act_number = 'AKT-124'")] // unique code: words 2026 + 000124
     [InlineData("2026-000124/1", "c.act_number = 'AKT-124'")] // case code
-    [InlineData("AKT-124", "124")] // "124" anywhere in a number (AKT-1240, 2026-001124/1, FL-3124 …)
+    [InlineData("AKT-124", "#AKT-124")] // live search: "AKT-124" contiguous inside a number (AKT-124, AKT-1240 …)
     [InlineData("bujqës", "c.act_number = 'AKT-130'")] // inside the object
     [InlineData("BUJQES", "c.act_number = 'AKT-130'")] // case and accent insensitive
     [InlineData("Zyber", "c.act_number = 'AKT-133'")] // party name; the deleted party of AKT-136 is ignored
@@ -385,7 +385,9 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser("monitor@ash.local");
 
-        var expected = await Oracle(s.Sql(where.All(char.IsDigit) ? InNumbers(where) : where), OpenOrder);
+        // "#text": the text contiguous inside a number (InNumbers); digits alone too
+        var oracle = where.StartsWith('#') ? InNumbers(where[1..]) : where.All(char.IsDigit) ? InNumbers(where) : where;
+        var expected = await Oracle(s.Sql(oracle), OpenOrder);
         expected.ShouldNotBeEmpty();
 
         (await PageAll(client, $"tab=all&q={Uri.EscapeDataString(q)}")).Select(PublicIdOf).ToList().ShouldBe(expected);
@@ -401,7 +403,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         // AKT-124 is a TR case: the DR Kryetar must not find it
         (await PageAll(client, "tab=office&q=2026-000124")).ShouldBeEmpty();
         (await PageAll(client, "tab=office&q=AKT-125")).Select(PublicIdOf)
-            .ShouldBe(await Oracle(s.Sql($"c.office_id = {{dr}} AND {InNumbers("125")}"), OpenOrder));
+            .ShouldBe(await Oracle(s.Sql($"c.office_id = {{dr}} AND {InNumbers("AKT-125")}"), OpenOrder));
     }
 
     [Fact]
@@ -417,13 +419,14 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
 
         var search = $"q={Uri.EscapeDataString("AKT-12")}";
         var all = await PageAll(client, $"tab=all&{search}");
-        all.Select(PublicIdOf).ShouldBe(await Oracle(s.Sql(InNumbers("12")), OpenOrder));
+        // live search: "AKT-12" contiguous inside a number
+        all.Select(PublicIdOf).ShouldBe(await Oracle(s.Sql(InNumbers("AKT-12")), OpenOrder));
         all.ShouldContain(i => i.GetProperty("status").GetString() == "CLOSED");
 
         (await PageAll(client, $"tab=all&{search}&status=CLOSED")).Select(PublicIdOf)
-            .ShouldBe(await Oracle(s.Sql($"c.lifecycle_status = 'CLOSED' AND {InNumbers("12")}"), "c.closed_at DESC, c.id DESC"));
+            .ShouldBe(await Oracle(s.Sql($"c.lifecycle_status = 'CLOSED' AND {InNumbers("AKT-12")}"), "c.closed_at DESC, c.id DESC"));
         (await PageAll(client, $"tab=all&{search}&status=OPEN")).Select(PublicIdOf)
-            .ShouldBe(await Oracle(s.Sql($"{Open} AND {InNumbers("12")}"), OpenOrder));
+            .ShouldBe(await Oracle(s.Sql($"{Open} AND {InNumbers("AKT-12")}"), OpenOrder));
     }
 
     [Fact]
@@ -561,6 +564,87 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         var wanted = expected.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => ids[x]).ToHashSet();
         found.ShouldBe(wanted, ignoreOrder: true, q);
         page.GetProperty("total").GetInt32().ShouldBe(wanted.Count);
+    }
+
+    // ---------------------------------------------------------------- live search (TextSearch: 1 character, LIKE fallback)
+
+    /// <summary>
+    /// SeedSearchAsync's A, B, C plus D 2026-120001/1 (contains "2026-12"; object "Përgjigje e paditurit", party "Dritë
+    /// Çela") and E 2026-501203/1 ("2026" and "12" apart, never "2026-12"; act "A_B 50%", summons "FL_77"). D is assigned
+    /// to avokat1 (primary); nothing else is.
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> SeedLiveSearchAsync()
+    {
+        var ids = await SeedSearchAsync();
+        var s = await SeedScenarioOnlyAsync();
+        await Execute(s.Sql("""
+            INSERT INTO dossiers (unique_code, code_format_id, office_id, opened_by)
+            SELECT v.code, (SELECT id FROM dossier_code_formats WHERE is_active = 1), {tr}, {prot}
+              FROM (SELECT '2026-120001' AS code UNION ALL SELECT '2026-501203') v;
+            INSERT INTO cases (dossier_id, level_seq, case_code, office_id, summons_number, act_number, received_date,
+                               court_level_id, court_id, object_text, lifecycle_status, registered_by)
+            SELECT d.id, 1, CONCAT(d.unique_code, '/1'), {tr}, v.summons, v.act, '2026-01-01',
+                   (SELECT id FROM court_levels WHERE code = 'FIRST_INSTANCE'), {court2}, v.object, 'ACTIVE', {prot}
+              FROM (SELECT '2026-120001' AS code, 'FL-3' AS summons, 'AKT-91' AS act, 'Përgjigje e paditurit' AS object
+                    UNION ALL SELECT '2026-501203', 'FL_77', 'A_B 50%', 'Padi për shpronësim') v
+              JOIN dossiers d ON d.unique_code = v.code;
+            INSERT INTO case_parties (case_id, party_role_id, party_kind, display_name, created_by)
+            SELECT c.id, (SELECT id FROM party_roles WHERE code = 'PADITES'), 'NATURAL', 'Dritë Çela', {prot}
+              FROM cases c WHERE c.case_code = '2026-120001/1';
+            INSERT INTO case_assignments (case_id, user_id, case_role, assigned_by)
+            SELECT c.id, {av1}, 'PRIMARY_LAWYER', {prot} FROM cases c WHERE c.case_code = '2026-120001/1';
+            """));
+        foreach (var (letter, code) in new[] { ("D", "2026-120001/1"), ("E", "2026-501203/1") })
+        {
+            ids[letter] = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM cases WHERE case_code = '{code}'"))!);
+        }
+
+        return ids;
+    }
+
+    [Theory]
+    [InlineData("c", "A,D")] // 1 character (LIKE fallback): "Financave" and "Çela" — "c" finds "ç"
+    [InlineData("ç", "A,D")] // and the other way round
+    [InlineData("pergjigje", "D")] // accent-insensitive: "Përgjigje"
+    [InlineData("PËRGJIGJE", "D")] // case-insensitive
+    [InlineData("cela", "D")]
+    [InlineData("2026-12", "D")] // the hyphen kept: E has "2026" and "12", but not "2026-12"
+    [InlineData("%", "E")] // % is a character, not a wildcard (else every case)
+    [InlineData("_", "E")] // _ too ("A_B", "FL_77"; else every case)
+    [InlineData("50%", "E")]
+    [InlineData("A_B", "E")]
+    [InlineData("+hoxha -arben", "")] // FULLTEXT operators are text, never operators (no "+hoxha" anywhere)
+    [InlineData("hoxha arben", "A")] // every term, in any order
+    public async Task Live_search_from_1_character_accent_insensitive_with_literal_symbols(string q, string expected)
+    {
+        var ids = await SeedLiveSearchAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser("monitor@ash.local");
+
+        var page = await GetPage(client, $"/api/cases?tab=all&q={Uri.EscapeDataString(q)}");
+        var found = page.GetProperty("items").EnumerateArray().Select(PublicIdOf).ToHashSet();
+        var wanted = expected.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => ids[x]).ToHashSet();
+        found.ShouldBe(wanted, ignoreOrder: true, q);
+        page.GetProperty("total").GetInt32().ShouldBe(wanted.Count, q);
+    }
+
+    [Fact]
+    public async Task Live_search_keeps_the_permission_scope_and_the_header_search_finds_the_same()
+    {
+        var ids = await SeedLiveSearchAsync();
+        await using var factory = new AshApiFactory(Db);
+
+        // the lawyer sees D only (assigned): "c" matches A and D, the scope keeps D
+        using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
+        (await PageAll(lawyer, "tab=mine&q=c")).Select(PublicIdOf).ShouldBe([ids["D"]]);
+        var header = await GetPage(lawyer, "/api/search?q=c");
+        header.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("casePublicId").GetGuid()).ShouldBe([ids["D"]]);
+
+        // the monitor (every case) gets both from the header search too, from 1 character
+        using var monitor = factory.CreateClient().AsUser("monitor@ash.local");
+        var all = await GetPage(monitor, "/api/search?q=c");
+        all.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("casePublicId").GetGuid())
+            .ShouldBe([ids["A"], ids["D"]], ignoreOrder: true);
     }
 
     [Fact]

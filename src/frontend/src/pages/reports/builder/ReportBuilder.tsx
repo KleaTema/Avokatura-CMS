@@ -55,6 +55,7 @@ import { formatCount } from '../../../lib/numbers'
 import { useKeysetPaging } from '../../../lib/paging'
 import { problemMessage } from '../../../lib/problem'
 import { useDebounced } from '../../../lib/useDebounced'
+import { LIVE_SEARCH_DEBOUNCE_MS } from '../../../lib/useLiveSearch'
 import { usePrintWhenReady } from '../../../lib/usePrintWhenReady'
 import { isNumeric, reportCell } from '../reportCells'
 import { PrintPortal, PrintTitle } from '../ReportPrint'
@@ -62,8 +63,11 @@ import { DrillDrawer, StatisticsBody, type OpenCell } from '../StatisticsReport'
 import { ColumnChooser } from './ColumnChooser'
 
 const t = sq.reports.builder
-/** Task 053o: the table follows the filters this long after the last change (and a newer change aborts the older request). */
-export const FILTER_DEBOUNCE_MS = 400
+/**
+ * Task 053o: the table follows the filters this long after the last change (and a newer change aborts the older
+ * request) — the live search delay, the same as every other list.
+ */
+export const FILTER_DEBOUNCE_MS = LIVE_SEARCH_DEBOUNCE_MS
 
 /** The applied state of the builder lives in the URL — a shareable link: ?f= filters, ?c= columns. */
 function useBuilderUrl() {

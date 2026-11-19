@@ -19,7 +19,6 @@ import { useAddParty, useRemoveParty, useUpdateParty, type PartyResponse } from 
 import { usePartyRoles } from '../features/reference/api'
 import { sq } from '../i18n/sq'
 import { problemMessage } from '../lib/problem'
-import { serverQuery } from '../lib/search'
 import { useDebounced } from '../lib/useDebounced'
 import { AppSelect } from './ui/AppSelect'
 import {
@@ -134,8 +133,9 @@ function PartyRow({
   footer?: ReactNode
 }) {
   const typesName = !kindLocked && (party.kind === 'NATURAL' || party.kind === 'LEGAL')
-  // a typed name that matches a state institution: suggest picking it from the list instead
-  const nameQuery = useDebounced(typesName ? serverQuery(party.displayName) : '', 400)
+  // a typed name that matches a state institution: suggest picking it from the list instead (a hint, not a list search:
+  // from 3 characters, so a short name does not suggest an unrelated institution)
+  const nameQuery = useDebounced(typesName ? party.displayName.trim() : '', 400)
   const similar = useInstitutionSearch(nameQuery, nameQuery.length >= 3)
   const suggestion = typesName && nameQuery.length >= 3 ? similar.data?.[0] : undefined
 

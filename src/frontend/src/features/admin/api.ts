@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../../api/client'
 import type { components } from '../../api/schema'
-import { MIN_SERVER_QUERY } from '../../lib/search'
 import type { PageRequest } from '../cases/api'
 import { referenceKeys } from '../reference/api'
 
@@ -69,9 +68,11 @@ export const useAdminUsers = (f: UserFilters, p: PageRequest) =>
   useQuery({
     queryKey: adminKeys.userList(f, p),
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search: a newer text aborts this request
+    queryFn: ({ signal }) =>
       api
         .GET('/api/identity/admin/users', {
+          signal,
           params: {
             query: {
               q: f.q || undefined,
@@ -111,15 +112,14 @@ export const useAdminOffices = (enabled = true) =>
     queryFn: () => api.GET('/api/identity/admin/offices').then(unwrap),
   })
 
-export const MIN_INSTITUTION_QUERY = MIN_SERVER_QUERY
-
-/** Type-ahead over active institutions (public names only); runs from 2 characters. */
+/** Type-ahead over active institutions (public names only); live search from 1 character, the older request aborted. */
 export const useInstitutionSearch = (q: string, enabled = true) =>
   useQuery({
     queryKey: adminKeys.institutionSearch(q),
-    enabled: enabled && q.length >= MIN_INSTITUTION_QUERY,
+    enabled: enabled && q !== '',
     staleTime: 60_000,
-    queryFn: () => api.GET('/api/identity/institutions', { params: { query: { q } } }).then(unwrap),
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => api.GET('/api/identity/institutions', { params: { query: { q } }, signal }).then(unwrap),
   })
 
 // A user change shows in the user lists and in the active-user counts of offices and institutions.
@@ -450,9 +450,11 @@ export const useAdminJudges = (f: JudgeFilters, p: PageRequest) =>
   useQuery({
     queryKey: adminKeys.judgeList(f, p),
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search: a newer text aborts this request
+    queryFn: ({ signal }) =>
       api
         .GET('/api/reference/admin/judges', {
+          signal,
           params: {
             query: {
               q: f.q || undefined,
@@ -639,9 +641,11 @@ export const useAdminInstitutionList = (f: InstitutionFilters, p: PageRequest) =
   useQuery({
     queryKey: adminKeys.institutionList(f, p),
     placeholderData: keepPreviousData,
-    queryFn: () =>
+    // live search: a newer text aborts this request
+    queryFn: ({ signal }) =>
       api
         .GET('/api/identity/admin/institutions', {
+          signal,
           params: {
             query: {
               q: f.q || undefined,
