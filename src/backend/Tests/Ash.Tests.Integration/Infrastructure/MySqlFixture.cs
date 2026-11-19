@@ -173,10 +173,9 @@ public sealed class MySqlFixture : IAsyncLifetime
                 await ExecuteAsync(connection, sql);
             }
 
-            // the seeded users stay, but an Organika test may have given them a position, unit or manager (task 053g)
+            // the seeded users stay, but an Organika test may have given them a position or unit (task 053g)
             await ExecuteAsync(connection,
-                "UPDATE ash_core.users SET position = NULL, org_unit = NULL, manager_user_id = NULL " +
-                "WHERE position IS NOT NULL OR org_unit IS NOT NULL OR manager_user_id IS NOT NULL;");
+                "UPDATE ash_core.users SET position = NULL, org_unit = NULL WHERE position IS NOT NULL OR org_unit IS NOT NULL;");
 
             return 0;
         });

@@ -37,13 +37,10 @@ interface Option {
   label: string
 }
 
-/** What was printed: the hearings and the header's facts (period, filters, by whom, when). */
+/** What is printed: the period and its hearings. */
 export interface AgendaPrintout {
   params: AgendaParams
   items: AgendaItem[]
-  officeName: string | null
-  lawyerName: string | null
-  printedAt: string
 }
 
 const typeOf = (i: AgendaItem) => (i.otherTypeText ? `${i.hearingType.name}: ${i.otherTypeText}` : i.hearingType.name)
@@ -87,13 +84,7 @@ export function AgendaPrintDialog({
     try {
       const params: AgendaParams = { from, to, officeId, lawyerId, includeCancelled }
       const items = await fetchAgenda(params)
-      onLoaded({
-        params,
-        items,
-        officeName: officeOptions.find((o) => o.value === officeId)?.label ?? null,
-        lawyerName: lawyerOptions.find((o) => o.value === lawyerId)?.label ?? null,
-        printedAt: new Date().toISOString(),
-      })
+      onLoaded({ params, items })
     } catch (e) {
       setError(problemMessage(e))
     } finally {
@@ -164,34 +155,22 @@ export function AgendaPrintDialog({
 }
 
 /**
- * Only on paper (A4 portrait): the header (period, filters, printed at / by) and the hearings by day — date, time,
- * court, case code, type, lawyer. A long period runs over several pages; each page carries "Faqja n nga m" (the @page
- * margin box) and a day's table header repeats on a new page.
+ * Only on paper (A4 portrait): one title line (with the period) and the hearings by day — time, court, case code,
+ * type, lawyer — nothing else (no filters, no "printed by", no page numbers). A day's table header repeats on a new page.
  */
-export function AgendaPrintoutView({ printout, printedBy }: { printout: AgendaPrintout; printedBy: string }) {
-  const p = t.printout
+export function AgendaPrintoutView({ printout }: { printout: AgendaPrintout }) {
   const c = t.columns
   const days = new Map<string, AgendaItem[]>()
   for (const item of printout.items) {
     const day = formatDateTime(item.scheduledAt).slice(0, 10)
     days.set(day, [...(days.get(day) ?? []), item])
   }
-  const filters = [
-    printout.officeName && `${t.office}: ${printout.officeName}`,
-    printout.lawyerName && `${t.lawyer}: ${printout.lawyerName}`,
-    printout.params.includeCancelled ? p.withCancelled : null,
-  ].filter((x): x is string => typeof x === 'string' && x !== '')
 
   return (
     <Box sx={{ display: 'none', displayPrint: 'block', color: 'common.black' }} data-testid="agenda-printout">
-      <style>{`@page { size: A4 portrait; margin: 15mm 15mm 18mm; @bottom-right { content: "${p.page} " counter(page) " ${p.of} " counter(pages); font-size: 9pt; } }`}</style>
-      <Typography variant="h1" sx={{ fontSize: '1.4rem' }}>
-        {p.title}
-      </Typography>
-      <Typography>{p.period(formatDate(printout.params.from), formatDate(printout.params.to))}</Typography>
-      <Typography>{filters.length > 0 ? filters.join(' · ') : p.allHearings}</Typography>
-      <Typography variant="body2" sx={{ mb: 2 }}>
-        {p.printedBy(formatDateTime(printout.printedAt), printedBy)} · {p.count(printout.items.length)}
+      <style>{'@page { size: A4 portrait; margin: 15mm; }'}</style>
+      <Typography variant="h1" sx={{ fontSize: '1.4rem', mb: 2 }}>
+        {t.printout.title(formatDate(printout.params.from), formatDate(printout.params.to))}
       </Typography>
       {printout.items.length === 0 && <Typography>{t.empty}</Typography>}
       {[...days.entries()].map(([day, hearings]) => (

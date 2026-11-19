@@ -106,11 +106,12 @@ is a MySQL named lock here.
   - `RevokeRoleHandler` refuses to remove `STATE_LAWYER` / `SECONDARY_LAWYER` while the user holds that position on open cases (`user.role_in_use`, with the count; `ICaseAssignmentCounts.CountOpenPositionsAsync`).
   - Dashboard: a holder of `SECONDARY_LAWYER` gets "Si avokat sekondar" next to the "Të miat" widgets; no statistics widgets.
 - **Profile, chat and Organika (task 053g, client decision E).**
-  - **Profile:** read-only (name, e-mail, position, unit, manager, roles, office / institution). The phone and the notification switches are gone (script 025 drops `users.phone` and `user_notification_prefs`), and every notification is mandatory.
+  - **Profile:** read-only (name, e-mail, position, unit, roles, office / institution; no manager since task 053p). The phone and the notification switches are gone (script 025 drops `users.phone` and `user_notification_prefs`), and every notification is mandatory.
   - **Chat:** the Protokoll who registered a case is in its chat for the life of the case (`ICaseLookup.GetChatParticipantIdsAsync` adds `registered_by`; sync and reconcile as in 049). An administrator (`chat.admin`) opens any case chat from the case page, reads it, and joins with the first message; the reconcile never removes them. Both show with their role in the participants list (PROTOCOL / ADMIN).
   - **Organika** (Administrimi → Organika, `admin.org`):
-    - an .xlsx template (email, pozicioni, njesia, eprori_email); an .xlsx or .csv upload is validated into a preview (CHANGED / UNCHANGED / EMAIL_NOT_FOUND / DUPLICATE / MANAGER_NOT_FOUND / INVALID) without applying anything;
-    - "Apliko" recomputes it against the current users and writes `users.position`, `org_unit` and `manager_user_id` for the CHANGED rows in ONE transaction, with a `user_org_history` row each;
+    - an .xlsx template (email, pozicioni, njesia); an .xlsx or .csv upload is validated into a preview (CHANGED / UNCHANGED / EMAIL_NOT_FOUND / DUPLICATE / INVALID) without applying anything;
+    - "Apliko" recomputes it against the current users and writes `users.position` and `org_unit` for the CHANGED rows in ONE transaction, with a `user_org_history` row each;
+    - task 053p: "Eprori" (the manager) is removed everywhere — script 035 drops `users.manager_user_id` (and `fk_users_manager`) and `user_org_history.old_/new_manager_user_id`;
     - every import is kept in `org_imports` (file, by, at, summary);
     - `org_unit` is text, not the office, so access is unchanged. `TODO(akshi-q-hrmis)`.
 - **Earlier levels (task 053f, client decision D2).**
@@ -168,7 +169,7 @@ The handoff of task 053c ("Përcjellja", `case_handoffs`, "Çështjet e ardhura"
   - the template (the headers, an example row, and the sheet "Udhëzime");
   - the page's "Si duhet të jetë skedari" (`GET …/definition`).
 - **Kinds.**
-  - `organika` (admin.org, task 053g): positions, units and managers of existing users.
+  - `organika` (admin.org, task 053g): positions and units of existing users.
   - `users` (admin.users): creates and updates users through the SAME handlers as the page (`CreateUserHandler`, `UpdateUserHandler`, `Grant` / `RevokeRoleHandler`, `SetUserActiveHandler`), so every guard and audit row applies. The preview checks those guards per row.
 - **Adding a kind.** One `IImportKind` class + its line in `ImportEndpoints.Kinds` + a value in `ck_oi_kind`.
 

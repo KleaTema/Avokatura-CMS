@@ -351,7 +351,7 @@ export function AgendaPage() {
         />
       )}
       {printout && (
-        <AgendaPrintoutView printout={printout} printedBy={me.data ? `${me.data.firstName} ${me.data.lastName}` : ''} />
+        <AgendaPrintoutView printout={printout} />
       )}
     </>
   )

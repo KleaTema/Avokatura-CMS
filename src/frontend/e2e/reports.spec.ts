@@ -109,8 +109,11 @@ test('Tabela 1: rows per page and Para / Pas page through the rows', async ({ pa
   await expect(rows).toHaveCount(Math.min(25, total) + 1, { timeout: 15_000 }) // + the totals row
 })
 
-/** Task 053o: "Printo" prints ONLY the table, with its header (title, filters, at / by) — the app itself is hidden. */
-test('Tabela 1: Printo puts only the table and its header on paper', async ({ page }) => {
+/**
+ * Task 053o: "Printo" prints ONLY the title and the table with EVERY row of the filters (not the page on screen) —
+ * no filters line, no "printed by", no pagination; the app itself is hidden.
+ */
+test('Tabela 1: Printo puts only the title and the whole table on paper', async ({ page }) => {
   await login(page, USERS.kryetar)
   await page.goto('/reports?tab=aktive')
   await filterByCode(page, '2026')
@@ -130,10 +133,15 @@ test('Tabela 1: Printo puts only the table and its header on paper', async ({ pa
   await expect(printout).toBeVisible()
   await expect(page.locator('#root')).toBeHidden()
   await expect(printout).toContainText('Tabela 1 — Raporti i çështjeve aktive')
-  await expect(printout).toContainText('Kodi unik: 2026')
-  await expect(printout).toContainText(/Gjeneruar më .+ nga Kryetar/)
+  await expect(printout).not.toContainText('Kodi unik: 2026') // no filters line
+  await expect(printout).not.toContainText('Gjeneruar më') // no "printed at / by"
   await expect(printout.getByRole('table')).toBeVisible()
-  await expect(printout.getByRole('button')).toHaveCount(0) // no buttons, no menu, no filters
+  await expect(printout.getByRole('button')).toHaveCount(0) // no buttons, no menu, no filters, no pagination
+  // every row of the filters: the body rows are the totals' count (+ the totals row itself)
+  const totalsText = (await printout.getByText(/^Gjithsej: [\d.]+ rreshta$/).textContent()) ?? ''
+  const total = Number(totalsText.replace(/\D/g, ''))
+  expect(total).toBeGreaterThan(0)
+  await expect(printout.locator('tbody tr')).toHaveCount(total + 1)
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/raportet-print-preview.png`, fullPage: true })
   await page.emulateMedia({ media: 'screen' })
 })

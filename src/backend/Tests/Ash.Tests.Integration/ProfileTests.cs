@@ -64,12 +64,11 @@ public class ProfileTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task The_profile_shows_the_position_unit_and_manager_from_Organika()
+    public async Task The_profile_shows_the_position_and_unit_from_Organika_and_no_manager()
     {
         await Execute("""
-            UPDATE users u JOIN users m ON m.email = 'kryetar@ash.local'
-               SET u.position = 'Avokat i Shtetit, specialist', u.org_unit = 'Sektori i Gjyqësorit', u.manager_user_id = m.id
-             WHERE u.email = 'avokat1@ash.local'
+            UPDATE users SET position = 'Avokat i Shtetit, specialist', org_unit = 'Sektori i Gjyqësorit'
+             WHERE email = 'avokat1@ash.local'
             """);
         await using var factory = new AshApiFactory(Db);
         using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
@@ -78,7 +77,7 @@ public class ProfileTests(MySqlFixture db) : IntegrationTest(db)
 
         p.GetProperty("position").GetString().ShouldBe("Avokat i Shtetit, specialist");
         p.GetProperty("orgUnit").GetString().ShouldBe("Sektori i Gjyqësorit");
-        p.GetProperty("manager").GetString().ShouldBe("Kryetar Dev");
+        p.TryGetProperty("manager", out _).ShouldBeFalse(); // task 053p: "Eprori" is gone
     }
 
     [Fact]

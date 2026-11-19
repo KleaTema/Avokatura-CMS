@@ -878,7 +878,7 @@ OFFICE_HEAD.
 **Setup:** run the migrator (script 025), restart the API, `npm run dev`.
 1. **Any user → *Profili*:**
    - No phone, no notification switches.
-   - Shows name, e-mail, position, unit and manager ("—" until Organika sets them), roles, office.
+   - Shows name, e-mail, position and unit ("—" until Organika sets them), roles, office. No "Eprori" (task 053p).
 2. **Chat as the Protokoll** who registered an ACTIVE case: *Chat* lists that case's conversation; they read and write
    there. In its participants they show as "Protokolli (regjistroi çështjen)".
 3. **Chat as admin:**
@@ -886,8 +886,8 @@ OFFICE_HEAD.
    - Send a message → "Admin … u shtua në bisedë", then the message; the participants list shows "Administratori".
    - The nightly chat-reconcile keeps them.
 4. **Admin → *Administrimi → Organika*** (since 053l on the shared import pipeline — see 053l below):
-   - "Shkarko shabllonin" → an .xlsx: sheet "Organika" with the four columns and an example row, and the sheet "Udhëzime".
-   - Fill in: a real user, an unknown e-mail, the same e-mail twice, a row without position, an unknown manager.
+   - "Shkarko shabllonin" → an .xlsx: sheet "Organika" with the three columns (email, pozicioni, njesia) and an example row, and the sheet "Udhëzime".
+   - Fill in: a real user, an unknown e-mail, the same e-mail twice, a row without position.
      Upload → the counts and each row's status, the reason on its cell; nothing changed yet (open the user's profile).
    - "Apliko" → the toast shows the count; the profile now shows the position; *Përdoruesit* has a "Pozicioni" column.
    - The import is in the list ("Aplikuar më … nga …"); applying again is refused.
@@ -1114,7 +1114,14 @@ Supersedes the "Gjenero" steps of 045 / 053h. The client's files: `docs/client/T
 6. **Columns (Tabela 1 / 2):** the default view is exactly the client's columns in the client's order (Kodi unik … *Vlera e padisë* with *M2* | *Monedha* under one merged header … *Kategoria dhe lloji i çështjes*; Tabela 2 with *Data e regjistrimit*, *Vlera* M2 | Monedha, *Ankimuar/ Rekursuar*). Our other columns are in *Kolonat*, off by default. Money shows "8.000,00 ALL"; the totals row has one sum per currency.
 7. **Statistikat:** the client's table — the title, the grouped header rows (groups centered over their columns), the letter row (A, B, C …) and the formula row (A+B, C-(D+E)), a row per court and *TOTALI* in bold; the result columns *Fituar* … *J.juridik* (+ *Tjetër*), each *Avokat* | *Delegim/Relatim*; *Ankimuar* and *Rekurs* apart; one *MONEDHË* column per currency. An ⓘ beside a header shows its definition (no dotted underline). A number opens its cases.
 8. **Pagination (Tabela 1):** *Rreshta për faqe* 10 / 25 / 50 changes the rows and goes back to page 1; *Para* / *Pas* move; "1–10 nga N" follows.
-9. **Print:** *Printo* prints only the table: the title, the filters in words, generated at / by, "Faqja n nga m", landscape for a wide table, the header rows on every page, the totals row — no menu, header, filters or buttons (and never "Tabela 4 kërkon një institucion…"). Statistics: a dialog first — the table, and *Rezultati* / *Në dorë* only when ticked.
+9. **Print (every print: reports, statistics, agenda):** *Printo* prints only the table's title and the table — no filters line, no "Gjeneruar / Printuar më … nga …", no page numbers, no menu, header, filters, buttons or pagination (and never "Tabela 4 kërkon një institucion…"). Tabela 1 / 2: EVERY row of the filters (not only the page on screen; the button says *Po ngarkohen rreshtat…* meanwhile) and the totals row; above 2.000 rows a message asks to narrow the filters or export to Excel. Landscape for a wide table, the header rows on every page. Statistics: a dialog first — the table, and *Rezultati* / *Në dorë* only when ticked. Agenda: one title line "Agjenda e seancave · dd.mm.yyyy – dd.mm.yyyy", then the hearings by day. (The browser's own date / URL margins: untick "Headers and footers" in its print dialog.)
 10. **Tables everywhere:** a navy header band with white bold text, vertical and horizontal cell lines, zebra rows, sticky header; the same on paper.
 11. **Excel (every export):** header rows bold white on navy with borders, grouped headers merged and centered, thin borders on all cells, frozen header, autofilter, thousands separators, money / m² with 2 decimals (money with its code), totals bold, column widths, the *Filtrat* sheet. The statistics workbook: *AVOKATURA E SHTETIT* / *STATISTIKA* / the title, the same merged header as the screen. CSV stays plain. Import templates and result reports use the same template.
 12. **Provisional rules** (data, not code — script 034; `docs/statistics-definitions.md` "Rregulla në pritje"): change `report_settings.statistics.appeal_columns` to COMBINED → one column *Ankimuar / Rekursuar*; `reports.closed_value` to DECISION → *Vlera* shows the decision's won value; a row of `statistics_result_mapping` moves a result to another column. No restart is needed (read per request).
+
+## 053p — "Eprori" removed
+**Setup:** run the migrator (script 035) and restart the API.
+
+1. **Profili → Pozicioni:** only *Pozicioni* and *Njësia*; the note says "Pozicioni dhe njësia vendosen nga administratori përmes Organikës."; the word "Eprori" is nowhere on the page.
+2. **Administrimi → Organika:** "Shkarko shabllonin" → the sheet *Organika* has three columns (email, pozicioni, njesia); *Udhëzime* and the "Si duhet të jetë skedari" card say nothing about an eprori. Upload a sheet → the preview, the result report and "Apliko" show / write only position and unit.
+3. **Database:** `SHOW COLUMNS FROM ash_core.users LIKE 'manager%'` and the same on `user_org_history` return nothing.

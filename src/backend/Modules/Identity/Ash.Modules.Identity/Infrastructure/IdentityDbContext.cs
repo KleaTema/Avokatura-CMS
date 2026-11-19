@@ -49,8 +49,6 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.NewPosition).HasColumnName("new_position");
             b.Property(x => x.OldOrgUnit).HasColumnName("old_org_unit");
             b.Property(x => x.NewOrgUnit).HasColumnName("new_org_unit");
-            b.Property(x => x.OldManagerUserId).HasColumnName("old_manager_user_id");
-            b.Property(x => x.NewManagerUserId).HasColumnName("new_manager_user_id");
             b.Property(x => x.ChangedBy).HasColumnName("changed_by");
             b.Property(x => x.ChangedAt).HasColumnName("changed_at");
         });
@@ -95,7 +93,6 @@ public sealed class IdentityDbContext(IUnitOfWork unitOfWork) : ModuleDbContextB
             b.Property(x => x.LastName).HasColumnName("last_name");
             b.Property(x => x.Position).HasColumnName("position");
             b.Property(x => x.OrgUnit).HasColumnName("org_unit");
-            b.Property(x => x.ManagerUserId).HasColumnName("manager_user_id");
             b.Property(x => x.OfficeId).HasColumnName("office_id");
             b.Property(x => x.InstitutionId).HasColumnName("institution_id");
             b.Property(x => x.IsActive).HasColumnName("is_active");
@@ -180,8 +177,6 @@ public sealed class UserRecord
     public string? Position { get; set; }
     /// <summary>The unit as the HR sheet names it (text, task 053g) — not the office, which decides access.</summary>
     public string? OrgUnit { get; set; }
-    /// <summary>Eprori, from the Organika import (task 053g).</summary>
-    public uint? ManagerUserId { get; set; }
     public ushort? OfficeId { get; set; }
     public uint? InstitutionId { get; set; }
     public bool IsActive { get; set; }
@@ -247,8 +242,6 @@ public sealed class UserOrgHistoryRecord
     public string? NewPosition { get; set; }
     public string? OldOrgUnit { get; set; }
     public string? NewOrgUnit { get; set; }
-    public uint? OldManagerUserId { get; set; }
-    public uint? NewManagerUserId { get; set; }
     public uint ChangedBy { get; set; }
     public DateTime ChangedAt { get; set; }
 }

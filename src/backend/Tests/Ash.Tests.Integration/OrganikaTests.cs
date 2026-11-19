@@ -33,18 +33,17 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
     private static Task<JsonElement> Json(HttpResponseMessage response) => ImportFiles.Json(response, Ct);
 
     /// <summary>
-    /// avokat1 changes; avokat2 is already as written (unchanged); an unknown e-mail; ndihmes twice (duplicate); an
-    /// unknown manager (protokoll); a row without position. Headers with accents, case and a "/zyra" suffix.
+    /// avokat1 changes; avokat2 is already as written (unchanged); an unknown e-mail; ndihmes twice (duplicate); a row
+    /// without position. Headers with accents, case and a "/zyra" suffix. Task 053p: no "Eprori" column.
     /// </summary>
     private const string Csv = """
-        Email;Pozicioni;Njësia/zyra;Eprori email
-        AVOKAT1@ash.local;Avokat i Shtetit, specialist;Sektori i Gjyqësorit;kryetar@ash.local
-        avokat2@ash.local;Avokat;Sektori A;
-        nuk.ekziston@ash.local;Avokat;Sektori A;
-        ndihmes@ash.local;Ndihmës ligjor;Sektori A;
-        ndihmes@ash.local;Ndihmës ligjor;Sektori B;
-        protokoll@ash.local;Specialist protokolli;Protokolli;askush@ash.local
-        monitor@ash.local;;Sektori C;
+        Email;Pozicioni;Njësia/zyra
+        AVOKAT1@ash.local;Avokat i Shtetit, specialist;Sektori i Gjyqësorit
+        avokat2@ash.local;Avokat;Sektori A
+        nuk.ekziston@ash.local;Avokat;Sektori A
+        ndihmes@ash.local;Ndihmës ligjor;Sektori A
+        ndihmes@ash.local;Ndihmës ligjor;Sektori B
+        monitor@ash.local;;Sektori C
         """;
 
     private static string ErrorOf(JsonElement row, string column) =>
@@ -63,17 +62,16 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
         var summary = preview.GetProperty("summary");
         (summary.GetProperty("total").GetInt32(), summary.GetProperty("changed").GetInt32(), summary.GetProperty("unchanged").GetInt32(),
                 summary.GetProperty("errors").GetInt32())
-            .ShouldBe((7, 1, 1, 5));
+            .ShouldBe((6, 1, 1, 4));
         var rows = preview.GetProperty("rows").EnumerateArray().ToList();
         rows.Select(r => r.GetProperty("status").GetString())
-            .ShouldBe(["CHANGED", "UNCHANGED", "ERROR", "ERROR", "ERROR", "ERROR", "ERROR"]);
+            .ShouldBe(["CHANGED", "UNCHANGED", "ERROR", "ERROR", "ERROR", "ERROR"]);
         rows[0].GetProperty("line").GetInt32().ShouldBe(2);
-        rows[0].GetProperty("changes").EnumerateArray().Single(c => c.GetProperty("column").GetString() == "eprori_email")
-            .GetProperty("new").GetString().ShouldBe("Kryetar Dev");
+        rows[0].GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("column").GetString())
+            .ShouldBe(["pozicioni", "njesia"]); // task 053p: no eprori
         ErrorOf(rows[2], "email").ShouldBe("Nuk ka përdorues me këtë e-mail.");
         ErrorOf(rows[3], "email").ShouldBe("Ky e-mail është më shumë se një herë në skedar.");
-        ErrorOf(rows[5], "eprori_email").ShouldStartWith("Eprori nuk është përdorues");
-        ErrorOf(rows[6], "pozicioni").ShouldBe("Mungon pozicioni.");
+        ErrorOf(rows[5], "pozicioni").ShouldBe("Mungon pozicioni.");
 
         // nothing written yet but the import itself (kind, file)
         (await Scalar("SELECT position FROM users WHERE email = 'avokat1@ash.local'")).ShouldBeNull();
@@ -84,8 +82,13 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
         var applied = await Json(await admin.PostAsync($"{Base}/{id}/apply", null, Ct));
         applied.GetProperty("appliedCount").GetInt32().ShouldBe(1);
 
-        (await Scalar("SELECT CONCAT(u.position, '|', u.org_unit, '|', m.email) FROM users u JOIN users m ON m.id = u.manager_user_id WHERE u.email = 'avokat1@ash.local'"))
-            .ShouldBe("Avokat i Shtetit, specialist|Sektori i Gjyqësorit|kryetar@ash.local");
+        (await Scalar("SELECT CONCAT(position, '|', org_unit) FROM users WHERE email = 'avokat1@ash.local'"))
+            .ShouldBe("Avokat i Shtetit, specialist|Sektori i Gjyqësorit");
+        // task 053p (script 035): the manager columns are gone
+        (await Scalar("""
+            SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = 'ash_core' AND column_name IN ('manager_user_id', 'old_manager_user_id', 'new_manager_user_id')
+            """)).ShouldBe(0L);
         (await Scalar("SELECT COUNT(*) FROM user_org_history")).ShouldBe(1L); // only the changed row
         (await Scalar("SELECT position FROM users WHERE email = 'ndihmes@ash.local'")).ShouldBeNull(); // duplicates never
 
@@ -93,7 +96,7 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
         var report = await admin.GetAsync($"{Base}/{id}/report", Ct);
         report.Content.Headers.ContentType!.MediaType.ShouldBe(ImportFiles.XlsxType);
         var table = ImportFiles.ReadSheet(await report.Content.ReadAsByteArrayAsync(Ct));
-        table.Count.ShouldBe(8);
+        table.Count.ShouldBe(7);
         table[1][3].ShouldBe("Ndryshon");
         table[1][5].ShouldBe("U përditësua.");
         table[3][3].ShouldBe("Gabim");
@@ -114,7 +117,8 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
 
         var definition = await Json(await admin.GetAsync($"{Base}/definition", Ct));
         var columns = definition.GetProperty("columns").EnumerateArray().Select(c => c.GetProperty("name").GetString()).ToList();
-        columns.ShouldBe(["email", "pozicioni", "njesia", "eprori_email"]);
+        columns.ShouldBe(["email", "pozicioni", "njesia"]); // task 053p: no eprori_email
+        definition.GetRawText().ShouldNotContain("epror", Case.Insensitive);
         definition.GetProperty("maxRows").GetInt32().ShouldBe(5000);
         definition.GetProperty("maxFileMb").GetInt32().ShouldBe(5);
 
@@ -133,10 +137,10 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
             instructions.ShouldContain(rule.GetString()!);
         }
 
-        var xlsx = ImportFiles.Xlsx(["EMAIL", "Pozicioni", "Njësia", "Eprori_email"], ["avokat1@ash.local", "Avokat", "Sektori X", ""]);
+        var xlsx = ImportFiles.Xlsx(["EMAIL", "Pozicioni", "Njësia"], ["avokat1@ash.local", "Avokat", "Sektori X"]);
         (await Json(await Upload(admin, "organika.xlsx", xlsx))).GetProperty("rows").EnumerateArray().Single().GetProperty("status").GetString()
             .ShouldBe("CHANGED");
-        var commaCsv = "email,pozicioni,njesia,eprori_email\navokat1@ash.local,\"Avokat, specialist\",Sektori X,\n";
+        var commaCsv = "email,pozicioni,njesia\navokat1@ash.local,\"Avokat, specialist\",Sektori X\n";
         var commaRow = (await Json(await Upload(admin, "o.csv", Encoding.UTF8.GetBytes(commaCsv)))).GetProperty("rows").EnumerateArray().Single();
         commaRow.GetProperty("changes").EnumerateArray().Single(c => c.GetProperty("column").GetString() == "pozicioni")
             .GetProperty("new").GetString().ShouldBe("Avokat, specialist");

@@ -32,8 +32,8 @@ function Optional({ value }: { value: string | null | undefined }) {
 }
 
 /**
- * "Profili" (tasks 048 / 053g): the user's own data, read-only — name and e-mail (identity provider), position, unit
- * and manager (Organika), role(s), office or institution. Client decision E: no phone and no notification switches;
+ * "Profili" (tasks 048 / 053g): the user's own data, read-only — name and e-mail (identity provider), position and
+ * unit (Organika; task 053p: no "Eprori"), role(s), office or institution. Client decision E: no phone and no notification switches;
  * every notification is mandatory.
  */
 export function ProfilePage() {
@@ -66,9 +66,6 @@ export function ProfilePage() {
                 </Field>
                 <Field label={t.orgUnit}>
                   <Optional value={p.orgUnit} />
-                </Field>
-                <Field label={t.manager}>
-                  <Optional value={p.manager} />
                 </Field>
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

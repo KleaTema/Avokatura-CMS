@@ -21,7 +21,6 @@ import { Columns3, Download, Link2, Printer, Save } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ApiError } from '../../../api/client'
-import { describeFilters } from '../../../components/filters/describeFilters'
 import { FilterBar } from '../../../components/filters/FilterBar'
 import { hasValue, type FilterDef } from '../../../components/filters/filterTypes'
 import { UnusedFilterGuard } from '../../../components/filters/UnusedFilterGuard'
@@ -34,7 +33,9 @@ import {
   cleanValues,
   descendants,
   exportUrl,
+  fetchAllBuilderRows,
   filtersParam,
+  MAX_PRINT_ROWS,
   isStatisticsTable,
   parseValues,
   useBuilderFilters,
@@ -46,7 +47,6 @@ import {
   type FilterValues,
   type ReportTotals,
 } from '../../../features/reports/builder'
-import { useMe } from '../../../features/identity/api'
 import { sq } from '../../../i18n/sq'
 import { todayInTirane } from '../../../lib/dates'
 import { downloadFile } from '../../../lib/download'
@@ -57,7 +57,7 @@ import { problemMessage } from '../../../lib/problem'
 import { useDebounced } from '../../../lib/useDebounced'
 import { usePrintWhenReady } from '../../../lib/usePrintWhenReady'
 import { isNumeric, reportCell } from '../reportCells'
-import { PrintHeader, PrintPortal } from '../ReportPrint'
+import { PrintPortal, PrintTitle } from '../ReportPrint'
 import { DrillDrawer, StatisticsBody, type OpenCell } from '../StatisticsReport'
 import { ColumnChooser } from './ColumnChooser'
 
@@ -104,7 +104,6 @@ function useBuilderUrl() {
  */
 export function ReportBuilder({ table }: { table: BuilderTable }) {
   const url = useBuilderUrl()
-  const me = useMe(true)
   const statistics = isStatisticsTable(table)
   const [draft, setDraft] = useState<FilterValues>(() =>
     statistics && !url.applied.year ? { ...url.applied, year: todayInTirane().slice(0, 4) } : url.applied,
@@ -115,6 +114,8 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [printing, setPrinting] = useState<PrintChoice | null>(null)
+  const [printBusy, setPrintBusy] = useState(false)
+  const [printError, setPrintError] = useState<string | null>(null)
   const [printDialog, setPrintDialog] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -164,14 +165,28 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
     setToast(t.linkCopied)
   }
 
-  const print = () => (statistics ? setPrintDialog(true) : setPrinting({ results: false, inHand: false }))
+  // task 053o: Tabela 1 / 2 print EVERY row of the filters (loaded first), not the page on screen
+  const print = async () => {
+    if (statistics) {
+      setPrintDialog(true)
+      return
+    }
+    if (appliedParam === null) return
+    setPrintBusy(true)
+    setPrintError(null)
+    try {
+      const all = await fetchAllBuilderRows(table as 1 | 3, appliedParam)
+      if (all.kind === 'tooMany') setPrintError(t.printTooMany(formatCount(MAX_PRINT_ROWS)))
+      else setPrinting({ results: false, inHand: false, caseRows: { items: all.items, totals: all.totals } })
+    } catch (e) {
+      setPrintError(problemMessage(e))
+    } finally {
+      setPrintBusy(false)
+    }
+  }
   const clearPrinting = useCallback(() => setPrinting(null), [])
   usePrintWhenReady(printing, clearPrinting)
-  const printHeader = {
-    title: t.tableNames[table],
-    filters: describeFilters(filters, effective, { yes: sq.filters.yes, no: sq.filters.no, from: sq.filters.from, to: sq.filters.to }),
-    generatedBy: me.data ? `${me.data.firstName} ${me.data.lastName}` : '',
-  }
+  const printTitle = t.tableNames[table]
 
   return (
     <Stack spacing={2}>
@@ -193,8 +208,13 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
           </Button>
         )}
         <ExportMenu table={table} filters={appliedParam} columns={statistics ? [] : chosen} />
-        <Button variant="outlined" startIcon={<Printer size={18} aria-hidden />} onClick={print} disabled={appliedParam === null}>
-          {t.print}
+        <Button
+          variant="outlined"
+          startIcon={<Printer size={18} aria-hidden />}
+          onClick={() => void print()}
+          disabled={appliedParam === null || printBusy}
+        >
+          {printBusy ? t.printLoading : t.print}
         </Button>
         <Button variant="outlined" startIcon={<Save size={18} aria-hidden />} onClick={() => setSaveOpen(true)}>
           {t.save}
@@ -204,6 +224,11 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
         </Button>
       </Stack>
 
+      {printError && (
+        <Alert severity="warning" onClose={() => setPrintError(null)}>
+          {printError}
+        </Alert>
+      )}
       {meta.isError && <Alert severity="error">{problemMessage(meta.error)}</Alert>}
       {appliedParam === null ? (
         <EmptyState title={t.notGenerated} />
@@ -213,10 +238,10 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
           filters={appliedParam}
           values={effective}
           printing={printing}
-          printHeader={printHeader}
+          printTitle={printTitle}
         />
       ) : (
-        <CaseResults table={table as 1 | 3} filters={appliedParam} chosen={chosen} printing={printing !== null} printHeader={printHeader} />
+        <CaseResults table={table as 1 | 3} filters={appliedParam} chosen={chosen} printRows={printing?.caseRows ?? null} printTitle={printTitle} />
       )}
 
       {printDialog && (
@@ -259,16 +284,17 @@ export function ReportBuilder({ table }: { table: BuilderTable }) {
   )
 }
 
-/** What "Printo" prints besides the table (the statistics' sections, chosen in the print dialog). */
+/** Every row of Tabela 1 / 2 under the filters, loaded for the printout. */
+interface CasePrintRows {
+  items: Record<string, unknown>[]
+  totals: ReportTotals | null
+}
+
+/** What "Printo" prints: the statistics' sections chosen in the print dialog; for Tabela 1 / 2 all of its rows. */
 export interface PrintChoice {
   results: boolean
   inHand: boolean
-}
-
-interface PrintHeaderProps {
-  title: string
-  filters: string[]
-  generatedBy: string
+  caseRows?: CasePrintRows
 }
 
 /**
@@ -281,14 +307,14 @@ function CaseResults({
   table,
   filters,
   chosen,
-  printing,
-  printHeader,
+  printRows,
+  printTitle,
 }: {
   table: 1 | 3
   filters: string
   chosen: string[]
-  printing: boolean
-  printHeader: PrintHeaderProps
+  printRows: CasePrintRows | null
+  printTitle: string
 }) {
   const paging = useKeysetPaging()
   const [totals, setTotals] = useState<ReportTotals | null>(null)
@@ -314,7 +340,8 @@ function CaseResults({
       : problemMessage(rows.error)
     : null
 
-  const tableOf = (print: boolean) => (
+  // on screen: the current page; on paper: every row of the filters (loaded by "Printo")
+  const tableOf = (print: boolean, items: Record<string, unknown>[], totals: ReportTotals | null) => (
     <DataTable
       label={t.tableNames[table]}
       loading={rows.isPending}
@@ -385,11 +412,11 @@ function CaseResults({
       {error && <Alert severity="error">{error}</Alert>}
       {/* the previous rows stay while the next ones load: a thin bar, no flicker */}
       <Box sx={{ height: 4 }}>{rows.isFetching && !rows.isPending && <LinearProgress aria-label={t.updating} />}</Box>
-      {tableOf(false)}
-      {printing && (
+      {tableOf(false, items, totals)}
+      {printRows && (
         <PrintPortal landscape={columns.length > 6}>
-          <PrintHeader {...printHeader} />
-          {tableOf(true)}
+          <PrintTitle title={printTitle} />
+          {tableOf(true, printRows.items, printRows.totals)}
         </PrintPortal>
       )}
     </Stack>
@@ -402,13 +429,13 @@ function StatisticsResults({
   filters,
   values,
   printing,
-  printHeader,
+  printTitle,
 }: {
   table: 5 | 6
   filters: string
   values: FilterValues
   printing: PrintChoice | null
-  printHeader: PrintHeaderProps
+  printTitle: string
 }) {
   const stats = useBuilderStatistics(table, filters)
   const [open, setOpen] = useState<OpenCell | null>(null)
@@ -440,7 +467,7 @@ function StatisticsResults({
       <DrillDrawer filters={drillFilters} open={open} onClose={() => setOpen(null)} />
       {printing && (
         <PrintPortal landscape>
-          <PrintHeader {...printHeader} />
+          <PrintTitle title={printTitle} />
           <StatisticsBody s={s} year={Number(text('year'))} onOpen={() => undefined} print sections={printing} />
         </PrintPortal>
       )}

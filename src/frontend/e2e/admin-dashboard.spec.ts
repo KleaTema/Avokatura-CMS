@@ -48,7 +48,7 @@ test('agenda print: the dialog limits the period to 3 months and prints the chos
   await expect(dialog).toBeHidden({ timeout: 15_000 })
   await expect.poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed), { timeout: 10_000 }).toBe(1)
   const printout = page.getByTestId('agenda-printout')
-  await expect(printout).toContainText('Agjenda e seancave')
-  await expect(printout).toContainText(/Periudha: \d{2}\.\d{2}\.\d{4} – \d{2}\.\d{2}\.\d{4}/)
-  await expect(printout).toContainText(/Printuar më .+ nga Monitor/)
+  // only the title (with the period) and the table: no filters, no "printed by"
+  await expect(printout).toContainText(/Agjenda e seancave · \d{2}\.\d{2}\.\d{4} – \d{2}\.\d{2}\.\d{4}/)
+  await expect(printout).not.toContainText('Printuar më')
 })

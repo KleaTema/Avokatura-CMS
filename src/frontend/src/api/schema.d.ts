@@ -3799,7 +3799,6 @@ export interface components {
             email: string;
             position: null | string;
             orgUnit: null | string;
-            manager: null | string;
             office: null | components["schemas"]["NamedRef"];
             institution: null | components["schemas"]["NamedRef"];
             roles: components["schemas"]["RoleRef"][];

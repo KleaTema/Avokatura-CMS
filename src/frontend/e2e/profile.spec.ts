@@ -17,8 +17,10 @@ test('the profile shows the data read-only, with no phone and no notification sw
   await expect(page).toHaveURL(/\/profile$/)
   await expect(page.getByRole('heading', { name: 'Profili', level: 1 })).toBeVisible()
   await expect(page.getByText('Emri dhe email-i menaxhohen nga sistemi i identifikimit')).toBeVisible()
-  await expect(page.getByText('Pozicioni, njësia dhe eprori vendosen nga administratori përmes Organikës.')).toBeVisible()
+  await expect(page.getByText('Pozicioni dhe njësia vendosen nga administratori përmes Organikës.')).toBeVisible()
   await expect(page.getByText('kryetar@ash.local')).toBeVisible()
+  // task 053p: no "Eprori" anywhere on the profile
+  await expect(page.getByText(/epror/i)).toHaveCount(0)
 
   // gone (client decision E)
   await expect(page.getByRole('button', { name: 'Ndrysho telefonin' })).toHaveCount(0)
@@ -42,11 +44,12 @@ test('the administrator opens Organika', async ({ page }) => {
   await page.locator('input[type=file]').setInputFiles({
     name: 'organika-e2e.csv',
     mimeType: 'text/csv',
-    buffer: Buffer.from('email;pozicioni;njesia;eprori_email\nnuk.ekziston.e2e@ash.local;Avokat;Sektori A;\n'),
+    buffer: Buffer.from('email;pozicioni;njesia\nnuk.ekziston.e2e@ash.local;Avokat;Sektori A\n'),
   })
   await expect(page.getByRole('heading', { name: 'Pamja paraprake — organika-e2e.csv' })).toBeVisible()
   // task 053l: the shared pipeline — the instructions, the row error on its cell, nothing to apply
   await expect(page.getByRole('heading', { name: 'Si duhet të jetë skedari' })).toBeVisible()
+  await expect(page.getByText(/epror/i)).toHaveCount(0) // task 053p: no "Eprori" column or rule
   await expect(page.getByText('Me gabime: 1')).toBeVisible()
   await expect(page.getByText('Nuk ka përdorues me këtë e-mail.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Apliko' })).toBeDisabled()

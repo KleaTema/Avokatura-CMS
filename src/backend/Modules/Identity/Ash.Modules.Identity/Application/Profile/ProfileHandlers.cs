@@ -10,7 +10,7 @@ public sealed record RoleRef(string Code, string Name);
 
 /// <summary>
 /// The own profile (tasks 048, 053g), read-only: name, position (Organika), role(s), e-mail, office / institution. The
-/// name and e-mail come from the government identity provider, the position, unit and manager from the Organika
+/// name and e-mail come from the government identity provider, the position and unit from the Organika
 /// import. Client decision E (12.11.2026): no phone and no notification preferences — every notification is mandatory.
 /// </summary>
 public sealed record ProfileResponse(
@@ -20,7 +20,6 @@ public sealed record ProfileResponse(
     string Email,
     string? Position,
     string? OrgUnit,
-    string? Manager,
     NamedRef? Office,
     NamedRef? Institution,
     IReadOnlyList<RoleRef> Roles,
@@ -42,7 +41,6 @@ public sealed class ProfileHandlers(IdentityDbContext db, ICurrentUser user)
                 u.Email,
                 u.Position,
                 u.OrgUnit,
-                Manager = db.Users.Where(m => m.Id == u.ManagerUserId).Select(m => m.FirstName + " " + m.LastName).FirstOrDefault(),
                 u.LastLoginAt,
                 Office = db.Offices.Where(o => o.Id == u.OfficeId).Select(o => new NamedRef(o.PublicId, o.Name)).FirstOrDefault(),
                 Institution = db.Institutions.Where(i => i.Id == u.InstitutionId).Select(i => new NamedRef(i.PublicId, i.Name)).FirstOrDefault(),
@@ -59,7 +57,7 @@ public sealed class ProfileHandlers(IdentityDbContext db, ICurrentUser user)
                            where ur.UserId == id
                            orderby r.Id
                            select new RoleRef(r.Code, r.Name)).ToListAsync(ct);
-        return new ProfileResponse(row.PublicId, row.FirstName, row.LastName, row.Email, row.Position, row.OrgUnit, row.Manager,
+        return new ProfileResponse(row.PublicId, row.FirstName, row.LastName, row.Email, row.Position, row.OrgUnit,
             row.Office, row.Institution, roles, row.HeadOf, row.LastLoginAt);
     }
 }

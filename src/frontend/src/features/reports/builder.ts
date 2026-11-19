@@ -113,6 +113,36 @@ export const useBuilderRows = (table: 1 | 3, filters: string | null, cursor: str
     },
   })
 
+/** At most this many rows go on paper (more: narrow the filters or export to Excel). */
+export const MAX_PRINT_ROWS = 2000
+const PRINT_BATCH = 100 // the API's largest page
+
+export type PrintRows =
+  | { kind: 'rows'; items: Record<string, unknown>[]; totals: ReportTotals | null }
+  | { kind: 'tooMany' }
+
+/**
+ * Task 053o — "Printo" of Tabela 1 / 2: EVERY row of the filters (not only the page on screen), read page after page;
+ * the totals row comes with the first page. Stops (tooMany) past MAX_PRINT_ROWS.
+ */
+export async function fetchAllBuilderRows(table: 1 | 3, filters: string): Promise<PrintRows> {
+  const items: Record<string, unknown>[] = []
+  let totals: ReportTotals | null = null
+  let after: string | undefined
+  for (;;) {
+    const query = { Filters: filters, After: after, Limit: PRINT_BATCH }
+    const response =
+      table === 1
+        ? await api.GET('/api/reports/builder/active', { params: { query } }).then(unwrap)
+        : await api.GET('/api/reports/builder/closed', { params: { query } }).then(unwrap)
+    if (Number(response.page.total) > MAX_PRINT_ROWS) return { kind: 'tooMany' }
+    totals ??= response.totals ?? null
+    items.push(...(response.page.items as unknown as Record<string, unknown>[]))
+    after = response.page.nextCursor ?? undefined
+    if (!after) return { kind: 'rows', items, totals }
+  }
+}
+
 /** Tabela 3 / 4 (API 5 / 6): the statistics of the filters — like the rows: abortable, the previous table kept. */
 export const useBuilderStatistics = (table: 5 | 6, filters: string | null) =>
   useQuery({
