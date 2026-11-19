@@ -446,23 +446,29 @@ public class StatisticsTests(MySqlFixture db) : IntegrationTest(db)
 
         var response = await admin.GetAsync($"{Stats}/export?year=2027", Ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync(Ct));
-        response.Content.Headers.ContentDisposition!.FileNameStar.ShouldBe("raporti-statistikat-2027-2027-06-15.xlsx");
+        // task 053o: the user-facing numbering (Tabela 3) and the client's table (ReportStructureTests checks its header)
+        response.Content.Headers.ContentDisposition!.FileNameStar.ShouldBe("statistikat-tabela-3-2027-2027-06-15.xlsx");
         using var doc = SpreadsheetDocument.Open(new MemoryStream(await response.Content.ReadAsByteArrayAsync(Ct)), false);
         var names = doc.WorkbookPart!.Workbook.Descendants<Sheet>().Select(x => x.Name!.Value).ToList();
-        names.ShouldBe(["Tabela 5", "Rezultati", "Në dorë", "Filtrat"]);
+        names.ShouldBe(["Tabela 3", "Rezultati", "Në dorë", "Filtrat"]);
 
         var sheet = (WorksheetPart)doc.WorkbookPart.GetPartById(doc.WorkbookPart.Workbook.Descendants<Sheet>().First().Id!);
         var rows = sheet.Worksheet.Descendants<Row>().Select(r => r.Elements<Cell>().ToList()).ToList();
         string Text(Cell c) => c.DataType?.Value == CellValues.InlineString ? c.InlineString!.Text!.Text : c.CellValue?.Text ?? "";
-        var headers = rows[0].Select(Text).ToList();
-        headers.ShouldContain("Dëm i parandaluar (EUR)");
-        headers.ShouldContain("Dëm i parandaluar (m²)");
-        headers.ShouldNotContain(h => h.Contains("(ALL)")); // no ALL amount in 2027
-        var total = rows.Single(r => Text(r[0]) == "Gjithsej");
-        var totalCell = total[headers.IndexOf("Total")];
+        // 3 title lines, 3 header rows, the client's letter row (7th), the formula row, then the courts and TOTALI
+        var letters = rows[6].Select(Text).ToList();
+        var headers = rows.Take(6).SelectMany(r => r.Select(Text)).ToList();
+        headers.ShouldNotContain(h => h.Contains("ALL", StringComparison.Ordinal)); // no ALL amount in 2027: one currency
+        var total = rows.Single(r => Text(r[0]) == "TOTALI");
+        var totalCell = total[letters.IndexOf("C")]; // TOTAL (A+B)
         totalCell.DataType!.Value.ShouldBe(CellValues.Number);
         totalCell.CellValue!.Text.ShouldBe("4");
-        decimal.Parse(total[headers.IndexOf("Dëm i parandaluar (EUR)")].CellValue!.Text, CultureInfo.InvariantCulture).ShouldBe(1000m);
+        // Dëmi i parandaluar: m2 (ab), MONEDHË (ac) — EUR, the code in the cell's number format
+        decimal.Parse(total[letters.IndexOf("ac")].CellValue!.Text, CultureInfo.InvariantCulture).ShouldBe(1000m);
+        var formats = doc.WorkbookPart.WorkbookStylesPart!.Stylesheet;
+        var xf = formats.CellFormats!.Elements<CellFormat>().ElementAt((int)total[letters.IndexOf("ac")].StyleIndex!.Value);
+        formats.NumberingFormats!.Elements<NumberingFormat>().Single(n => n.NumberFormatId!.Value == xf.NumberFormatId!.Value)
+            .FormatCode!.Value!.ShouldContain("EUR");
     }
 
     // ---------------------------------------------------------------- the SQL is parameterised

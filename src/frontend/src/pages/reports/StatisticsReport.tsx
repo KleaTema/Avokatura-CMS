@@ -5,14 +5,20 @@ import {
   Drawer,
   IconButton,
   Link,
+  Paper,
   Stack,
+  Table,
+  TableBody,
   TableCell,
+  TableContainer,
+  TableFooter,
+  TableHead,
   TableRow,
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Lock, RefreshCw, TriangleAlert, X } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { Info, Lock, RefreshCw, TriangleAlert, X } from 'lucide-react'
+import { useState } from 'react'
 import { Link as RouterLink } from 'react-router'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import { DataTable, PaginationFooter } from '../../components/ui/DataTable'
@@ -21,10 +27,11 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { SectionCard } from '../../components/ui/SectionCard'
 import { StatusChip } from '../../components/ui/StatusChip'
 import {
-  decimalText,
   useDrillDown,
   type DrillCell,
   type StatisticsFilters,
+  type StatisticsGrid,
+  type StatisticsLeaf,
   type StatisticsMeasure,
   type StatisticsResponse,
 } from '../../features/reports/api'
@@ -37,14 +44,34 @@ import { tokens } from '../../theme/tokens'
 
 const t = sq.reports
 
-/** A column header: the measure's name from the API, its definition (the API's, never written here) in a tooltip. */
-function MeasureHeader({ measure }: { measure: StatisticsMeasure }) {
+/**
+ * A header's definition (the API's, never written here): task 053o — a small info icon beside the name shows it in a
+ * tooltip (no dotted underline); not printed.
+ */
+function Definition({ text, name }: { text: string | null | undefined; name: string }) {
+  if (!text) return null
   return (
-    <Tooltip title={measure.definition} placement="top" arrow>
-      <Box component="span" tabIndex={0} sx={{ textDecoration: 'underline dotted', textUnderlineOffset: 3, cursor: 'help' }}>
-        {measure.name}
+    <Tooltip title={text} placement="top" arrow>
+      <Box
+        component="span"
+        tabIndex={0}
+        role="img"
+        aria-label={t.definitionOf(name)}
+        className="no-print"
+        sx={{ display: 'inline-flex', verticalAlign: 'middle', ml: 0.5, cursor: 'help', opacity: 0.85, '@media print': { display: 'none' } }}
+      >
+        <Info size={14} aria-hidden />
       </Box>
     </Tooltip>
+  )
+}
+
+function MeasureHeader({ measure }: { measure: StatisticsMeasure }) {
+  return (
+    <>
+      {measure.name}
+      <Definition text={measure.definition} name={measure.name} />
+    </>
   )
 }
 
@@ -73,84 +100,45 @@ function YearBadge({ s, year }: { s: StatisticsResponse; year: number }) {
   return year === Number(todayInTirane().slice(0, 4)) ? <Chip icon={<RefreshCw size={16} />} variant="outlined" label={t.currentYear} /> : null
 }
 
-export function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; year: number; onOpen: (cell: OpenCell) => void }) {
-  const currencies = [...new Set(s.money.map((m) => m.currency).filter((c): c is string => !!c))].sort()
-  const moneyOf = (courtId: number | null | undefined, currency: string | null) =>
-    s.money.find((m) => (m.courtId ?? null) === (courtId ?? null) && (m.currency ?? null) === currency)
-  const m2Of = (courtId: number | null | undefined, field: 'preventedM2' | 'causedM2') =>
-    s.money.filter((m) => (m.courtId ?? null) === (courtId ?? null)).reduce((sum, m) => sum + Number(m[field]), 0)
-  const area = (n: number) => (n ? `${formatDecimal(n.toFixed(2))}` : '')
-  const amount = (v: number | string | undefined) => {
-    const text = decimalText(v)
-    return text && Number(text) !== 0 ? formatDecimal(text) : ''
-  }
-
-  const columns = [
-    { key: 'court', label: sq.reports.court, sticky: true },
-    ...s.measures.map((m) => ({ key: m.code, label: <MeasureHeader measure={m} />, align: 'right' as const })),
-    ...currencies.flatMap((c) => [
-      { key: `p:${c}`, label: <MeasureHeader measure={{ ...s.damageMeasure, name: t.damagePrevented(c) }} />, align: 'right' as const },
-      { key: `c:${c}`, label: <MeasureHeader measure={{ ...s.damageMeasure, name: t.damageCaused(c) }} />, align: 'right' as const },
-    ]),
-    { key: 'pm2', label: <MeasureHeader measure={{ ...s.damageMeasure, name: t.damagePreventedM2 }} />, align: 'right' as const },
-    { key: 'cm2', label: <MeasureHeader measure={{ ...s.damageMeasure, name: t.damageCausedM2 }} />, align: 'right' as const },
-  ]
-
-  const row = (court: (typeof s.courts)[number], total: boolean): ReactNode => {
-    const courtId = court.courtId === null || court.courtId === undefined ? undefined : Number(court.courtId)
-    const where = total ? t.totalRow : court.court
-    return (
-      <TableRow key={courtId ?? 'total'} hover={!total}>
-        <TableCell component="th" scope="row" sx={{ ...stickyCellSx, fontWeight: total ? 700 : 500, whiteSpace: 'nowrap' }}>
-          {total ? t.totalRow : court.court}
-        </TableCell>
-        {s.measures.map((m) => {
-          const value = Number(court.values[m.code] ?? 0)
-          return (
-            <TableCell key={m.code} align="right" sx={{ fontWeight: total ? 700 : undefined }}>
-              <NumberCell
-                value={value}
-                label={t.openNumber(formatCount(value), m.name, where)}
-                onOpen={() => onOpen({ cell: { measure: m.code, courtId }, measureName: m.name, where, count: value })}
-              />
-            </TableCell>
-          )
-        })}
-        {currencies.flatMap((c) => [
-          <TableCell key={`p:${c}`} align="right">{amount(moneyOf(courtId, c)?.preventedAmount)}</TableCell>,
-          <TableCell key={`c:${c}`} align="right">{amount(moneyOf(courtId, c)?.causedAmount)}</TableCell>,
-        ])}
-        <TableCell align="right">{area(m2Of(courtId, 'preventedM2'))}</TableCell>
-        <TableCell align="right">{area(m2Of(courtId, 'causedM2'))}</TableCell>
-      </TableRow>
-    )
-  }
-
-  const courts = s.courts.filter((c) => c.courtId !== null && c.courtId !== undefined)
-  const total = s.courts.find((c) => c.courtId === null || c.courtId === undefined)
+/**
+ * Tabela 3 / 4 (tasks 044, 053o): the client's table from the API's grid — the header rows with their merges (groups
+ * centered over their columns), the letter and formula rows, a row per court and the TOTALI row (bold); damages per
+ * currency, never summed across currencies. Every count opens its cases. Then "Rezultati" and "Në dorë". `print`: no
+ * links, no chart; `sections`: which of the two extra sections go on paper (the print dialog).
+ */
+export function StatisticsBody({
+  s,
+  year,
+  onOpen,
+  print = false,
+  sections,
+}: {
+  s: StatisticsResponse
+  year: number
+  onOpen: (cell: OpenCell) => void
+  print?: boolean
+  sections?: { results: boolean; inHand: boolean }
+}) {
+  const showResults = !print || (sections?.results ?? false)
+  const showInHand = !print || (sections?.inHand ?? false)
+  const title = s.grid.title
 
   return (
     <Stack spacing={2.5}>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
-        <Typography variant="h2" component="h2">
-          {t.statsTable(Number(s.table), year)}
-        </Typography>
-        <YearBadge s={s} year={year} />
-      </Stack>
+      {!print && (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
+          <Typography variant="h2" component="h2">
+            {title}
+          </Typography>
+          <YearBadge s={s} year={year} />
+        </Stack>
+      )}
 
-      <DataTable
-        label={t.statsTable(Number(s.table), year)}
-        columns={columns}
-        minWidth={1400}
-        stickyHeader
-        maxHeight="70vh"
-        empty={courts.length === 0 ? <EmptyState title={t.empty} /> : undefined}
-        summary={total ? row(total, true) : undefined}
-      >
-        {courts.map((c) => row(c, false))}
-      </DataTable>
+      <StatisticsGridTable grid={s.grid} onOpen={onOpen} print={print} />
 
-      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, alignItems: 'start' }}>
+      {(showResults || showInHand) && (
+      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: print ? '1fr' : '1fr 1fr' }, alignItems: 'start' }}>
+        {showResults && (
         <SectionCard title={t.results} padded={false}>
           <DataTable
             label={t.results}
@@ -181,7 +169,9 @@ export function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; yea
             ))}
           </DataTable>
         </SectionCard>
+        )}
 
+        {showInHand && (
         <SectionCard title={<MeasureHeader measure={{ ...s.inHandMeasure, name: t.inHand }} />} padded={false}>
           {s.inHand.length === 0 ? (
             <Box sx={{ p: 2 }}>
@@ -189,6 +179,7 @@ export function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; yea
             </Box>
           ) : (
             <>
+              {!print && (
               <Box sx={{ width: '100%', height: s.inHand.length * 34 + 40, px: 2, pt: 2 }} aria-hidden className="no-print">
                 <ResponsiveContainer>
                   <BarChart data={s.inHand.map((l) => ({ name: l.lawyer, value: Number(l.count) }))} layout="vertical" margin={{ left: 8, right: 24 }}>
@@ -200,6 +191,7 @@ export function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; yea
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
+              )}
               <DataTable
                 label={t.inHand}
                 columns={[
@@ -230,8 +222,142 @@ export function StatisticsBody({ s, year, onOpen }: { s: StatisticsResponse; yea
             </>
           )}
         </SectionCard>
+        )}
       </Box>
+      )}
     </Stack>
+  )
+}
+
+const LEAF_COUNT = 'count'
+
+/** A grid cell's number: counts as a whole number, m² / money with 2 decimals (money with its ISO code). */
+function gridValue(leaf: StatisticsLeaf, value: number): string {
+  if (leaf.kind === LEAF_COUNT) return formatCount(value)
+  if (!value) return ''
+  const text = formatDecimal(value.toFixed(2))
+  return leaf.currency ? `${text} ${leaf.currency}` : text
+}
+
+/**
+ * The client's table as the API's grid draws it: each header cell at its place with its colSpan / rowSpan (groups
+ * centered), a leaf's definition behind its info icon, the letter row and the formula row, then the rows — the TOTALI
+ * row bold with a strong top line, kept at the bottom while scrolling. A count opens its cases (not on paper).
+ */
+function StatisticsGridTable({ grid, onOpen, print }: { grid: StatisticsGrid; onOpen: (cell: OpenCell) => void; print: boolean }) {
+  const leaves = grid.columns
+  const courts = grid.rows.filter((r) => r.courtId !== null && r.courtId !== undefined)
+  const total = grid.rows.find((r) => r.courtId === null || r.courtId === undefined)
+  const leafOf = new Map(leaves.map((l) => [l.header, l]))
+  const headCell = { textAlign: 'center' as const, whiteSpace: 'normal' as const, fontSize: 12, lineHeight: 1.25, px: 0.75, py: 0.5 }
+
+  const row = (r: (typeof grid.rows)[number], isTotal: boolean) => {
+    const courtId = isTotal ? undefined : Number(r.courtId)
+    return (
+      <TableRow key={courtId ?? 'total'} hover={!isTotal && !print}>
+        <TableCell component="th" scope="row" sx={{ ...(print ? {} : stickyCellSx), bgcolor: 'inherit', fontWeight: isTotal ? 700 : 500, whiteSpace: 'nowrap' }}>
+          {r.court}
+        </TableCell>
+        {leaves.map((leaf) => {
+          const value = Number(r.values[leaf.key] ?? 0)
+          const where = r.court
+          const cell: DrillCell = {
+            measure: leaf.measure ?? '',
+            courtId,
+            resultColumn: leaf.resultColumn ?? undefined,
+            currency: leaf.currency ?? undefined,
+          }
+          return (
+            <TableCell key={leaf.key} align="right" sx={{ fontWeight: isTotal ? 700 : undefined, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              {leaf.kind === LEAF_COUNT && !print && leaf.measure ? (
+                <NumberCell
+                  value={value}
+                  label={t.openNumber(formatCount(value), leaf.header, where)}
+                  onOpen={() => onOpen({ cell, measureName: leaf.header, where, count: value })}
+                />
+              ) : (
+                gridValue(leaf, value)
+              )}
+            </TableCell>
+          )
+        })}
+      </TableRow>
+    )
+  }
+
+  return (
+    <TableContainer
+      component={Paper}
+      variant="outlined"
+      sx={print ? undefined : { overflowX: 'auto', maxHeight: '75vh' }}
+    >
+      <Table size="small" stickyHeader={!print} aria-label={grid.title} sx={{ minWidth: print ? undefined : 1800 }}>
+        <TableHead>
+          {grid.headerRows.map((cells, i) => (
+            <TableRow key={i}>
+              {cells.map((c, j) => {
+                const colSpan = Number(c.colSpan)
+                const rowSpan = Number(c.rowSpan)
+                const leaf = rowSpan + i === grid.headerRows.length || (colSpan === 1 && leafOf.has(c.text)) ? leafOf.get(c.text) : undefined
+                return (
+                  <TableCell
+                    key={`${i}-${j}`}
+                    colSpan={colSpan > 1 ? colSpan : undefined}
+                    rowSpan={rowSpan > 1 ? rowSpan : undefined}
+                    sx={{ ...headCell, ...(i === 0 && j === 0 && !print ? { position: 'sticky', left: 0, zIndex: 4 } : {}) }}
+                  >
+                    {c.text}
+                    <Definition text={c.definition ?? leaf?.definition} name={c.text} />
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          ))}
+          {/* the client's letter row and formula row */}
+          <TableRow>
+            <TableCell sx={headCell} />
+            {leaves.map((l) => (
+              <TableCell key={l.key} sx={{ ...headCell, fontWeight: 500 }}>
+                {l.letter ?? ''}
+              </TableCell>
+            ))}
+          </TableRow>
+          {leaves.some((l) => l.formula) && (
+            <TableRow>
+              <TableCell sx={headCell} />
+              {leaves.map((l) => (
+                <TableCell key={l.key} sx={{ ...headCell, fontWeight: 500 }}>
+                  {l.formula ?? ''}
+                </TableCell>
+              ))}
+            </TableRow>
+          )}
+        </TableHead>
+        <TableBody>
+          {courts.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={leaves.length + 1}>
+                <EmptyState title={t.empty} />
+              </TableCell>
+            </TableRow>
+          ) : (
+            courts.map((r) => row(r, false))
+          )}
+        </TableBody>
+        {total && (
+          <TableFooter
+            sx={{
+              position: print ? undefined : 'sticky',
+              bottom: 0,
+              zIndex: 2,
+              '& td, & th': { bgcolor: 'background.paper', color: 'text.primary', fontSize: 14, borderTop: 2, borderTopColor: 'text.primary' },
+            }}
+          >
+            {row(total, true)}
+          </TableFooter>
+        )}
+      </Table>
+    </TableContainer>
   )
 }
 

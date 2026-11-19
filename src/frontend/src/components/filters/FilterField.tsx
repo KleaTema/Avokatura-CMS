@@ -6,6 +6,7 @@ import { isoDateOf } from '../../lib/pickerValues'
 import { AppDatePicker } from '../AppDatePicker'
 import { AppSelect } from '../ui/AppSelect'
 import { FilterKind, type FilterDef, type FilterOptionDef, type FilterValue, type RangeValue } from './filterTypes'
+import { RangeGroup } from './RangeGroup'
 
 const t = sq.filters
 const FIELD = { width: { xs: '100%', sm: 240 } }
@@ -23,7 +24,6 @@ export function FilterField({
   options,
   onChange,
   onRemove,
-  parentLabel,
   autoFocus,
 }: {
   filter: FilterDef
@@ -32,8 +32,6 @@ export function FilterField({
   options?: readonly FilterOptionDef[]
   onChange: (value: FilterValue) => void
   onRemove?: () => void
-  /** the parent filter's label, when the parent has no choice yet (a hint under the field) */
-  parentLabel?: string
   autoFocus?: boolean
 }) {
   const remove = onRemove && (
@@ -65,8 +63,6 @@ export function FilterField({
                   <Lock size={12} aria-hidden />
                   <span>{t.locked}</span>
                 </Stack>
-              ) : parentLabel ? (
-                t.chooseParentFirst(parentLabel)
               ) : undefined
             }
           />
@@ -93,21 +89,26 @@ export function FilterField({
       )
     case FilterKind.DateRange: {
       const range = rangeOf(value)
+      // task 053o: the filter's label on the border, "Nga" and "Deri" inside
       return (
-        <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: 'flex-start' }} role="group" aria-label={filter.label}>
-          <AppDatePicker
-            label={`${filter.label} — ${t.from}`}
-            value={range.from ? dayjs(range.from) : null}
-            onChange={(d) => onChange({ ...range, from: isoDateOf(d) ?? '' })}
-            sx={{ width: { xs: '50%', sm: 190 } }}
-          />
-          <AppDatePicker
-            label={t.to}
-            value={range.to ? dayjs(range.to) : null}
-            onChange={(d) => onChange({ ...range, to: isoDateOf(d) ?? '' })}
-            minDate={range.from ? dayjs(range.from) : undefined}
-            sx={{ width: { xs: '50%', sm: 160 } }}
-          />
+        <Stack direction="row" spacing={0.5} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: 'flex-start' }}>
+          <RangeGroup label={filter.label}>
+            <AppDatePicker
+              label={t.from}
+              size="small"
+              value={range.from ? dayjs(range.from) : null}
+              onChange={(d) => onChange({ ...range, from: isoDateOf(d) ?? '' })}
+              sx={{ width: { xs: '50%', sm: 160 } }}
+            />
+            <AppDatePicker
+              label={t.to}
+              size="small"
+              value={range.to ? dayjs(range.to) : null}
+              onChange={(d) => onChange({ ...range, to: isoDateOf(d) ?? '' })}
+              minDate={range.from ? dayjs(range.from) : undefined}
+              sx={{ width: { xs: '50%', sm: 160 } }}
+            />
+          </RangeGroup>
           {remove}
         </Stack>
       )
@@ -115,23 +116,25 @@ export function FilterField({
     case FilterKind.NumberRange: {
       const range = rangeOf(value)
       return (
-        <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: 'flex-start' }} role="group" aria-label={filter.label}>
-          <TextField
-            size="small"
-            label={`${filter.label} — ${t.min}`}
-            value={range.min ?? ''}
-            onChange={(e) => onChange({ ...range, min: e.target.value })}
-            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
-            sx={{ width: { xs: '50%', sm: 190 } }}
-          />
-          <TextField
-            size="small"
-            label={t.max}
-            value={range.max ?? ''}
-            onChange={(e) => onChange({ ...range, max: e.target.value })}
-            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
-            sx={{ width: { xs: '50%', sm: 130 } }}
-          />
+        <Stack direction="row" spacing={0.5} sx={{ width: { xs: '100%', sm: 'auto' }, alignItems: 'flex-start' }}>
+          <RangeGroup label={filter.label}>
+            <TextField
+              size="small"
+              label={t.min}
+              value={range.min ?? ''}
+              onChange={(e) => onChange({ ...range, min: e.target.value })}
+              slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+              sx={{ width: { xs: '50%', sm: 120 } }}
+            />
+            <TextField
+              size="small"
+              label={t.max}
+              value={range.max ?? ''}
+              onChange={(e) => onChange({ ...range, max: e.target.value })}
+              slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+              sx={{ width: { xs: '50%', sm: 120 } }}
+            />
+          </RangeGroup>
           {remove}
         </Stack>
       )

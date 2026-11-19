@@ -73,13 +73,51 @@ public static class PdfReportWriter
             c.Format.Alignment = IsNumber(column) ? ParagraphAlignment.Right : ParagraphAlignment.Left;
         }
 
+        // task 053o: the same header as the web table and the Excel file — a grouped column's group merged over its
+        // columns in a first row, an ungrouped header over both rows; navy band, white bold text, repeated on every page
+        var navy = new Color(0x1F, 0x3A, 0x5F);
+        var grouped = columns.Any(c => c.Group is not null);
         var header = table.AddRow();
         header.HeadingFormat = true;
-        header.Shading.Color = new Color(235, 240, 248);
+        header.Shading.Color = navy;
         header.Format.Font.Bold = true;
-        for (var i = 0; i < columns.Count; i++)
+        header.Format.Font.Color = Colors.White;
+        header.Format.Alignment = ParagraphAlignment.Center;
+        Row? second = null;
+        if (grouped)
         {
-            header.Cells[i].AddParagraph(columns[i].Header);
+            second = table.AddRow();
+            second.HeadingFormat = true;
+            second.Shading.Color = navy;
+            second.Format.Font.Bold = true;
+            second.Format.Font.Color = Colors.White;
+            second.Format.Alignment = ParagraphAlignment.Center;
+        }
+
+        for (var i = 0; i < columns.Count;)
+        {
+            if (!grouped || columns[i].Group is not { } group)
+            {
+                header.Cells[i].AddParagraph(columns[i].Header);
+                if (grouped)
+                {
+                    header.Cells[i].MergeDown = 1;
+                }
+
+                i++;
+                continue;
+            }
+
+            var span = 0;
+            while (i + span < columns.Count && columns[i + span].Group == group)
+            {
+                second!.Cells[i + span].AddParagraph(columns[i + span].Header);
+                span++;
+            }
+
+            header.Cells[i].AddParagraph(group);
+            header.Cells[i].MergeRight = span - 1;
+            i += span;
         }
 
         var count = 0;
@@ -91,9 +129,18 @@ public static class PdfReportWriter
             }
 
             var r = table.AddRow();
+            if (row is ValuesRow { Total: true })
+            {
+                // a totals row (the statistics' TOTALI): bold, with a stronger top border
+                r.Format.Font.Bold = true;
+                r.Borders.Top.Width = 1;
+            }
+
             for (var i = 0; i < columns.Count; i++)
             {
-                r.Cells[i].AddParagraph(CsvReportWriter.Format(columns[i], row.Get(columns[i].Key)));
+                var currency = CsvReportWriter.CurrencyOf(columns[i], row);
+                var text = CsvReportWriter.Format(columns[i], row.Get(columns[i].Key));
+                r.Cells[i].AddParagraph(currency is null || text.Length == 0 ? text : $"{text} {currency}");
             }
         }
 
@@ -121,7 +168,7 @@ public static class PdfReportWriter
         return Math.Min(count, MaxRows);
     }
 
-    private static bool IsNumber(ReportColumn column) => column.Kind is ReportColumnKind.Decimal or ReportColumnKind.Integer;
+    private static bool IsNumber(ReportColumn column) => column.Kind is ReportColumnKind.Decimal or ReportColumnKind.Integer or ReportColumnKind.Money;
 }
 
 /// <summary>

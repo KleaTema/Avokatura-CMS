@@ -270,7 +270,8 @@ public class ReportScopeTests(MySqlFixture db) : IntegrationTest(db)
         var stats = await kryetar.GetAsync($"{Builder}/5/export?format=csv&filters={F(new { year = $"{Year}" })}&columns=court,total", Ct);
         stats.StatusCode.ShouldBe(HttpStatusCode.OK);
         var statsText = Encoding.UTF8.GetString((await stats.Content.ReadAsByteArrayAsync(Ct))[3..]);
-        statsText.Split("\r\n")[0].ShouldBe("Gjykata;Total");
+        // task 053o: the column's name with the client's groups above it (CSV is flat)
+        statsText.Split("\r\n")[0].ShouldBe("Gjykata;Gjithsej çështje ardhur në Avokaturën e Shtetit — TOTAL");
 
         (await kryetar.GetAsync($"{Builder}/1/export?format=docx", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await kryetar.GetAsync($"{Builder}/1/export?format=csv&columns=nope", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);

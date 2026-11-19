@@ -17,6 +17,8 @@ SELECT f.case_id AS CaseId
           WHEN 'pezulluar_ash'           THEN f.m_pezulluar_ash
           WHEN 'pezulluar_deleguar'      THEN f.m_pezulluar_deleguar
           WHEN 'ankimuar_rekursuar'      THEN f.m_ankimuar_rekursuar
+          WHEN 'ankimuar'                THEN f.m_ankimuar
+          WHEN 'rekursuar'               THEN f.m_rekursuar
           WHEN 'mbartur_pritje_vendimi'  THEN f.m_mbartur_pritje_vendimi
           WHEN 'mbartur_ardhur_vendim'   THEN f.m_mbartur_ardhur_vendim
           WHEN 'ne_dore'                 THEN f.m_ne_dore
@@ -26,6 +28,8 @@ SELECT f.case_id AS CaseId
    AND (@court_id IS NULL OR f.court_id = @court_id)
    AND (@currency IS NULL OR f.currency = @currency)
    AND (@result_id IS NULL OR f.result_id = @result_id)
+   -- task 053o: a cell of the table's result columns (statistics_result_mapping)
+   AND (@result_column IS NULL OR f.result_column = @result_column)
    AND (@row_lawyer_id IS NULL OR f.primary_at_end = @row_lawyer_id)
    AND f.case_id > @after_id
  ORDER BY f.case_id

@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/identity/admin/covered-courts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListCoveredCourts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/identity/institutions": {
         parameters: {
             query?: never;
@@ -2578,6 +2594,7 @@ export interface components {
             isSuspended: boolean;
             canOpen?: boolean;
             myRole?: null | string;
+            categoryAndType?: null | string;
         };
         AddHearingRequest: {
             at: null | string;
@@ -2993,6 +3010,19 @@ export interface components {
             closedAt: string;
             canOpen?: boolean;
             myRole?: null | string;
+            /** Format: date-time */
+            registeredAt?: string;
+            /** Format: double */
+            claimAmount?: null | number | string;
+            claimCurrency?: null | string;
+            /** Format: double */
+            claimAreaM2?: null | number | string;
+            /** Format: double */
+            valueAreaM2?: null | number | string;
+            /** Format: double */
+            valueAmount?: null | number | string;
+            valueCurrency?: null | string;
+            appealedOrRecursed?: boolean;
         };
         CodeName: {
             code: string;
@@ -3898,6 +3928,9 @@ export interface components {
             kind: components["schemas"]["ReportColumnKind"];
             /** Format: double */
             width: number | string;
+            group?: null | string;
+            defaultVisible?: boolean;
+            currencyKey?: null | string;
         };
         ReportColumnKind: number;
         ReportColumnMeta: {
@@ -3905,6 +3938,9 @@ export interface components {
             header: string;
             kind: string;
             numeric: boolean;
+            group?: null | string;
+            defaultVisible?: boolean;
+            currencyKey?: null | string;
         };
         ReportFilterMeta: {
             key: string;
@@ -4110,12 +4146,45 @@ export interface components {
                 [key: string]: number | string;
             };
         };
+        StatisticsGrid: {
+            title: string;
+            headerRows: components["schemas"]["StatisticsHeaderCell"][][];
+            columns: components["schemas"]["StatisticsLeaf"][];
+            rows: components["schemas"]["StatisticsGridRow"][];
+        };
+        StatisticsGridRow: {
+            /** Format: int32 */
+            courtId: null | number | string;
+            court: string;
+            values: {
+                [key: string]: number | string;
+            };
+        };
+        StatisticsHeaderCell: {
+            text: string;
+            /** Format: int32 */
+            colSpan: number | string;
+            /** Format: int32 */
+            rowSpan: number | string;
+            definition?: null | string;
+        };
         StatisticsLawyerRow: {
             /** Format: uuid */
             lawyerId: string;
             lawyer: string;
             /** Format: int32 */
             count: number | string;
+        };
+        StatisticsLeaf: {
+            key: string;
+            header: string;
+            kind: string;
+            measure: null | string;
+            resultColumn: null | string;
+            currency: null | string;
+            letter: null | string;
+            formula: null | string;
+            definition: null | string;
         };
         StatisticsMeasure: {
             code: string;
@@ -4155,6 +4224,7 @@ export interface components {
             results: components["schemas"]["StatisticsResultRow"][];
             inHand: components["schemas"]["StatisticsLawyerRow"][];
             filters: components["schemas"]["ReportFilterText"][];
+            grid: components["schemas"]["StatisticsGrid"];
         };
         StatisticsResultRow: {
             resultCode: string;
@@ -4559,6 +4629,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfficeCourtResponse"][];
+                };
+            };
+        };
+    };
+    ListCoveredCourts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (number | string)[];
                 };
             };
         };
@@ -6469,6 +6559,12 @@ export interface operations {
                 position?: string;
                 lastLoginFrom?: string;
                 lastLoginTo?: string;
+                noRole?: boolean;
+                neverLoggedIn?: boolean;
+                createdFrom?: string;
+                createdTo?: string;
+                login?: string;
+                userId?: string;
             };
             header?: never;
             path?: never;
@@ -7080,6 +7176,7 @@ export interface operations {
                 type?: string;
                 active?: boolean;
                 parentId?: string;
+                institutionId?: string;
             };
             header?: never;
             path?: never;

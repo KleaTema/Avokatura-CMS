@@ -173,7 +173,7 @@ public sealed class StatisticsScope(
 
         if (table == 6 && institutionId is null)
         {
-            return Error.Validation("statistics.institution_required", "Tabela 6 kërkon një institucion ose një ministri.");
+            return Error.Validation("statistics.institution_required", "Tabela 4 kërkon një institucion ose një ministri.");
         }
 
         if (table == 5)

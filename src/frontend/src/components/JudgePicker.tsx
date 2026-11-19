@@ -85,7 +85,7 @@ export function JudgePicker({
       required={required}
       filter={filter}
       error={error}
-      helperText={helperText ?? (disabled ? t.chooseCourtFirst : undefined)}
+      helperText={helperText}
       size={size}
     />
   )

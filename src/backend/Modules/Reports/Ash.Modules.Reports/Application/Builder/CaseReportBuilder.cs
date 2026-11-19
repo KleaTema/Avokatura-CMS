@@ -63,7 +63,12 @@ public sealed class CaseReportBuilder(ReportingDb db, ReportAudienceResolver aud
         }
 
         var columns = (table == ReportTables.Closed ? ReportColumns.Closed : ReportColumns.Active)
-            .Select(c => new ReportColumnMeta(c.Key, c.Header, c.Kind.ToString(), c.Kind == ReportColumnKind.Decimal))
+            .Select(c => new ReportColumnMeta(c.Key, c.Header, c.Kind.ToString(), c.Kind is ReportColumnKind.Decimal or ReportColumnKind.Money)
+            {
+                Group = c.Group,
+                DefaultVisible = c.DefaultVisible,
+                CurrencyKey = c.CurrencyKey,
+            })
             .ToList();
         return new ReportFiltersResponse(table, ReportTables.Name(table), filters, columns, new Dictionary<string, string>());
     }

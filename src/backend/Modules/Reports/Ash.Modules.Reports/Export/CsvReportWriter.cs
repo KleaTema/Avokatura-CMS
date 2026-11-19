@@ -26,7 +26,7 @@ public static class CsvReportWriter
         var count = 0;
         await foreach (var row in rows.WithCancellation(ct))
         {
-            await writer.WriteLineAsync(string.Join(Separator, columns.Select(c => Quote(Cell(c, row.Get(c.Key))))));
+            await writer.WriteLineAsync(string.Join(Separator, columns.Select(c => Quote(Cell(c, row.Get(c.Key), CurrencyOf(c, row))))));
             count++;
         }
 
@@ -62,10 +62,22 @@ public static class CsvReportWriter
 
     private static readonly char[] FormulaStarts = ['=', '+', '-', '@', '\t', '\r'];
 
-    /// <summary>The text of a cell as written to the file: formula-like TEXT neutralised, numbers untouched.</summary>
-    public static string Cell(ReportColumn column, object? value)
+    /// <summary>Task 053o: a money column's ISO code (from the row), else null.</summary>
+    public static string? CurrencyOf(ReportColumn column, IReportRow row) =>
+        column.Kind == ReportColumnKind.Money && column.CurrencyKey is { } key ? row.Get(key) as string : null;
+
+    /// <summary>
+    /// The text of a cell as written to the file: formula-like TEXT neutralised, numbers untouched; a money amount with
+    /// its ISO code ("8000 ALL" — CSV stays plain).
+    /// </summary>
+    public static string Cell(ReportColumn column, object? value, string? currency = null)
     {
         var text = Format(column, value);
+        if (currency is not null && text.Length > 0)
+        {
+            return $"{text} {currency}";
+        }
+
         var numeric = value is decimal or int or long or double;
         return !numeric && text.Length > 0 && FormulaStarts.Contains(text[0]) ? "'" + text : text;
     }

@@ -14,6 +14,9 @@ public sealed record StatisticsCasesQuery(
     string? Measure, int? CourtId, string? Currency, string? ResultCode, Guid? RowLawyerId, string? After, int? Limit,
     string? CourtLevelCode = null, int? FilterCourtId = null)
 {
+    /// <summary>Task 053o: a result column of the table (statistics_result_columns.code), with perfunduar_ash / _deleguar.</summary>
+    public string? ResultColumn { get; init; }
+
     public StatisticsQuery Statistics => new(Year, Table, OfficeId, LawyerId, InstitutionId, MinistryId, CourtLevelCode, FilterCourtId);
 }
 
@@ -48,7 +51,10 @@ public sealed record StatisticsResponse(
     IReadOnlyList<StatisticsMoneyRow> Money,
     IReadOnlyList<StatisticsResultRow> Results,
     IReadOnlyList<StatisticsLawyerRow> InHand,
-    IReadOnlyList<ReportFilterText> Filters);
+    IReadOnlyList<ReportFilterText> Filters,
+    /// <summary>Task 053o: the client's table (header rows with merges, letters, formulas, columns, rows) — the web
+    /// table and the exports draw THIS.</summary>
+    StatisticsGrid Grid);
 
 /// <summary>A case behind a number.</summary>
 /// <param name="CanOpen">Task 053h: the user can open the case (else the code is shown without a link).</param>

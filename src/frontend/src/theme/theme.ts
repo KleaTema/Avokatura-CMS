@@ -76,13 +76,38 @@ export const theme = createTheme({
         outlined: { backgroundColor: c.white, borderColor: c.cardBorder },
       },
     },
+    // task 053o: clearly a table — a navy header band with white bold text, visible vertical and horizontal cell lines,
+    // light zebra rows; the same look on paper (print keeps the colours)
     MuiTableHead: {
-      styleOverrides: { root: { backgroundColor: c.tableHead } },
+      styleOverrides: { root: { backgroundColor: c.tableHeader } },
     },
     MuiTableCell: {
       styleOverrides: {
-        root: { borderBottom: `1px solid ${c.cardBorder}`, fontSize: 14 },
-        head: { fontWeight: 600, color: c.textPrimary, backgroundColor: c.tableHead },
+        root: {
+          borderBottom: `1px solid ${c.tableGrid}`,
+          borderRight: `1px solid ${c.tableGrid}`,
+          fontSize: 14,
+          '&:last-of-type': { borderRight: 0 },
+        },
+        head: {
+          fontWeight: 700,
+          color: c.white,
+          backgroundColor: c.tableHeader,
+          borderRight: `1px solid rgba(255, 255, 255, 0.28)`,
+          borderBottom: `1px solid rgba(255, 255, 255, 0.28)`,
+          verticalAlign: 'middle',
+          // links, buttons and icons in a header cell follow the white text
+          '& a, & button, & svg': { color: 'inherit' },
+          '@media print': { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' },
+        },
+      },
+    },
+    MuiTableBody: {
+      styleOverrides: {
+        root: {
+          '& > .MuiTableRow-root:nth-of-type(even)': { backgroundColor: c.tableZebra },
+          '@media print': { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' },
+        },
       },
     },
     MuiTableRow: {

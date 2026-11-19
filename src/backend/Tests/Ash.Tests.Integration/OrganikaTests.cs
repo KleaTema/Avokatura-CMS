@@ -125,7 +125,8 @@ public class OrganikaTests(MySqlFixture db) : IntegrationTest(db)
         var sheet = ImportFiles.ReadSheet(bytes);
         sheet[0].ShouldBe(columns.ToArray()); // the headers of the definition
         sheet.Count.ShouldBe(2);               // and the example row
-        var instructions = ImportFiles.ReadSheet(bytes, 1).Select(r => string.Join(" ", r)).ToList();
+        // the styled template writes every cell of a row (bordered): the empty ones are not part of the text
+        var instructions = ImportFiles.ReadSheet(bytes, 1).Select(r => string.Join(" ", r.Where(c => c.Length > 0))).ToList();
         instructions.ShouldContain(definition.GetProperty("purpose").GetString()!);
         foreach (var rule in definition.GetProperty("rules").EnumerateArray())
         {

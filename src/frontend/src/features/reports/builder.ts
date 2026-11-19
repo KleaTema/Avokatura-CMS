@@ -94,30 +94,35 @@ export const useBuilderFilters = (table: BuilderTable, values: FilterValues) => 
   })
 }
 
-/** Tabela 1 / 3: one page (keyset) and, on the first page, the totals row. Runs only after "Gjenero" (`filters` set). */
+/**
+ * Tabela 1 / 2 (API 1 / 3): one page (keyset) and, on the first page, the totals row. Runs once a filter was changed
+ * (`filters` set). Task 053o: the request carries react-query's abort signal — a newer filter choice cancels the one
+ * still running (no request storm) — and the previous rows stay on screen while the next ones load.
+ */
 export const useBuilderRows = (table: 1 | 3, filters: string | null, cursor: string | undefined, size: number) =>
   useQuery({
     queryKey: builderKeys.rows(table, filters ?? '', cursor, size),
     enabled: filters !== null,
     placeholderData: keepPreviousData,
     retry: false,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const query = { Filters: filters ?? '{}', After: cursor, Limit: size }
       return table === 1
-        ? api.GET('/api/reports/builder/active', { params: { query } }).then(unwrap)
-        : api.GET('/api/reports/builder/closed', { params: { query } }).then(unwrap)
+        ? api.GET('/api/reports/builder/active', { params: { query }, signal }).then(unwrap)
+        : api.GET('/api/reports/builder/closed', { params: { query }, signal }).then(unwrap)
     },
   })
 
-/** Tabela 5 / 6: the statistics of the filters. Runs only after "Gjenero". */
+/** Tabela 3 / 4 (API 5 / 6): the statistics of the filters — like the rows: abortable, the previous table kept. */
 export const useBuilderStatistics = (table: 5 | 6, filters: string | null) =>
   useQuery({
     queryKey: builderKeys.statistics(table, filters ?? ''),
     enabled: filters !== null,
+    placeholderData: keepPreviousData,
     retry: false,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api
-        .GET('/api/reports/builder/statistics/{table}', { params: { path: { table }, query: { filters: filters ?? '{}' } } })
+        .GET('/api/reports/builder/statistics/{table}', { params: { path: { table }, query: { filters: filters ?? '{}' } }, signal })
         .then(unwrap),
   })
 

@@ -23,6 +23,8 @@ public static class StatisticsSql
     public static readonly string Table = string.Concat(With, Load("StatisticsTable.sql"));
     public static readonly string Money = string.Concat(With, Load("StatisticsMoney.sql"));
     public static readonly string Results = string.Concat(With, Load("StatisticsResults.sql"));
+    /// <summary>Task 053o: the result columns of the table, per court (statistics_result_mapping).</summary>
+    public static readonly string ResultColumns = string.Concat(With, Load("StatisticsResultColumns.sql"));
     public static readonly string InHand = string.Concat(With, Load("StatisticsInHand.sql"));
     public static readonly string Cases = string.Concat(With, Load("StatisticsCases.sql"));
 

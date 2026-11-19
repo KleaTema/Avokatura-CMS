@@ -10,6 +10,9 @@ export type StatisticsResponse = components['schemas']['StatisticsResponse']
 export type StatisticsMeasure = components['schemas']['StatisticsMeasure']
 export type StatisticsCourtRow = components['schemas']['StatisticsCourtRow']
 export type StatisticsCaseRow = components['schemas']['StatisticsCaseRow']
+/** Task 053o: the client's table — header rows with merges, leaf columns, rows (StatisticsLayout on the server). */
+export type StatisticsGrid = components['schemas']['StatisticsGrid']
+export type StatisticsLeaf = components['schemas']['StatisticsLeaf']
 
 /** Filters of the active cases report (public ids and codes, as in the URL). Empty = not set. */
 export interface ActiveFilters {
@@ -142,6 +145,10 @@ export interface DrillCell {
   courtId?: number
   resultCode?: string
   rowLawyerId?: string
+  /** task 053o: a result column of the client's table (statistics_result_columns), with perfunduar_ash / _deleguar */
+  resultColumn?: string
+  /** a damage cell's currency */
+  currency?: string
 }
 
 /** The cases behind one number (keyset, 10 a page). */
@@ -160,6 +167,8 @@ export const useDrillDown = (f: StatisticsFilters, cell: DrillCell | null, curso
               Measure: cell?.measure,
               CourtId: cell?.courtId,
               ResultCode: cell?.resultCode,
+              ResultColumn: cell?.resultColumn,
+              Currency: cell?.currency,
               RowLawyerId: cell?.rowLawyerId,
               After: cursor,
               Limit: 10,

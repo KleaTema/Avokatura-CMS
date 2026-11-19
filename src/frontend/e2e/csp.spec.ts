@@ -63,8 +63,12 @@ test('the built app has a CSP and no screen violates it', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   // a report export (a blob download)
+  // task 053o: a filter change shows the table (no "Gjenero")
   await page.goto('/reports')
-  await page.getByRole('button', { name: 'Gjenero' }).click()
+  await page.getByRole('button', { name: 'Shto filtër' }).click()
+  await page.getByRole('menuitem', { name: 'Kodi unik' }).click()
+  await page.getByRole('textbox', { name: 'Kodi unik' }).fill('2026')
+  await expect(page.getByRole('button', { name: 'Eksporto' })).toBeEnabled({ timeout: 15_000 })
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Eksporto' }).click()
   await page.getByRole('menuitem', { name: 'CSV (.csv)' }).click()

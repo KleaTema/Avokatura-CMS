@@ -362,8 +362,12 @@ public class ReportTests(MySqlFixture db) : IntegrationTest(db)
 
             var columns = ReportColumns.Active;
             var rows = SheetRows(Sheet(doc, "Çështjet aktive"));
-            rows[0].Select(Text).ShouldBe(columns.Select(c => c.Header));
-            var data = rows.Skip(1).ToList();
+            // task 053o: two header rows — a group's text over its columns (merged), its columns' headers below; an
+            // ungrouped header in the first row (merged down)
+            rows[0].Select(Text).ShouldBe(columns.Select((c, i) =>
+                c.Group is null ? c.Header : i > 0 && columns[i - 1].Group == c.Group ? string.Empty : c.Group));
+            rows[1].Select(Text).ShouldBe(columns.Select(c => c.Group is null ? string.Empty : c.Header));
+            var data = rows.Skip(2).ToList();
 
             // the same rows, in the same order, as the JSON — and only the lawyer's cases (the scope)
             data.Select(r => Text(r[Col(columns, "caseCode")])).ShouldBe(Codes(json));
@@ -399,13 +403,16 @@ public class ReportTests(MySqlFixture db) : IntegrationTest(db)
             var registeredCode = await Code(s.RegisteredCaseId);
             var big = data.Single(r => Text(r[Col(columns, "caseCode")]) == registeredCode)[Col(columns, "claimAmount")];
             big.DataType!.Value.ShouldBe(CellValues.InlineString);
-            Text(big).ShouldBe("1234567890123456.78");
+            // exact, as text; a money cell keeps its ISO code (task 053o: "Monedha" = amount + currency)
+            Text(big).ShouldBe("1234567890123456.78 EUR");
 
             // the sheet: frozen header, autofilter over the rows
             var sheet = Sheet(doc, "Çështjet aktive");
             sheet.Descendants<Pane>().Single().State!.Value.ShouldBe(PaneStateValues.Frozen);
             // 19 columns: Tabela 1's 18 + "Roli im" (task 053h)
-            sheet.Descendants<AutoFilter>().Single().Reference!.Value.ShouldBe($"A1:S{data.Count + 1}");
+            // task 053o: the filter sits on the last header row (row 2: the grouped header) over every column
+            sheet.Descendants<AutoFilter>().Single().Reference!.Value
+                .ShouldBe($"A2:{Ash.Infrastructure.Excel.StyledXlsx.ColumnName(columns.Count)}{data.Count + 2}");
 
             // "Filtrat": the report, when, who, the row count
             var filtrat = SheetRows(Sheet(doc, "Filtrat")).Where(r => r.Count > 0).ToDictionary(r => Text(r[0]), r => r.Count > 1 ? r[1] : null);
@@ -468,7 +475,7 @@ public class ReportTests(MySqlFixture db) : IntegrationTest(db)
         {
             response.Content.Headers.ContentDisposition!.FileNameStar.ShouldBe("raporti-ceshtjet-mbyllura-2026-11-10.xlsx");
             var columns = ReportColumns.Closed;
-            var row = SheetRows(Sheet(doc, "Çështjet e mbyllura")).Skip(1).Single();
+            var row = SheetRows(Sheet(doc, "Çështjet e mbyllura")).Skip(2).Single(); // two header rows (task 053o)
             DateTime.FromOADate(double.Parse(row[Col(columns, "decisionDate")].CellValue!.Text, CultureInfo.InvariantCulture))
                 .ShouldBe(new DateTime(2026, 6, 9));
             DateTime.FromOADate(double.Parse(row[Col(columns, "closedAt")].CellValue!.Text, CultureInfo.InvariantCulture))
@@ -541,6 +548,6 @@ public class ReportTests(MySqlFixture db) : IntegrationTest(db)
         (peak - baseline).ShouldBeLessThan(100L * 1024 * 1024);
         file.Position = 0;
         using var doc = SpreadsheetDocument.Open(file, false);
-        Sheet(doc, "Çështjet aktive").Descendants<Row>().Count().ShouldBe(total + 1);
+        Sheet(doc, "Çështjet aktive").Descendants<Row>().Count().ShouldBe(total + 2); // two header rows (task 053o)
     }
 }

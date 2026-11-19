@@ -26,6 +26,48 @@ export interface DataColumn {
   width?: number | string
   /** stays on screen while the table scrolls sideways (the first column of a wide table); rows use stickyCellSx (tableStyles.ts) */
   sticky?: boolean
+  /**
+   * Task 053o: the header above it — merged (and centered) over the neighbouring columns of the same group, e.g.
+   * "Vlera e padisë" over M2 | Monedha; a column without a group then spans both header rows.
+   */
+  group?: string
+}
+
+interface HeaderCell {
+  key: string
+  label: ReactNode
+  colSpan: number
+  rowSpan: number
+  align?: 'left' | 'right' | 'center'
+  width?: number | string
+  sticky?: boolean
+}
+
+/** The header rows: one row, or two when a column has a group (the group's cell over its columns). */
+function headerRowsOf(columns: DataColumn[]): HeaderCell[][] {
+  const plain = (c: DataColumn, rowSpan: number): HeaderCell => ({ ...c, colSpan: 1, rowSpan })
+  if (!columns.some((c) => c.group)) return [columns.map((c) => plain(c, 1))]
+  const top: HeaderCell[] = []
+  const bottom: HeaderCell[] = []
+  for (let i = 0; i < columns.length; ) {
+    const group = columns[i].group
+    if (!group) {
+      top.push(plain(columns[i], 2))
+      i++
+      continue
+    }
+
+    let span = 0
+    while (i + span < columns.length && columns[i + span].group === group) {
+      bottom.push({ ...plain(columns[i + span], 1), align: columns[i + span].align })
+      span++
+    }
+
+    top.push({ key: `group:${group}:${i}`, label: group, colSpan: span, rowSpan: 1, align: 'center' })
+    i += span
+  }
+
+  return [top, bottom]
 }
 
 const SKELETON_ROWS = 5
@@ -62,26 +104,34 @@ export function DataTable({
   /** rows kept at the bottom while scrolling (a TOTAL row) */
   summary?: ReactNode
 }) {
+  const headerRows = headerRowsOf(columns)
   return (
     <Box>
       <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto', maxHeight }}>
-        <Table size="small" aria-label={label} stickyHeader={stickyHeader} sx={minWidth ? { minWidth } : undefined}>
+        {/* task 053o: the header stays on top while the table scrolls (sticky by default) */}
+        <Table size="small" aria-label={label} stickyHeader={stickyHeader ?? true} sx={minWidth ? { minWidth } : undefined}>
           <TableHead>
-            <TableRow>
-              {columns.map((c) => (
-                <TableCell
-                  key={c.key}
-                  align={c.align}
-                  sx={{
-                    ...(c.width === undefined ? {} : { width: c.width }),
-                    // the header bar's own colour stays; only the position pins
-                    ...(c.sticky ? { position: 'sticky', left: 0, zIndex: 3 } : {}),
-                  }}
-                >
-                  {c.label}
-                </TableCell>
-              ))}
-            </TableRow>
+            {headerRows.map((cells, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {cells.map((c) => (
+                  <TableCell
+                    key={c.key}
+                    align={c.align}
+                    colSpan={c.colSpan > 1 ? c.colSpan : undefined}
+                    rowSpan={c.rowSpan > 1 ? c.rowSpan : undefined}
+                    sx={{
+                      ...(c.width === undefined ? {} : { width: c.width }),
+                      // a second header row sits under the first one while the header sticks
+                      ...(rowIndex > 0 ? { top: 37 } : {}),
+                      // the header bar's own colour stays; only the position pins
+                      ...(c.sticky ? { position: 'sticky', left: 0, zIndex: 3 } : {}),
+                    }}
+                  >
+                    {c.label}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
           </TableHead>
           <TableBody>
             {loading
@@ -103,7 +153,14 @@ export function DataTable({
           </TableBody>
           {summary && !loading && (
             <TableFooter
-              sx={{ position: 'sticky', bottom: 0, zIndex: 2, '& td': { bgcolor: 'background.paper', fontWeight: 700, color: 'text.primary' } }}
+              sx={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 2,
+                // the totals row: bold, with a stronger top line
+                '& td': { bgcolor: 'background.paper', fontWeight: 700, color: 'text.primary', fontSize: 14 },
+                '& tr:first-of-type td': { borderTop: 2, borderTopColor: 'text.primary' },
+              }}
             >
               {summary}
             </TableFooter>

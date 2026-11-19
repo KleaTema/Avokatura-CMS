@@ -18,6 +18,7 @@ import {
   type SavedReportView,
 } from '../../../features/reports/builder'
 import { sq } from '../../../i18n/sq'
+import { tabOfTable } from '../reportTabs'
 import { formatDateTime } from '../../../lib/dates'
 import { problemMessage } from '../../../lib/problem'
 
@@ -26,9 +27,8 @@ const t = sq.reports.builder
 /** The builder's URL of a saved report, generated at once ("rerun in one click"). */
 function savedReportUrl(report: SavedReportView) {
   const query = new URLSearchParams({
-    tab: `tabela${Number(report.table)}`,
+    tab: tabOfTable(Number(report.table)),
     f: filtersParam(parseValues(report.filters)),
-    run: '1',
     saved: report.publicId,
     name: report.name,
   })

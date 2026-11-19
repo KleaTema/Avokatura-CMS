@@ -1,4 +1,9 @@
-# Statistikat — përkufizimet (Tabela 5 dhe Tabela 6)
+# Statistikat — përkufizimet (Tabela 3 dhe Tabela 4)
+
+> Numërimi (detyra 053o): në aplikacion statistikat janë **Tabela 3 — Çështje aktive** (në skedarin e klientit
+> "Tabela 5") dhe **Tabela 4 — Institucionale** (te klienti "Tabela 6"). Struktura e tabelës (titujt e grupuar, kolonat,
+> renditja, rreshti "TOTALI") është ajo e skedarit të klientit *Tabelat e statistikave.xlsx*, e njëjtë në ekran, në
+> Excel dhe në PDF.
 
 **Për miratim nga klienti.** Ky dokument shpjegon me fjalë të thjeshta si llogaritet çdo shifër e statistikave
 vjetore. Çdo përkufizim është shkruar një herë të vetme në sistem (`StatisticsLive.sql` dhe `StatisticsFlags.sql`) dhe
@@ -22,7 +27,26 @@ vjetore. Çdo përkufizim është shkruar një herë të vetme në sistem (`Stat
 - **Avokati** (filtri dhe "Në dorë"): për shifrat e çështjeve të hapura — avokati primar në fund të vitit (sot për vitin
   në vazhdim); për shifrat e çështjeve të mbyllura — avokati primar në momentin e mbylljes.
 
-## Tabela 5 — Statistika e çështjeve (sipas gjykatës, me rreshtin "Gjithsej")
+## Rregulla në pritje të konfirmimit (detyra 053o)
+
+Këto rregulla janë **të përkohshme** dhe janë ruajtur si TË DHËNA (skripti 034), jo në kod: kur klienti përgjigjet,
+ndryshohet vetëm një rresht i tabelës ose një vlerë e `report_settings`.
+
+| Rregulli | Vlera e tanishme | Ku ruhet | Pyetja |
+|---|---|---|---|
+| Kolonat e "Rezultati i çështjeve të përfunduara" | Fituar ← FITUAR; F.Pjesër ← PJESËRISHT_FITUAR + PJESËRISHT_HUMBUR; Humbur ← HUMBUR; Pushim gjykimi, Kthim aktesh, Kthim rigj. ← të njëjtët kode; Mos kompetencë ← MOSKOMPETENCË_LËNDORE + MOSKOMPETENCË_TOKËSORE; J.juridik ← JASHTË_JURIDIKSIONIT; **Tjetër** (kolonë e shtuar) ← MOSPRANIM_PADIE + TJETËR. E njëjta kolonë pavarësisht nga pozita e shtetit (paditës / i paditur). **NË PRITJE TË KONFIRMIMIT NGA KLIENTI** | `statistics_result_columns`, `statistics_result_mapping` (pozita: ANY / PLAINTIFF / DEFENDANT) | Q-053o-2: "Në cilën kolonë të tabelës shkojnë rezultatet 'Mospranim padie' dhe 'Tjetër', që tabela juaj nuk i ka? A varet kolona nga fakti nëse shteti është paditës apo i paditur?" |
+| Ankimuar / Rekurs | Dy kolona të veçanta, si në tabelë. **NË PRITJE TË KONFIRMIMIT NGA KLIENTI** | `report_settings`: `statistics.appeal_columns` = SPLIT (ose COMBINED) | Q-053o-3a: "'Ankimuar' dhe 'Rekurs' janë dy kolona të veçanta (si në tabelë), apo një masë e vetme?" |
+| Qeliza pa grup "Mbartur nga vitet e kaluara ardhur vendimi" (kolonat AJ/AK) | Nuk shfaqet (e njëjta masë është kolona e fundit). **NË PRITJE TË KONFIRMIMIT NGA KLIENTI** | `report_settings`: `statistics.carried_orphan` = HIDE (ose SHOW) | Q-053o-3b: "Qeliza 'Mbartur nga vitet e kaluara ardhur vendimi' pranë formulës, pa titull grupi, është mbetje apo një kolonë më vete?" |
+| "Vlera" (M2 \| Monedha) e raportit të çështjeve të mbyllura | Vlera e padisë. **NË PRITJE TË KONFIRMIMIT NGA KLIENTI** | `report_settings`: `reports.closed_value` = CLAIM (ose DECISION) | Q-053o-5: "Në raportin e çështjeve të mbyllura, 'Vlera' (M2 \| Monedha) është vlera e padisë apo vlera sipas vendimit?" |
+| "Aktive" e grupit "Lloji i çështjes" | Aktive në ndjekje (të hapura në fund të vitit, as të deleguara as të relatuara). Formula e tabelës "C-(D+E)" (Total − Deleguar − Relatuar) shfaqet si te klienti, por numri llogaritet sipas përkufizimit tonë: Totali përfshin edhe çështjet e mbyllura gjatë vitit. **NË PRITJE TË KONFIRMIMIT NGA KLIENTI** | `StatisticsFlags.sql` (m_aktive_ndjekje) | Q-053o-6: "'Aktive' = C-(D+E) do të thotë Total − Deleguar − Relatuar, ku Totali përfshin edhe të mbyllurat; apo duhet të jetë numri i çështjeve ende të hapura?" |
+
+**Shënim për vitet e ngrira para detyrës 053o:** "Ankimuar" përmban edhe rekurset (atëherë ishin një masë) dhe pozita
+e shtetit nuk ishte ruajtur (përdoret rreshti ANY i hartës).
+
+**Paratë:** "MONEDHË" është një kolonë për çdo monedhë që ndodhet në vit (ALL, EUR, …): shuma nuk mblidhet kurrë mes
+monedhave; rreshti TOTALI jep totalin e secilës monedhë veçmas.
+
+## Tabela 3 — Statistika e çështjeve aktive (sipas gjykatës, me rreshtin "TOTALI")
 
 Tabela më poshtë **gjenerohet nga kodi** (`StatisticsMeasures.cs` — i njëjti burim nga i cili API-ja dhe ekrani marrin
 emrat dhe përkufizimet). Mos e ndryshoni me dorë: ndryshoni kodin dhe rigjeneroni
@@ -44,6 +68,8 @@ emrat dhe përkufizimet). Mos e ndryshoni me dorë: ndryshoni kodin dhe rigjener
 | **Pezulluar (ASH)** | Aktive, të pezulluara, jo të deleguara / relatuara. |  |
 | **Pezulluar (deleguar / relatuar)** | Aktive, të pezulluara, të deleguara ose të relatuara. |  |
 | **Ankimuar / rekursuar** | Të mbyllura gjatë vitit, me vendim të ankimuar ose të rekursuar. |  |
+| **Ankimuar** | Të mbyllura gjatë vitit, me vendim të ankimuar (shkalla I). Vitet e ngrira para detyrës 053o kanë këtu edhe rekurset (atëherë ishin një masë). |  |
+| **Rekurs** | Të mbyllura gjatë vitit, me vendim të rekursuar (shkalla II). |  |
 | **Mbartur në pritje të vendimit të arsyetuar** | Shkallët e mbyllura me vendim pa vendim të arsyetuar para 1 janarit: regjistrohet vendimi (rezultati) dhe shkalla mbyllet; vendimi i arsyetuar nuk kishte ardhur deri më 1 janar dhe plotësohet më vonë. | Mbyllur 10.12.2026, vendimi i arsyetuar ende pa ardhur → 1 në 2027. |
 | **Mbartur, ardhur vendimi i arsyetuar** | Të mbyllura para 1 janarit, për të cilat vendimi i arsyetuar erdhi gjatë vitit. | Mbyllur në 2026, vendimi erdhi 20.01.2027 → 1 në 2027. |
 | **Dëmi i parandaluar / i shkaktuar (për çdo monedhë, dhe m²)** | Shuma e vlerave të vendimeve të çështjeve të mbyllura gjatë vitit, veçmas për çdo monedhë. | 2.500.000 ALL dhe 1.000 EUR shfaqen në dy kolona, jo si një shumë. |
@@ -53,7 +79,7 @@ emrat dhe përkufizimet). Mos e ndryshoni me dorë: ndryshoni kodin dhe rigjener
 **Rezultati** — për çdo rezultat vendimi (Fituar, Humbur, …): sa çështje të mbyllura gjatë vitit me atë rezultat ishin
 ndjekur nga ASH dhe sa ishin të deleguara / relatuara.
 
-## Tabela 6 — Çështje institucionale
+## Tabela 4 — Çështje institucionale
 
 Të njëjtat shifra, vetëm për çështjet ku institucioni i zgjedhur është palë (e pafshirë) ose është i lidhur me çështjen
 (monitorim ose delegim). Kur zgjidhet një **ministri**, numërohen edhe agjencitë e saj të varura drejtpërdrejt

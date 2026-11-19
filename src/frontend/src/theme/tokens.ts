@@ -36,6 +36,12 @@ export const tokens = {
     pageBg: '#F3F6FA',
     cardBorder: '#E6EBF2',
     tableHead: '#EEF2F7',
+    /** task 053o: every table's header band — white bold text on it: 11.6:1 (the Excel template's header fill too) */
+    tableHeader: '#1F3A5F',
+    /** the cell grid of tables (vertical and horizontal lines) */
+    tableGrid: '#C9D2DE',
+    /** zebra rows */
+    tableZebra: '#F7F9FC',
     textPrimary: '#13294B',
     textSecondary: '#5B6B82',
     white: '#FFFFFF',

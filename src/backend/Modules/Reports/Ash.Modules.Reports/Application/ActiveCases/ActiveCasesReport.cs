@@ -53,6 +53,10 @@ public sealed record ActiveCaseRow(
     /// <summary>Task 053h: "Roli im" — the reader's own role in the case (<see cref="ReportMyRole"/>).</summary>
     public string? MyRole { get; init; }
 
+    /// <summary>Task 053o: the client's one column "Kategoria dhe lloji i çështjes" ("Ndjekje, KOD A AVSH").</summary>
+    public string? CategoryAndType =>
+        string.Join(", ", new[] { Category, Subcategory }.Where(s => !string.IsNullOrWhiteSpace(s))) is { Length: > 0 } both ? both : null;
+
     public object? Get(string key) => key switch
     {
         ReportMyRole.ColumnKey => MyRole,
@@ -72,6 +76,7 @@ public sealed record ActiveCaseRow(
         "claimAreaM2" => ClaimAreaM2,
         "category" => Category,
         "subcategory" => Subcategory,
+        "categoryAndType" => CategoryAndType,
         "priority" => Priority,
         "isSuspended" => IsSuspended,
         _ => throw new ArgumentOutOfRangeException(nameof(key), key, null),

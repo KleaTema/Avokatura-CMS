@@ -14,7 +14,11 @@ SELECT f.court_id                          AS CourtId,
        SUM(f.m_pezulluar_ash)              AS pezulluar_ash,
        SUM(f.m_pezulluar_deleguar)         AS pezulluar_deleguar,
        SUM(f.m_ankimuar_rekursuar)         AS ankimuar_rekursuar,
+       SUM(f.m_ankimuar)                   AS ankimuar,
+       SUM(f.m_rekursuar)                  AS rekursuar,
        SUM(f.m_mbartur_pritje_vendimi)     AS mbartur_pritje_vendimi,
-       SUM(f.m_mbartur_ardhur_vendim)      AS mbartur_ardhur_vendim
+       SUM(f.m_mbartur_ardhur_vendim)      AS mbartur_ardhur_vendim,
+       -- task 053o: "Në dorë" per court (the client's column; the per-lawyer list stays its own section)
+       SUM(f.m_ne_dore)                    AS ne_dore
   FROM f JOIN courts ct ON ct.id = f.court_id
  GROUP BY f.court_id WITH ROLLUP

@@ -51,6 +51,8 @@ public sealed class StatisticsQueries(
             {
                 var courtId = row["CourtId"] is null ? (int?)null : Convert.ToInt32(row["CourtId"]);
                 var values = StatisticsMeasures.Counts.ToDictionary(m => m.Code, m => Convert.ToInt32(row[m.Code] ?? 0));
+                // task 053o: "Në dorë" per court (the client's column)
+                values[StatisticsMeasures.InHand] = Convert.ToInt32(row["ne_dore"] ?? 0);
                 return new StatisticsCourtRow(courtId, courtId is null ? StatisticsMeasures.TotalRow : (string)row["CourtName"]!, values);
             })
             .ToList();
@@ -80,11 +82,12 @@ public sealed class StatisticsQueries(
             .Select(r => new StatisticsLawyerRow(refs[r.LawyerId].PublicId, refs[r.LawyerId].Name, r.Count))
             .ToList();
 
+        var grid = await GridAsync(connection, f, p, table, money, ct);
         var response = new StatisticsResponse(
             f.Year, f.Table, snapshot is not null, snapshot?.CreatedAt,
             !f.IsCurrentYear && snapshot is null ? NotFrozenWarning : null,
             StatisticsMeasures.Counts, StatisticsMeasures.DamageMeasure, StatisticsMeasures.InHandMeasure,
-            table, money, results, inHand, await DescribeAsync(connection, f, ct));
+            table, money, results, inHand, await DescribeAsync(connection, f, ct), grid);
         if (cacheable)
         {
             cache.Set(f.CacheKey, response, CacheFor);
@@ -117,6 +120,8 @@ public sealed class StatisticsQueries(
             ? null
             : await connection.ExecuteScalarAsync<byte?>(new CommandDefinition(
                 "SELECT id FROM decision_results WHERE code = @code", new { code = q.ResultCode.Trim() }, cancellationToken: ct)) ?? byte.MaxValue);
+        // task 053o: a result column of the table (statistics_result_mapping), its code as data
+        p.Add("result_column", string.IsNullOrWhiteSpace(q.ResultColumn) ? null : q.ResultColumn.Trim());
         long? rowLawyer = null;
         if (q.RowLawyerId is { } rowLawyerPublic)
         {
@@ -146,6 +151,59 @@ public sealed class StatisticsQueries(
                 openable.Contains(PublicId.FromBytes(r.PublicId))))
             .ToList();
         return new StatisticsCasesPage(items, hasMore ? Cursor.Encode("s", (long)ids[^1]) : null, total);
+    }
+
+    // settable properties (as MoneyDb): Dapper converts the column types (GROUPING() is an int, court_id unsigned)
+    private sealed class ResultCellDb
+    {
+        public string? ColumnCode { get; set; }
+        public int? CourtId { get; set; }
+        public bool GroupedColumn { get; set; }
+        public bool GroupedCourt { get; set; }
+        public long Ash { get; set; }
+        public long Deleguar { get; set; }
+    }
+
+    /// <summary>
+    /// Task 053o — the client's table: every court row's counts (the table's measures, "Në dorë" per court), its result
+    /// columns (statistics_result_mapping) and its damages per currency; the TOTAL row last (per currency, never summed
+    /// across them). Layout and open points from data (ReportSettings).
+    /// </summary>
+    private static async Task<StatisticsGrid> GridAsync(MySqlConnection connection, StatisticsFilter f, DynamicParameters p,
+        IReadOnlyList<StatisticsCourtRow> table, IReadOnlyList<StatisticsMoneyRow> money, CancellationToken ct)
+    {
+        var settings = await ReportSettings.LayoutAsync(connection, ct);
+        var resultColumns = await ReportSettings.ResultColumnsAsync(connection, ct);
+        var cells = (await connection.QueryAsync<ResultCellDb>(new CommandDefinition(StatisticsSql.ResultColumns, p, cancellationToken: ct)))
+            .Where(c => !c.GroupedColumn)
+            .ToList();
+        var currencies = money.Select(m => m.Currency).OfType<string>().Distinct().Order(StringComparer.Ordinal).ToList();
+
+        var rows = table.Select(row =>
+        {
+            var key = row.CourtId ?? -1;
+            var values = row.Values.ToDictionary(v => v.Key, v => (decimal)v.Value);
+            foreach (var c in cells.Where(c => (c.GroupedCourt ? -1 : c.CourtId ?? -2) == key && c.ColumnCode is not null))
+            {
+                values[$"res:{c.ColumnCode}:ash"] = c.Ash;
+                values[$"res:{c.ColumnCode}:del"] = c.Deleguar;
+            }
+
+            foreach (var m in money.Where(m => (m.CourtId ?? -1) == key))
+            {
+                values["dp:m2"] = values.GetValueOrDefault("dp:m2") + m.PreventedM2;
+                values["dc:m2"] = values.GetValueOrDefault("dc:m2") + m.CausedM2;
+                if (m.Currency is { } currency)
+                {
+                    values[$"dp:{currency}"] = m.PreventedAmount;
+                    values[$"dc:{currency}"] = m.CausedAmount;
+                }
+            }
+
+            return new StatisticsGridRow(row.CourtId, row.CourtId is null ? StatisticsLayout.TotalRow : row.Court, values);
+        }).ToList();
+
+        return StatisticsLayout.Build(f.Table, f.Year, settings, resultColumns, currencies, rows);
     }
 
     /// <summary>Every parameter of the statements, bound by name (the SQL never sees a value as text).</summary>
@@ -190,7 +248,7 @@ public sealed class StatisticsQueries(
         var texts = new List<ReportFilterText>
         {
             new("Viti", f.Year.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            new("Tabela", f.Table == 5 ? "Tabela 5 — Statistika e çështjeve" : "Tabela 6 — Çështje institucionale"),
+            new("Tabela", f.Table == 5 ? Builder.ReportTables.StatisticsTitle : Builder.ReportTables.InstitutionalTitle),
         };
         if (f.OfficeId is { } office)
         {

@@ -12,12 +12,16 @@ public static class ReportTables
 
     public static bool IsKnown(int table) => table is Active or Closed or Statistics or Institutional;
 
+    public const string StatisticsTitle = "Tabela 3 — Çështje aktive";
+    public const string InstitutionalTitle = "Tabela 4 — Institucionale";
+
     public static string Name(int table) => table switch
     {
         Active => ReportColumns.ActiveReportName,
         Closed => ReportColumns.ClosedReportName,
-        Statistics => "Tabela 5 — Statistika e çështjeve",
-        _ => "Tabela 6 — Çështje institucionale",
+        // task 053o: the user-facing numbering (internal table numbers 5 / 6 stay)
+        Statistics => StatisticsTitle,
+        _ => InstitutionalTitle,
     };
 }
 
@@ -44,8 +48,17 @@ public sealed record ReportFilterMeta(
     string Key, string Label, string Kind, string? Parent, bool IsDefault, bool Required, bool Locked,
     IReadOnlyList<ReportFilterOption>? Options);
 
-/// <summary>One column of a table for the column chooser; Numeric columns get a total.</summary>
-public sealed record ReportColumnMeta(string Key, string Header, string Kind, bool Numeric);
+/// <summary>
+/// One column of a table for the column chooser; Numeric columns get a total. Task 053o: Group = the header above it
+/// (merged over the columns of the same group), DefaultVisible = in the client's table (the default view),
+/// CurrencyKey = a money column's currency (a row key).
+/// </summary>
+public sealed record ReportColumnMeta(string Key, string Header, string Kind, bool Numeric)
+{
+    public string? Group { get; init; }
+    public bool DefaultVisible { get; init; } = true;
+    public string? CurrencyKey { get; init; }
+}
 
 /// <summary>GET /api/reports/tables/{table}/filters: what the filter builder and the column chooser show.</summary>
 public sealed record ReportFiltersResponse(

@@ -33,6 +33,12 @@ live AS (
          IFNULL(cat.code = 'RELATIM', 0)                                                          AS is_relatim,
          c.is_suspended                                                                           AS is_suspended,
          d.result_id                                                                              AS result_id,
+         -- task 053o: the State's side (an institution party's role group) — the result mapping may depend on it
+         -- (statistics_result_mapping.state_position; provisional, docs/statistics-definitions.md)
+         (SELECT CASE WHEN SUM(pr.report_group = 'PLAINTIFF') > 0 THEN 'PLAINTIFF'
+                      WHEN COUNT(*) > 0 THEN 'DEFENDANT' END
+            FROM case_parties sp JOIN party_roles pr ON pr.id = sp.party_role_id
+           WHERE sp.case_id = c.id AND sp.deleted_at IS NULL AND sp.party_kind = 'INSTITUTION')       AS state_position,
          d.currency                                                                               AS currency,
          d.prevented_damage_amount                                                                AS prevented_amount,
          d.prevented_damage_area_m2                                                               AS prevented_m2,
@@ -50,8 +56,9 @@ live AS (
          EXISTS (SELECT 1 FROM case_assignments t
                   WHERE t.case_id = c.id AND t.case_role = 'PRIMARY_LAWYER' AND t.end_reason = 'TRANSFERRED'
                     AND t.ended_at >= @y_start AND t.ended_at < @y_end)                            AS transferred,
-         -- the decision was appealed (ankim) or recursed (rekurs)
-         IFNULL(d.is_appealed = 1 OR d.is_recursed = 1, 0)                                         AS appealed,
+         -- the decision was appealed (ankim); recursed (rekurs) apart — task 053o, the client's two columns
+         IFNULL(d.is_appealed = 1, 0)                                                              AS appealed,
+         IFNULL(d.is_recursed = 1, 0)                                                              AS recursed,
          -- closed before the year, the reasoned decision still awaited on its first day
          IFNULL(c.closed_at < @y_start
                 AND (d.decision_received = 0 OR d.decision_received_at >= @y_start), 0)            AS pending_at_start,

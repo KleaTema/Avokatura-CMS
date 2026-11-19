@@ -34,7 +34,6 @@ export function FilterBar({
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const visible = filters.filter((f) => f.isDefault || f.locked || added.includes(f.key) || hasValue(values[f.key]))
   const addable = filters.filter((f) => !visible.includes(f))
-  const labelOf = (key: string | null | undefined) => filters.find((f) => f.key === key)?.label
 
   return (
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: { md: 'flex-start' } }} role="group" aria-label={sq.filters.title}>
@@ -47,7 +46,6 @@ export function FilterBar({
           options={optionsUnder(f, values)}
           onChange={(v) => onChange(f, v)}
           onRemove={f.isDefault || f.locked ? undefined : () => onRemove(f)}
-          parentLabel={f.parent && !hasValue(values[f.parent]) ? labelOf(f.parent) : undefined}
           autoFocus={added[added.length - 1] === f.key}
         />
       ))}

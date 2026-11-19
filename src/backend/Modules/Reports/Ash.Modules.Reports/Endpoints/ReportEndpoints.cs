@@ -50,6 +50,7 @@ public static class ReportEndpoints
 
         group.MapGet("/active-cases/export", async ([AsParameters] ActiveCasesQuery q, ActiveCasesReport report, ReportExports exports, CancellationToken ct) =>
                 await exports.RunAsync(new ExportRequest(
+                    // the API's whole export (every column); the page exports through the builder (its visible columns)
                     ReportColumns.ActiveReportName, "Çështjet aktive", "raporti-ceshtjet-aktive", ReportColumns.Active,
                     token => report.CountAsync(q.Filter, token),
                     token => report.AllAsync(q.Filter, token),

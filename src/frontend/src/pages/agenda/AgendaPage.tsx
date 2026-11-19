@@ -50,7 +50,7 @@ import { formatDateTime, formatLongDate, tiraneWallClockIso, todayInTirane } fro
 import { problemMessage } from '../../lib/problem'
 import { tokens, tones, type Tone } from '../../theme/tokens'
 import { AgendaPrintDialog, AgendaPrintoutView, type AgendaPrintout } from './AgendaPrint'
-import { usePrintWhenReady } from './usePrintWhenReady'
+import { usePrintWhenReady } from '../../lib/usePrintWhenReady'
 
 const t = sq.agenda
 

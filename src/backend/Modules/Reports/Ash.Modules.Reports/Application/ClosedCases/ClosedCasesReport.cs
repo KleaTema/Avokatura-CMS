@@ -67,10 +67,36 @@ public sealed record ClosedCaseRow(
     /// <summary>Task 053h: "Roli im" — the reader's own role in the case (<see cref="ReportMyRole"/>).</summary>
     public string? MyRole { get; init; }
 
+    /// <summary>Task 053o: the client's "Data e regjistrimit".</summary>
+    public DateTime RegisteredAt { get; init; }
+
+    public decimal? ClaimAmount { get; init; }
+    public string? ClaimCurrency { get; init; }
+    public decimal? ClaimAreaM2 { get; init; }
+
+    /// <summary>
+    /// Task 053o: the client's "Vlera" (M2 | Monedha) — the claim's value, or the decision's won value
+    /// (report_settings reports.closed_value; provisional, Q-053o-5).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool ValueFromDecision { get; init; }
+
+    public decimal? ValueAreaM2 => ValueFromDecision ? WonAreaM2 : ClaimAreaM2;
+    public decimal? ValueAmount => ValueFromDecision ? WonAmount : ClaimAmount;
+    public string? ValueCurrency => ValueFromDecision ? Currency : ClaimCurrency;
+
+    /// <summary>The client's one column "Ankimuar/ Rekursuar".</summary>
+    public bool AppealedOrRecursed => IsAppealed || IsRecursed;
+
     public object? Get(string key) => key switch
     {
         ReportMyRole.ColumnKey => MyRole,
         "caseCode" => CaseCode,
+        "registeredAt" => RegisteredAt,
+        "valueAreaM2" => ValueAreaM2,
+        "valueAmount" => ValueAmount,
+        "valueCurrency" => ValueCurrency,
+        "appealedOrRecursed" => AppealedOrRecursed,
         "actNumber" => ActNumber,
         "courtLevel" => CourtLevel,
         "court" => Court,
@@ -266,6 +292,21 @@ public sealed class ClosedCasesReport(
             }
         }
 
+        // task 053o: the client's "Vlera" (M2 | Monedha) — the claim or the decision's won value (report_settings
+        // reports.closed_value, provisional); per currency, never summed across currencies
+        var fromDecision = (await ReportSettings.ReadAsync(connection, ct)).GetValueOrDefault(ReportSettings.ClosedValue) == "DECISION";
+        var values = (await db.QueryAsync<(string? Currency, decimal? Amount, decimal? Area)>(connection, fromDecision
+            ? $"SELECT d.currency, SUM(d.won_amount), SUM(d.won_area_m2) FROM {From} WHERE {where} GROUP BY d.currency"
+            : $"SELECT c.claim_currency, SUM(c.claim_amount), SUM(c.claim_area_m2) FROM {From} WHERE {where} GROUP BY c.claim_currency",
+            p, false, ct)).ToList();
+        sums.AddRange(values.Where(v => v.Amount is not null && v.Currency is not null)
+            .OrderBy(v => v.Currency, StringComparer.Ordinal)
+            .Select(v => new ReportTotal("valueAmount", v.Currency, v.Amount!.Value)));
+        if (values.Sum(v => v.Area ?? 0) is var valueArea and > 0)
+        {
+            sums.Add(new ReportTotal("valueAreaM2", null, valueArea));
+        }
+
         return new ReportTotals(groups.Sum(g => Convert.ToInt32(g["cnt"], CultureInfo.InvariantCulture)), sums);
     }
 
@@ -397,6 +438,8 @@ public sealed class ClosedCasesReport(
             return [];
         }
 
+        // task 053o: which value "Vlera" shows (report_settings, provisional — Q-053o-5)
+        var valueFromDecision = (await ReportSettings.ReadAsync(connection, ct)).GetValueOrDefault(ReportSettings.ClosedValue) == "DECISION";
         var p = new { ids };
         var rows = await db.QueryAsync<ClosedDb>(connection, """
             SELECT c.id AS Id, c.public_id AS PublicId, dos.public_id AS DossierPublicId, c.case_code AS CaseCode, c.act_number AS ActNumber,
@@ -408,7 +451,9 @@ public sealed class ClosedCasesReport(
                    d.caused_damage_amount AS CausedDamageAmount, d.caused_damage_area_m2 AS CausedDamageAreaM2,
                    d.court_costs_amount AS CourtCostsAmount, c.has_security_measure AS HasSecurityMeasure,
                    d.is_appealed AS IsAppealed, d.is_recursed AS IsRecursed, d.is_final AS IsFinal,
-                   d.decision_received AS DecisionReceived, c.closed_at AS ClosedAt
+                   d.decision_received AS DecisionReceived, c.closed_at AS ClosedAt,
+                   c.registered_at AS RegisteredAt, c.claim_amount AS ClaimAmount, c.claim_currency AS ClaimCurrency,
+                   c.claim_area_m2 AS ClaimAreaM2
               FROM cases c
               JOIN dossiers dos         ON dos.id = c.dossier_id
               JOIN court_levels cl      ON cl.id = c.court_level_id
@@ -441,7 +486,14 @@ public sealed class ClosedCasesReport(
                 r.DecisionDate is { } date ? DateOnly.FromDateTime(date) : null, r.Dispositive, r.Currency,
                 r.WonAmount, r.WonAreaM2, r.LostAmount, r.LostAreaM2, r.PreventedDamageAmount, r.PreventedDamageAreaM2,
                 r.CausedDamageAmount, r.CausedDamageAreaM2, r.CourtCostsAmount, r.HasSecurityMeasure,
-                r.IsAppealed, r.IsRecursed, r.IsFinal, r.DecisionReceived, ActiveCasesReport.Utc(r.ClosedAt)!.Value);
+                r.IsAppealed, r.IsRecursed, r.IsFinal, r.DecisionReceived, ActiveCasesReport.Utc(r.ClosedAt)!.Value)
+            {
+                RegisteredAt = ActiveCasesReport.Utc(r.RegisteredAt)!.Value,
+                ClaimAmount = r.ClaimAmount,
+                ClaimCurrency = r.ClaimCurrency,
+                ClaimAreaM2 = r.ClaimAreaM2,
+                ValueFromDecision = valueFromDecision,
+            };
         }).ToList();
     }
 
@@ -490,5 +542,9 @@ public sealed class ClosedCasesReport(
         public bool IsFinal { get; set; }
         public bool DecisionReceived { get; set; }
         public DateTime? ClosedAt { get; set; }
+        public DateTime RegisteredAt { get; set; }
+        public decimal? ClaimAmount { get; set; }
+        public string? ClaimCurrency { get; set; }
+        public decimal? ClaimAreaM2 { get; set; }
     }
 }

@@ -237,13 +237,14 @@ public static class ReportBuilderEndpoints
     /// <summary>The chosen columns in their order (every column when none is chosen); null for an unknown key.</summary>
     private static IReadOnlyList<ReportColumn>? Columns(IReadOnlyList<ReportColumn> all, IReadOnlyList<string>? keys)
     {
+        // task 053o: no choice = the client's table (the default view); a choice keeps the table's order (a group's
+        // columns stay together under their merged header)
         if (keys is null || keys.Count == 0)
         {
-            return all;
+            return all.Where(c => c.DefaultVisible).ToList();
         }
 
-        var chosen = keys.Distinct().Select(k => all.FirstOrDefault(c => c.Key == k)).ToList();
-        return chosen.Any(c => c is null) ? null : chosen.OfType<ReportColumn>().ToList();
+        return keys.Any(k => all.All(c => c.Key != k)) ? null : all.Where(c => keys.Contains(c.Key)).ToList();
     }
 
     private static Result<ReportCriteria>? Criteria(int table, string? filters) =>

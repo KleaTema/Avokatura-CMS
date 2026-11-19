@@ -282,40 +282,38 @@ public sealed record ImportDefinition(
         _ => "Jo",
     };
 
-    /// <summary>A workbook of text sheets (inline strings), in the order given.</summary>
+    /// <summary>
+    /// A workbook of text sheets, in the order given, in THE styled template of every export (task 053o:
+    /// <see cref="Ash.Infrastructure.Excel.StyledXlsx"/>): each sheet's first row is its header (bold on navy, frozen,
+    /// autofilter), the rest its rows with borders. The header stays the first row of the first sheet, so a template
+    /// still imports as it is.
+    /// </summary>
     public static byte[] Workbook(params (string Name, IReadOnlyList<string[]> Rows)[] sheets)
     {
         using var stream = new MemoryStream();
-        using (var document = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook))
+        var styled = sheets.Select(sheet =>
         {
-            var workbook = document.AddWorkbookPart();
-            workbook.Workbook = new Workbook();
-            var sheetList = workbook.Workbook.AppendChild(new Sheets());
-            uint id = 1;
-            foreach (var (name, rows) in sheets)
-            {
-                var part = workbook.AddNewPart<WorksheetPart>();
-                var data = new SheetData();
-                uint index = 1;
-                foreach (var cells in rows)
-                {
-                    var row = new Row { RowIndex = index++ };
-                    foreach (var text in cells)
-                    {
-                        row.Append(new Cell { DataType = CellValues.InlineString, InlineString = new InlineString(new Text(text ?? string.Empty)) });
-                    }
+            var width = sheet.Rows.Count == 0 ? 1 : Math.Max(1, sheet.Rows.Max(r => r.Length));
+            var header = sheet.Rows.Count == 0 ? [] : sheet.Rows[0];
+            var columns = Enumerable.Range(0, width)
+                .Select(i => new Ash.Infrastructure.Excel.XlsxColumn($"c{i}", i < header.Length ? header[i] ?? string.Empty : string.Empty,
+                    Ash.Infrastructure.Excel.XlsxKind.LongText, i == 0 ? 34 : 28))
+                .ToList();
+            return new Ash.Infrastructure.Excel.XlsxSheet(sheet.Name, columns, Rows(sheet.Rows.Skip(1)));
+        }).ToList();
+        Ash.Infrastructure.Excel.StyledXlsx.WriteAsync(stream, styled, null, CancellationToken.None).GetAwaiter().GetResult();
+        return stream.ToArray();
+    }
 
-                    data.Append(row);
-                }
-
-                part.Worksheet = new Worksheet(data);
-                sheetList.Append(new Sheet { Id = workbook.GetIdOfPart(part), SheetId = id++, Name = name });
-            }
-
-            workbook.Workbook.Save();
+    private static async IAsyncEnumerable<Ash.Infrastructure.Excel.IXlsxRow> Rows(IEnumerable<string[]> rows)
+    {
+        foreach (var cells in rows)
+        {
+            yield return new Ash.Infrastructure.Excel.XlsxValuesRow(
+                cells.Select((text, i) => (Key: $"c{i}", Value: (object?)(text ?? string.Empty))).ToDictionary(c => c.Key, c => c.Value));
         }
 
-        return stream.ToArray();
+        await Task.CompletedTask;
     }
 }
 

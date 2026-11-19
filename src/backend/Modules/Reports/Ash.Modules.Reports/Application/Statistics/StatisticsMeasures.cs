@@ -54,6 +54,12 @@ public static class StatisticsMeasures
             "Aktive, të pezulluara, të deleguara ose të relatuara."),
         new("ankimuar_rekursuar", "Ankimuar / rekursuar",
             "Të mbyllura gjatë vitit, me vendim të ankimuar ose të rekursuar."),
+        // task 053o: the client's two columns (report_settings statistics.appeal_columns = SPLIT, provisional)
+        new("ankimuar", "Ankimuar",
+            "Të mbyllura gjatë vitit, me vendim të ankimuar (shkalla I). Vitet e ngrira para detyrës 053o kanë këtu " +
+            "edhe rekurset (atëherë ishin një masë)."),
+        new("rekursuar", "Rekurs",
+            "Të mbyllura gjatë vitit, me vendim të rekursuar (shkalla II)."),
         new("mbartur_pritje_vendimi", "Mbartur në pritje të vendimit të arsyetuar",
             "Shkallët e mbyllura me vendim pa vendim të arsyetuar para 1 janarit: regjistrohet vendimi (rezultati) dhe " +
             "shkalla mbyllet; vendimi i arsyetuar nuk kishte ardhur deri më 1 janar dhe plotësohet më vonë.",

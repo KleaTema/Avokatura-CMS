@@ -24,9 +24,9 @@ base AS (
   SELECT live.* FROM live WHERE @use_snapshot = 0
   UNION ALL
   SELECT s.case_id, s.office_id, s.court_id, s.primary_at_end, s.primary_at_close, s.is_delegim, s.is_relatim,
-         s.is_suspended, s.result_id, s.currency, s.prevented_amount, s.prevented_m2, s.caused_amount, s.caused_m2,
-         s.open_start, s.reg_in_year, s.open_end, s.closed_in_year, s.transferred, s.appealed, s.pending_at_start,
-         s.decision_arrived
+         s.is_suspended, s.result_id, s.state_position, s.currency, s.prevented_amount, s.prevented_m2, s.caused_amount,
+         s.caused_m2, s.open_start, s.reg_in_year, s.open_end, s.closed_in_year, s.transferred, s.appealed, s.recursed,
+         s.pending_at_start, s.decision_arrived
     FROM statistics_snapshot_cases s
    WHERE @use_snapshot = 1 AND s.year = @year
 ),
@@ -78,8 +78,19 @@ f AS (
          -- Pezulluar: open at the end and suspended
          (s.open_end AND s.is_suspended AND NOT s.is_deleg AND s.lawyer_open_ok)      AS m_pezulluar_ash,
          (s.open_end AND s.is_suspended AND s.is_deleg AND s.lawyer_open_ok)          AS m_pezulluar_deleguar,
-         -- Ankimuar / rekursuar: closed during the year with an appeal or recourse
-         (s.closed_in_year AND s.appealed AND s.lawyer_closed_ok)                     AS m_ankimuar_rekursuar,
+         -- Ankimuar / rekursuar: closed during the year with an appeal or recourse (report_settings
+         -- statistics.appeal_columns: COMBINED shows this one; SPLIT the two below — task 053o)
+         (s.closed_in_year AND (s.appealed OR s.recursed) AND s.lawyer_closed_ok)     AS m_ankimuar_rekursuar,
+         (s.closed_in_year AND s.appealed AND s.lawyer_closed_ok)                     AS m_ankimuar,
+         (s.closed_in_year AND s.recursed AND s.lawyer_closed_ok)                     AS m_rekursuar,
+         -- the result's column of "Rezultati i çështjeve të përfunduara" (task 053o): statistics_result_mapping —
+         -- the row for the State's side first, then ANY; no row → TJETER. Data, not code: a client answer changes rows.
+         IF(s.result_id IS NULL, NULL, COALESCE(
+           (SELECT rm.column_code FROM statistics_result_mapping rm JOIN decision_results rd ON rd.code = rm.decision_result_code
+             WHERE rd.id = s.result_id AND rm.state_position = s.state_position),
+           (SELECT rm.column_code FROM statistics_result_mapping rm JOIN decision_results rd ON rd.code = rm.decision_result_code
+             WHERE rd.id = s.result_id AND rm.state_position = 'ANY'),
+           'TJETER'))                                                                 AS result_column,
          -- Mbartur në pritje të vendimit të arsyetuar: closed before the year, decision still awaited on 1 January
          (s.pending_at_start AND s.lawyer_closed_ok)                                  AS m_mbartur_pritje_vendimi,
          -- Mbartur, ardhur vendimi: closed before the year, reasoned decision received during it

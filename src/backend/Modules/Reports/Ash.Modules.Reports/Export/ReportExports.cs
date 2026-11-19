@@ -111,7 +111,9 @@ public sealed class ReportExports(ReportScope scope, ReportingDb db, IAuditLog a
                     await PdfReportWriter.WriteAsync(file, request.Columns, request.Rows(ct), info, totals, ct);
                     break;
                 default:
-                    await XlsxReportWriter.WriteAsync(file, request.SheetName, request.Columns, request.Rows(ct), info, ct);
+                    // task 053o: the totals rows (per currency) bold below the data, as in the web table
+                    var totalsRows = request.Totals is null ? null : XlsxReportWriter.TotalsRows(request.Columns, await request.Totals(ct));
+                    await XlsxReportWriter.WriteAsync(file, request.SheetName, request.Columns, request.Rows(ct), info, ct, totalsRows);
                     break;
             }
 

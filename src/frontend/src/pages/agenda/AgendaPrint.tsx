@@ -20,6 +20,7 @@ import {
 import dayjs from 'dayjs'
 import { useState } from 'react'
 import { AppDatePicker } from '../../components/AppDatePicker'
+import { RangeGroup } from '../../components/filters/RangeGroup'
 import { OptionPicker } from '../../components/OptionPicker'
 import { fetchAgenda, type AgendaItem, type AgendaParams } from '../../features/agenda/api'
 import { sq } from '../../i18n/sq'
@@ -118,17 +119,18 @@ export function AgendaPrintDialog({
               />
             ))}
           </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <AppDatePicker label={d.from} value={from ? dayjs(from) : null} onChange={(v) => setFrom(isoDateOf(v))} fullWidth />
+          {/* task 053o: one label on the border, "Nga" and "Deri" inside */}
+          <RangeGroup label={d.period} width={{ xs: '100%' }}>
+            <AppDatePicker label={sq.filters.from} value={from ? dayjs(from) : null} onChange={(v) => setFrom(isoDateOf(v))} fullWidth />
             <AppDatePicker
-              label={d.to}
+              label={sq.filters.to}
               value={to ? dayjs(to) : null}
               onChange={(v) => setTo(isoDateOf(v))}
               fullWidth
               error={rangeError === 'order' || rangeError === 'tooLong'}
               helperText={rangeError && rangeError !== 'missing' ? d.errors[rangeError] : undefined}
             />
-          </Stack>
+          </RangeGroup>
           {canFilterOffice && (
             <OptionPicker
               filter
