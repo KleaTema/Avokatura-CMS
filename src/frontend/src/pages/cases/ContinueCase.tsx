@@ -35,6 +35,7 @@ import {
   useRegisterNextLevel,
   useRegistrationFilters,
   useRegistrationSearch,
+  useRegistrationStatuses,
   type MoreFilter,
   type NextLevelPreview,
   type RegistrationFilter,
@@ -160,6 +161,8 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
 
   const statusParam = params.get('status') ?? ''
   const status: RegistrationStatus = isStatus(statusParam) ? statusParam : 'CONTINUABLE'
+  // task 054c: the options and their names come from the API (one source)
+  const statuses = useRegistrationStatuses()
 
   // "+ Shto filtër" (task 053m: the shared FilterBar): the report builder's registry, the values in ?more=, the added
   // ones in ?af= (shown while empty, kept by Back; the leave dialog asks before an unused one is lost)
@@ -232,7 +235,7 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
           label={t.status}
           value={status}
           onChange={(value) => set({ status: value === 'CONTINUABLE' ? '' : value })}
-          options={REGISTRATION_STATUSES.map((value) => ({ value, label: t.statuses[value] ?? value }))}
+          options={(statuses.data ?? []).map((o) => ({ value: o.value, label: o.label }))}
         />
       </Box>
 

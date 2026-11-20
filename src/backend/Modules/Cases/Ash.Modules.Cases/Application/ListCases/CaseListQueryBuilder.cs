@@ -24,8 +24,9 @@ public enum CaseListSort
 }
 
 /// <summary>
-/// A parsed, validated list request. Status: <see cref="OpenStatus"/> (REGISTERED + ACTIVE), <see cref="AllStatuses"/>
-/// or one lifecycle status; null counts as open.
+/// A parsed, validated list request. Status: null (the tab's statuses, <see cref="CaseListQueryBuilder.StatusesOf"/> —
+/// "Të gjitha" of the filter), <see cref="OpenStatus"/> (REGISTERED + ACTIVE; the dashboard's counts),
+/// <see cref="AllStatuses"/> (every lifecycle status: a search, old links) or one lifecycle status.
 /// </summary>
 public sealed record CaseListFilter(
     CaseListTab Tab,
@@ -73,8 +74,11 @@ public sealed record CaseListFilter(
     /// <summary>A named dashboard predicate (task 046, "filter="), or none.</summary>
     public CaseListSpecialFilter? Special { get; init; }
 
-    /// <summary>The tab's open cases without filters (tab counts, default tab).</summary>
+    /// <summary>The tab's open cases without filters (the dashboard, the default tab).</summary>
     public static CaseListFilter Open(CaseListTab tab) => new(tab, OpenStatus, null, null, null, null, null, null, null, null);
+
+    /// <summary>The tab's rows without filters, every status of the tab (the tab counts = the list with no filter).</summary>
+    public static CaseListFilter Whole(CaseListTab tab) => new(tab, null, null, null, null, null, null, null, null, null);
 
     public CaseListSort Sort => Status == Case.Closed
         ? CaseListSort.ClosedDesc
@@ -83,7 +87,7 @@ public sealed record CaseListFilter(
     /// <summary>Binds a cursor to the request that produced it: same tab, filters and sort, or the cursor is refused.</summary>
     public string Hash()
     {
-        var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? OpenStatus, CourtId, CategoryId, Priority, Suspended,
+        var text = string.Join('|', CaseListTabs.Code(Tab), Status ?? "TAB",CourtId, CategoryId, Priority, Suspended,
             LawyerUserId, HearingFromUtc?.Ticks, HearingToUtc?.Ticks, Q, Sort, OfficeId,
             LevelCourtIds is null ? null : string.Join(',', LevelCourtIds), JudgeId, InstitutionId,
             RegisteredFromUtc?.Ticks, RegisteredToUtc?.Ticks, CodeContains, ActContains,
@@ -134,14 +138,30 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
 {
     private static readonly string[] OpenStatuses = [Case.Registered, "ACTIVE"];
 
+    /// <summary>
+    /// Task 054c: the lifecycle statuses a row of the tab can have — the ONE source of the tab's status filter options
+    /// (CaseListFilterSource) and of "every status" (ALL, the empty filter). The list tabs hold OPEN cases (closed ones
+    /// have their own tab, task 054e); "Pa avokat" and the Protokoll's tab hold REGISTERED cases only (an institution
+    /// jurist may be on a REGISTERED case, so "mine" keeps both). An explicit status (e.g. CLOSED from an old link) is
+    /// still honoured, and a search without a status covers every status (<see cref="CaseListFilter.AllStatuses"/>, task
+    /// 047: closed cases stay findable).
+    /// </summary>
+    public static IReadOnlyList<string> StatusesOf(CaseListTab tab) => tab switch
+    {
+        CaseListTab.Unassigned or CaseListTab.Registered => [Case.Registered],
+        _ => [Case.Registered, Case.Active],
+    };
+
     /// <summary>Tab + filters + scope, without order or paging (also used for the tab counts).</summary>
     public IQueryable<Case> Filtered(CaseListFilter f)
     {
         var cases = TabPredicate(db.Cases.AsNoTracking(), f.Tab);
 
+        var ofTab = StatusesOf(f.Tab).ToArray();
         cases = f.Status switch
         {
-            null or CaseListFilter.OpenStatus => cases.Where(c => OpenStatuses.Contains(c.LifecycleStatus)),
+            CaseListFilter.OpenStatus => cases.Where(c => OpenStatuses.Contains(c.LifecycleStatus)),
+            null => cases.Where(c => ofTab.Contains(c.LifecycleStatus)),
             CaseListFilter.AllStatuses => cases,
             var status => cases.Where(c => c.LifecycleStatus == status)
         };

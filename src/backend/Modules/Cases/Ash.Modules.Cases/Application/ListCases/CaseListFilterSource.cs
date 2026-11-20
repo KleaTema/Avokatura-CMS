@@ -26,11 +26,20 @@ internal sealed class CaseListFilterSource(
 
     public string? Permission => null;
 
-    public static readonly IReadOnlyList<FilterOption> Statuses =
-    [
-        new("OPEN", "Të hapura"), new("ALL", "Të gjitha"), new(Case.Registered, "Pa avokat"), new(Case.Active, "Aktive"),
-        new(Case.Closed, "Të mbyllura"),
-    ];
+    /// <summary>The status names of the list's status chip (sq.cases.status) — the same words in the filter.</summary>
+    public static readonly IReadOnlyDictionary<string, string> StatusNames = new Dictionary<string, string>
+    {
+        [Case.Registered] = "Regjistruar",
+        [Case.Active] = "Aktive",
+        [Case.Closed] = "Mbyllur",
+    };
+
+    /// <summary>
+    /// Task 054c: the status options of a tab — exactly the statuses a row of the tab can have
+    /// (<see cref="CaseListQueryBuilder.StatusesOf"/>); the empty choice "Të gjitha" is every one of them.
+    /// </summary>
+    public static IReadOnlyList<FilterOption> StatusOptions(CaseListTab tab) =>
+        CaseListQueryBuilder.StatusesOf(tab).Select(s => new FilterOption(s, StatusNames[s])).ToList();
 
     public static readonly IReadOnlyList<FilterOption> Priorities =
         [new("HIGH", "I lartë"), new("MEDIUM", "Mesatar"), new("LOW", "I ulët"), new("NONE", "Pa prioritet")];
@@ -84,7 +93,7 @@ internal sealed class CaseListFilterSource(
         IEnumerable<TableFilter> all =
         [
             TableFilter.Of("q", "Kërko (kodi, nr. i aktit, pala, objekti)", FilterKinds.Text, isDefault: true),
-            TableFilter.Of("status", "Statusi", FilterKinds.Select, isDefault: true, options: Statuses),
+            TableFilter.Of("status", "Statusi", FilterKinds.Select, isDefault: true, options: StatusOptions(tab)),
             TableFilter.Of("level", "Shkalla e gjykimit", FilterKinds.Select,
                 options: courts.Select(c => c.CourtLevelId).Distinct().Where(levels.ContainsKey)
                     .Select(id => new FilterOption(levels[id].Code, levels[id].Name)).ToList()),
@@ -113,6 +122,8 @@ internal sealed class CaseListFilterSource(
             TableFilter.Range("hearing", "Seanca e radhës", FilterKinds.DateRange, "from", "to"),
             TableFilter.Range("registered", "Data e regjistrimit", FilterKinds.DateRange, "regFrom", "regTo"),
         ];
-        return all.Where(f => (f.Key != "office" || byOffice) && (f.Key != "lawyer" || byLawyer)).ToList();
+        // a status filter with one option cannot narrow anything ("Pa avokat": REGISTERED only) — not offered
+        return all.Where(f => (f.Key != "office" || byOffice) && (f.Key != "lawyer" || byLawyer)
+                              && (f.Key != "status" || f.Options?.Count > 1)).ToList();
     }
 }

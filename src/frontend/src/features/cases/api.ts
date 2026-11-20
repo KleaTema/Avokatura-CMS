@@ -673,6 +673,14 @@ export const useMoreFilters = (more: string) =>
   })
 
 /** The fields of the search form, in order, with their control (GET …/registration-search/filters). */
+/** Task 054c: the status choice of the search with its names (GET …/registration-search/statuses), the one source. */
+export const useRegistrationStatuses = () =>
+  useQuery({
+    queryKey: ['registration-search', 'statuses'] as const,
+    staleTime: Infinity,
+    queryFn: () => api.GET('/api/cases/registration-search/statuses').then(unwrap),
+  })
+
 export const useRegistrationFilters = () =>
   useQuery({
     queryKey: ['registration-search', 'filters'] as const,

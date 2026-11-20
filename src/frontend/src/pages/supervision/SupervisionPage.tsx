@@ -56,12 +56,13 @@ const targetOf = (s: Supervision) => (s.kind === 'LAWYER' ? (s.lawyer?.name ?? '
  * them under "Në mbikëqyrje".
  */
 export function SupervisionPage() {
-  // task 053m: the shared FilterBar (GET /api/filters/supervisions), kept in the URL; the status picks what is
-  // fetched (the active ones unless "Të përfunduara" / "Të gjitha"), the rest is applied in the browser
+  // task 053m: the shared FilterBar (GET /api/filters/supervisions), kept in the URL. Task 054c: the status is
+  // "Të gjitha" (empty: every supervision) | ACTIVE | ENDED — the ended ones are fetched unless ACTIVE is chosen; the
+  // rest is applied in the browser
   const meta = useTableFilters('supervisions')
   const url = useUrlFilters(meta.data ?? [])
   const status = textOf(url.values, 'status')
-  const list = useSupervisions(status !== '')
+  const list = useSupervisions(status !== 'ACTIVE')
   const [adding, setAdding] = useState(false)
   const [ending, setEnding] = useState<Supervision | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -72,6 +73,7 @@ export function SupervisionPage() {
   const rows = (list.data ?? []).filter(
     (s) =>
       (status !== 'ENDED' || s.endedAt) &&
+      (status !== 'ACTIVE' || !s.endedAt) &&
       matchesFilters(s, url.filters.filter((f) => f.key !== 'status'), url.values, field),
   )
 

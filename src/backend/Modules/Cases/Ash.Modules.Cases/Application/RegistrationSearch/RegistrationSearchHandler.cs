@@ -32,6 +32,12 @@ public static class RegistrationSearchStatus
     public const string Closed = "CLOSED";
 
     public static readonly IReadOnlyList<string> Values = [Continuable, All, Open, Closed];
+
+    /// <summary>Task 054c: the status choice with its names — the ONE source of the page's select (no list in the page).</summary>
+    public static readonly IReadOnlyList<Ash.SharedKernel.Filters.FilterOption> Options =
+    [
+        new(Continuable, "Mund të vazhdohen"), new(All, "Të gjitha"), new(Open, "Të hapura"), new(Closed, "Të mbyllura"),
+    ];
 }
 
 /// <summary>

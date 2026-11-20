@@ -327,8 +327,12 @@ internal sealed class ListCasesHandler(
             status ??= Case.Closed;
         }
 
-        // no status chosen: a search covers every status (closed cases must be findable), the plain list the open ones
-        status ??= search is null ? CaseListFilter.OpenStatus : CaseListFilter.AllStatuses;
+        // task 054c: no status chosen = every status a row of the tab can have ("Të gjitha" of the filter); a search
+        // covers every status (task 047: closed cases must be findable)
+        if (search is not null)
+        {
+            status ??= CaseListFilter.AllStatuses;
+        }
 
         // Tirane calendar dates → UTC half-open range [from 00:00, to+1 00:00)
         return new CaseListFilter(tab, status, courtId, categoryId, priority, q.Suspended, lawyerUserId,

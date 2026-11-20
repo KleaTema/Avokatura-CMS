@@ -38,6 +38,30 @@ public class TableFilterTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Theory]
+    [InlineData("kryetar@ash.local", "office", "REGISTERED:Regjistruar,ACTIVE:Aktive")]
+    [InlineData("monitor@ash.local", "all", "REGISTERED:Regjistruar,ACTIVE:Aktive")]
+    [InlineData("avokat1@ash.local", "mine", "REGISTERED:Regjistruar,ACTIVE:Aktive")]
+    [InlineData("kryetar@ash.local", "unassigned", "")] // REGISTERED only: no status filter
+    [InlineData("protokoll@ash.local", "registered", "")]
+    public async Task The_case_status_filter_offers_the_statuses_of_the_tab_with_the_chip_names_and_no_duplicates(
+        string user, string tab, string expected)
+    {
+        // task 054c: the empty choice is "Të gjitha"; no "ALL" / "OPEN" option beside it
+        await using var factory = new AshApiFactory(Db);
+        var status = (await Get(factory.CreateClient().AsUser(user), "cases", $"?tab={tab}")).SingleOrDefault(f => f.Key == "status");
+        var options = status is null ? "" : string.Join(',', status.Options.Select(o => $"{o.Value}:{o.Label}"));
+        options.ShouldBe(expected, tab);
+    }
+
+    [Fact]
+    public async Task The_supervision_status_filter_has_no_second_Te_gjitha()
+    {
+        await using var factory = new AshApiFactory(Db);
+        var status = (await Get(factory.CreateClient().AsUser("monitor@ash.local"), "supervisions")).Single(f => f.Key == "status");
+        status.Options.Select(o => o.Label).ShouldBe(["Aktive", "Të përfunduara"]);
+    }
+
+    [Theory]
     [InlineData("cases", "monitor@ash.local")]
     [InlineData("users", "admin@ash.local")]
     [InlineData("offices", "admin@ash.local")]

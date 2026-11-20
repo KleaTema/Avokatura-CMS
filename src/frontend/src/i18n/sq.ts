@@ -1591,12 +1591,6 @@ export const sq = {
       continueButton: 'Vazhdo',
       continueLabel: (code: string) => `Vazhdo çështjen ${code} në shkallën e radhës`,
       status: 'Statusi',
-      statuses: {
-        CONTINUABLE: 'Mund të vazhdohen',
-        ALL: 'Të gjitha',
-        OPEN: 'Të hapura',
-        CLOSED: 'Të mbyllura',
-      } as Record<string, string>,
       /** the button follows the recipients: with a primary lawyer both, otherwise the Kryetar only */
       notify: (hasLawyer: boolean) => (hasLawyer ? 'Njofto avokatin dhe Kryetarin' : 'Njofto Kryetarin'),
       back: 'Kthehu te kërkimi',

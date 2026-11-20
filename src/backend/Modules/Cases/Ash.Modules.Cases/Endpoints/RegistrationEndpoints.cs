@@ -64,6 +64,12 @@ public static class RegistrationEndpoints
             .Produces<IReadOnlyList<RegistrationFilterResponse>>()
             .WithName("ListRegistrationSearchFilters");
 
+        // task 054c: the status choice of the search, with its names (the page has no list of its own)
+        endpoints.MapGet("/api/cases/registration-search/statuses", () => Results.Ok(RegistrationSearchStatus.Options))
+            .RequirePermission("case.link_previous")
+            .Produces<IReadOnlyList<Ash.SharedKernel.Filters.FilterOption>>()
+            .WithName("ListRegistrationSearchStatuses");
+
         // task 053j: "+ Shto filtër" — the report builder's registry (task 053h) over the country's latest levels; the
         // options of a select under the choices already made (more = the chosen values, the report builder's JSON)
         endpoints.MapGet("/api/cases/registration-search/more-filters",
