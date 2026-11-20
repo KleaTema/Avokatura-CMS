@@ -174,6 +174,13 @@ public static class AdminOrgEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .WithName("SearchInstitutions");
 
+        // task 054a: the whole bounded list for the pickers (loaded once, cached, filtered in the browser)
+        endpoints.MapGet("/api/identity/institutions/active",
+                async (SearchInstitutionsHandler handler, CancellationToken ct) => Results.Ok(await handler.ListActiveAsync(ct)))
+            .RequireAuthorization()
+            .Produces<IReadOnlyList<InstitutionSearchResult>>()
+            .WithName("ListActiveInstitutions");
+
         return endpoints;
     }
 }

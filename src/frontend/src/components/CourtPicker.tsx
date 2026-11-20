@@ -1,7 +1,7 @@
 import type { Ref } from 'react'
 import type { Court } from '../features/reference/api'
 import { sq } from '../i18n/sq'
-import { matches } from '../lib/search'
+import { pickerMatches } from '../lib/search'
 import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 /**
@@ -48,7 +48,7 @@ export function CourtPicker({
       groupBy={(c) => levelName.get(c.courtLevelCode ?? '') ?? ''}
       getOptionLabel={(c) => c.name}
       getOptionKey={(c) => String(c.id)}
-      filterOptions={(all, input) => all.filter((c) => matches(input, c.name, c.city))}
+      filterOptions={(all, input) => all.filter((c) => pickerMatches(input, c.name, c.city))}
       noOptionsText={sq.cases.register.noCourts}
       size={size}
       inputRef={inputRef}

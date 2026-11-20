@@ -14,3 +14,14 @@ export function matches(q: string, ...fields: (string | null | undefined)[]) {
   const haystacks = fields.filter((f): f is string => f != null).map(normalize)
   return terms.every((term) => haystacks.some((h) => h.includes(term)))
 }
+
+/** A bounded lookup dropdown filters from the 2nd letter (task 054a): shorter text shows the whole list. */
+export const PICKER_MIN_FILTER = 2
+
+/**
+ * The filter of a bounded lookup dropdown (institutions, courts, judges, simple lists — loaded whole, cached): the
+ * full list until the text has 2 characters, then `matches()` (substring, case- and accent-insensitive).
+ */
+export function pickerMatches(q: string, ...fields: (string | null | undefined)[]) {
+  return q.trim().length < PICKER_MIN_FILTER || matches(q, ...fields)
+}

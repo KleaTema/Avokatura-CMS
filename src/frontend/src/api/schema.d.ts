@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/identity/institutions/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListActiveInstitutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/register": {
         parameters: {
             query?: never;
@@ -1420,6 +1436,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["SearchJudges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reference/judges/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListActiveJudges"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4691,6 +4723,26 @@ export interface operations {
             };
         };
     };
+    ListActiveInstitutions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionSearchResult"][];
+                };
+            };
+        };
+    };
     RegisterCase: {
         parameters: {
             query?: never;
@@ -7914,6 +7966,26 @@ export interface operations {
                 courtId?: number | string;
                 q?: string;
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JudgeResponse"][];
+                };
+            };
+        };
+    };
+    ListActiveJudges: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

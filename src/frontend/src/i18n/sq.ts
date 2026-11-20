@@ -312,9 +312,8 @@ export const sq = {
     },
   },
   institutionPicker: {
-    typeToSearch: 'Shkruani të paktën 2 shkronja për të kërkuar',
     noResults: 'Nuk u gjet asnjë institucion',
-    loading: 'Po kërkohet…',
+    loading: 'Po ngarkohet…',
   },
   adminFileTypes: {
     title: 'Llojet e skedarëve',
@@ -1659,7 +1658,6 @@ export const sq = {
         objectText: 'Objekti',
       },
       chooseCourtFirst: 'Zgjidhni më parë gjykatën, ose shfaqni të gjithë gjyqtarët.',
-      typeJudge: 'Shkruani të paktën 2 shkronja të emrit ose mbiemrit.',
       noJudges: 'Nuk u gjet asnjë gjyqtar.',
       noCourts: 'Nuk u gjet asnjë gjykatë për këtë shkallë.',
       loading: 'Po kërkohet…',

@@ -57,6 +57,8 @@ export const adminKeys = {
   institutionList: (f: InstitutionFilters, p: PageRequest) =>
     ['admin-institutions', 'list', f, p.cursor ?? null, p.size] as const,
   institutionSearch: (q: string) => ['institution-search', q] as const,
+  // under 'institution-search': every institution change refreshes it (invalidateInstitutions)
+  activeInstitutions: ['institution-search', 'active-list'] as const,
   // under 'admin-users': any user change (role, status, office) can change who may be head
   headCandidates: (officeId: string) => ['admin-users', 'head-candidates', officeId] as const,
   lookup: (list: string) => ['admin-lookups', list] as const,
@@ -113,6 +115,17 @@ export const useAdminOffices = (enabled = true) =>
   })
 
 /** Type-ahead over active institutions (public names only); live search from 2 characters, the older request aborted. */
+/**
+ * Every active institution, by name (task 054a): loaded once and cached (no refetch while the app is open); an admin
+ * change of institutions invalidates it. The pickers filter it in the browser.
+ */
+export const useActiveInstitutions = () =>
+  useQuery({
+    queryKey: adminKeys.activeInstitutions,
+    staleTime: Infinity,
+    queryFn: ({ signal }) => api.GET('/api/identity/institutions/active', { signal }).then(unwrap),
+  })
+
 export const useInstitutionSearch = (q: string, enabled = true) =>
   useQuery({
     queryKey: adminKeys.institutionSearch(q),

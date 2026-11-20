@@ -28,6 +28,15 @@ public static class ReferenceEndpoints
                 await handler.Handle(courtId, q, ct))
             .WithName("SearchJudges");
 
+        // task 054a: every active judge (a bounded list, cached in memory here): the pickers load it once and filter
+        // in the browser
+        group.MapGet("/judges/active", async (IReferenceData data, CancellationToken ct) =>
+                (await data.ListJudgesAsync(ct)).Where(x => x.IsActive)
+                    .OrderBy(x => x.LastName, StringComparer.InvariantCultureIgnoreCase)
+                    .ThenBy(x => x.FirstName, StringComparer.InvariantCultureIgnoreCase)
+                    .Select(x => new JudgeResponse(x.Id, x.FirstName, x.LastName, x.CourtId)))
+            .WithName("ListActiveJudges");
+
         group.MapGet("/party-roles", async (IReferenceData data, CancellationToken ct) =>
                 (await data.ListPartyRolesAsync(ct)).Where(x => x.IsActive).Select(x => new PartyRoleResponse(x.Code, x.Name, x.ReportGroup)))
             .WithName("ListPartyRoles");

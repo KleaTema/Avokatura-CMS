@@ -1,5 +1,5 @@
 import { sq } from '../i18n/sq'
-import { matches } from '../lib/search'
+import { pickerMatches } from '../lib/search'
 import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 export interface PickerOption {
@@ -8,7 +8,8 @@ export interface PickerOption {
 }
 
 /**
- * Autocomplete for a known list of options (more than ~10), filtered accent-insensitively as the user types.
+ * Autocomplete for a known list of options (more than ~10): the whole list opens at once, typing filters it from the
+ * 2nd letter (pickerMatches: substring, case- and accent-insensitive).
  * value '' = nothing chosen ("Të gjitha" with `filter`, "— Asnjë —" for an optional field; see AppAutocomplete).
  */
 export function OptionPicker({
@@ -43,7 +44,7 @@ export function OptionPicker({
       onChange={(picked) => onChange(picked?.value ?? '')}
       getOptionLabel={(o) => o.label}
       getOptionKey={(o) => o.value}
-      filterOptions={(all, input) => all.filter((o) => matches(input, o.label))}
+      filterOptions={(all, input) => all.filter((o) => pickerMatches(input, o.label))}
       label={label}
       required={required}
       filter={filter}

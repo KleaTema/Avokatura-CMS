@@ -1,7 +1,7 @@
-import { useState, type Ref } from 'react'
-import { useJudgeSearch } from '../features/reference/api'
+import type { Ref } from 'react'
+import { useActiveJudges } from '../features/reference/api'
 import { sq } from '../i18n/sq'
-import { useLiveSearch } from '../lib/useLiveSearch'
+import { pickerMatches } from '../lib/search'
 import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 const t = sq.cases.register
@@ -13,8 +13,9 @@ export interface PickedJudge {
 }
 
 /**
- * Active judges, searched on the server (name or surname, accent-insensitive): of the chosen court, or — with
- * `showAll` — of every court (from 2 characters; the court is then shown next to the name). `filter` / `required`:
+ * The active judges (task 054a): of the chosen court, or — with `showAll` — of every court (the court is then shown
+ * next to the name). The whole list opens at once; typing filters it from the 2nd letter (name or surname, substring,
+ * case- and accent-insensitive — pickerMatches). Loaded once and cached (useActiveJudges). `filter` / `required`:
  * see AppAutocomplete.
  */
 export function JudgePicker({
@@ -42,44 +43,37 @@ export function JudgePicker({
   inputRef?: Ref<HTMLInputElement>
   size?: 'small' | 'medium'
 }) {
-  const [input, setInput] = useState(value?.name ?? '')
-  // live search: from 2 characters, 300 ms after the last keystroke
-  const q = useLiveSearch(input)
   const disabled = !showAll && courtId === null
-  // the label of the chosen judge is not a search
-  const searchText = value && input === value.name ? '' : q
-  const search = useJudgeSearch(showAll ? null : courtId, searchText, !disabled)
+  const judges = useActiveJudges(!disabled)
 
-  const found: PickedJudge[] = (search.data ?? []).map((j) => ({
-    id: String(j.id),
-    name: `${j.firstName} ${j.lastName}`,
-    courtId: j.courtId === null ? null : String(j.courtId),
-  }))
-  const options = value && !found.some((o) => o.id === value.id) ? [value, ...found] : found
-
-  const noOptionsText = disabled
-    ? t.chooseCourtFirst
-    : showAll && searchText === ''
-      ? t.typeJudge
-      : t.noJudges
+  const all: PickedJudge[] = (judges.data ?? [])
+    .filter((j) => showAll || j.courtId === courtId)
+    .map((j) => ({
+      id: String(j.id),
+      name: `${j.firstName} ${j.lastName}`,
+      courtId: j.courtId === null ? null : String(j.courtId),
+    }))
+  // the current value stays an option (e.g. a judge deactivated since)
+  const options = value && !all.some((o) => o.id === value.id) ? [value, ...all] : all
+  const selected = value ? (options.find((o) => o.id === value.id) ?? null) : null
+  const label2 = (o: PickedJudge) => {
+    const court = showAll ? courtName(o.courtId) : undefined
+    return court ? `${o.name} — ${court}` : o.name
+  }
 
   return (
     <AppAutocomplete<PickedJudge>
-      value={value}
+      value={selected}
       onChange={onChange}
-      inputValue={input}
-      onInputChange={setInput}
       options={options}
       getOptionLabel={(o) => o.name}
       getOptionKey={(o) => o.id}
-      renderOptionLabel={(o) => {
-        const court = showAll ? courtName(o.courtId) : undefined
-        return court ? `${o.name} — ${court}` : o.name
-      }}
+      renderOptionLabel={label2}
+      filterOptions={(items, input) => items.filter((o) => pickerMatches(input, o.name, showAll ? courtName(o.courtId) : undefined))}
       disabled={disabled}
-      loading={search.isFetching}
+      loading={judges.isPending && !disabled}
       loadingText={t.loading}
-      noOptionsText={noOptionsText}
+      noOptionsText={disabled ? t.chooseCourtFirst : t.noJudges}
       inputRef={inputRef}
       label={label}
       required={required}

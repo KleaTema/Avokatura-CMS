@@ -142,6 +142,37 @@ public class AdminInstitutionsTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
+    public async Task The_active_list_has_every_active_institution_by_name_and_no_inactive_one()
+    {
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient();
+        try
+        {
+            var zeta = await Create(client, "Zeta Institucion Listzq");
+            var alfa = await Create(client, "Alfa Institucion Listzq", shortName: "AIL");
+            var off = await Create(client, "Joaktiv Institucion Listzq");
+            (await Send(client, HttpMethod.Post, $"{Base}/{off}/deactivate", Admin)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+            var response = await Send(client, HttpMethod.Get, $"{Search}/active", "avokat1@ash.local");
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var rows = (await Json(response)).EnumerateArray().ToList();
+            Contains(rows, alfa).ShouldBeTrue();
+            Contains(rows, zeta).ShouldBeTrue();
+            Contains(rows, off).ShouldBeFalse();
+            var names = rows.Select(r => r.GetProperty("name").GetString()!).ToList();
+            names.IndexOf("Alfa Institucion Listzq").ShouldBeLessThan(names.IndexOf("Zeta Institucion Listzq"));
+            rows.First(r => r.GetProperty("publicId").GetGuid() == alfa).GetProperty("shortName").GetString().ShouldBe("AIL");
+            rows[0].TryGetProperty("nipt", out _).ShouldBeFalse();
+
+            (await client.GetAsync($"{Search}/active", Ct)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        }
+        finally
+        {
+            await CleanUp();
+        }
+    }
+
+    [Fact]
     public async Task Inactive_institution_is_not_returned_by_search()
     {
         await using var factory = new AshApiFactory(Db);

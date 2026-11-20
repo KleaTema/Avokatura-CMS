@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '../../api/client'
 import type { components } from '../../api/schema'
 
@@ -55,22 +55,16 @@ export const useDecisionResults = () =>
   })
 
 /**
- * Active judges (server search, at most 50): of one court (q optional), or of all courts (q from 2 characters — live
- * search). Disabled when neither a court nor a q is given, or when `enabled` is false. The older request is aborted.
+ * Every active judge (task 054a), loaded once and cached; an admin change of judges or courts invalidates it
+ * (invalidateLookup → ['reference', 'judges']). JudgePicker filters it in the browser.
  */
-export const useJudgeSearch = (courtId: number | null, q: string, enabled = true) => {
-  const query = q.trim()
-  return useQuery({
-    queryKey: ['reference', 'judges', courtId ?? 'all', query] as const,
-    enabled: enabled && (courtId !== null || query !== ''),
-    staleTime: 60_000,
-    placeholderData: keepPreviousData,
-    queryFn: ({ signal }) =>
-      api
-        .GET('/api/reference/judges', { params: { query: { courtId: courtId ?? undefined, q: query || undefined } }, signal })
-        .then(unwrap),
+export const useActiveJudges = (enabled = true) =>
+  useQuery({
+    queryKey: ['reference', 'judges', 'active'] as const,
+    enabled,
+    staleTime: Infinity,
+    queryFn: ({ signal }) => api.GET('/api/reference/judges/active', { signal }).then(unwrap),
   })
-}
 
 export type DocumentType = components['schemas']['DocumentTypeResponse']
 export type AllowedFileType = components['schemas']['AllowedFileTypeResponse']

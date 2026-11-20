@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { useInstitutionSearch } from '../features/admin/api'
+import { useActiveInstitutions } from '../features/admin/api'
 import { sq } from '../i18n/sq'
-import { useLiveSearch } from '../lib/useLiveSearch'
+import { pickerMatches } from '../lib/search'
 import { AppAutocomplete, type EmptyChoice } from './ui/AppAutocomplete'
 
 export interface PickedInstitution {
@@ -9,12 +8,17 @@ export interface PickedInstitution {
   name: string
 }
 
+interface InstitutionOption extends PickedInstitution {
+  shortName: string | null
+}
+
 const t = sq.institutionPicker
 
 /**
- * Type-ahead over active institutions (GET /api/identity/institutions, anywhere inside the name, short name or NIPT).
- * `onlyType` keeps one institution type, e.g. MINISTRY for a parent; `excludeId` hides the institution being edited.
- * `filter` / `required`: see AppAutocomplete.
+ * The active institutions (task 054a): the whole list, sorted by name, opens at once; typing filters it from the
+ * 2nd letter (name or short name, substring, case- and accent-insensitive — pickerMatches). Loaded once and cached
+ * (useActiveInstitutions; an admin change refreshes it). `onlyType` keeps one institution type, e.g. MINISTRY for a
+ * parent; `excludeId` hides the institution being edited. `filter` / `required`: see AppAutocomplete.
  */
 export function InstitutionPicker({
   value,
@@ -37,30 +41,25 @@ export function InstitutionPicker({
   excludeId?: string
   size?: 'small' | 'medium'
 }) {
-  const [input, setInput] = useState(value?.name ?? '')
-  // live search: from 2 characters, 300 ms after the last keystroke
-  const q = useLiveSearch(input)
-  // the name of the chosen institution is not a search
-  const search = useInstitutionSearch(value && input === value.name ? '' : q)
-
-  const found: PickedInstitution[] = (search.data ?? [])
+  const list = useActiveInstitutions()
+  const all: InstitutionOption[] = (list.data ?? [])
     .filter((i) => (!onlyType || i.institutionType === onlyType) && i.publicId !== excludeId)
-    .map((i) => ({ publicId: i.publicId, name: i.name }))
-  // the current value stays an option, so it is shown even before (or without) a search
-  const options = value && !found.some((o) => o.publicId === value.publicId) ? [value, ...found] : found
+    .map((i) => ({ publicId: i.publicId, name: i.name, shortName: i.shortName ?? null }))
+  // the current value stays an option (e.g. an institution deactivated since it was chosen)
+  const options = value && !all.some((o) => o.publicId === value.publicId) ? [{ ...value, shortName: null }, ...all] : all
+  const selected = value ? (options.find((o) => o.publicId === value.publicId) ?? null) : null
 
   return (
-    <AppAutocomplete<PickedInstitution>
-      value={value}
-      onChange={onChange}
-      inputValue={input}
-      onInputChange={setInput}
+    <AppAutocomplete<InstitutionOption>
+      value={selected}
+      onChange={(o) => onChange(o ? { publicId: o.publicId, name: o.name } : null)}
       options={options}
       getOptionLabel={(o) => o.name}
       getOptionKey={(o) => o.publicId}
-      loading={search.isFetching}
+      filterOptions={(items, input) => items.filter((o) => pickerMatches(input, o.name, o.shortName))}
+      loading={list.isPending}
       loadingText={t.loading}
-      noOptionsText={q === '' ? t.typeToSearch : t.noResults}
+      noOptionsText={t.noResults}
       label={label}
       required={required}
       filter={filter}

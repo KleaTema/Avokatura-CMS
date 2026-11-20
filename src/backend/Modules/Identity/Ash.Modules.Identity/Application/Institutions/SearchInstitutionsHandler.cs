@@ -45,4 +45,17 @@ public sealed class SearchInstitutionsHandler(IdentityDbContext db)
             .ToListAsync(ct);
         return rows;
     }
+
+    /// <summary>
+    /// Every ACTIVE institution, by name (a bounded list: the pickers load it once, cache it and filter in the browser,
+    /// from the 2nd letter — task 054a). Public data only, as the search.
+    /// </summary>
+    public async Task<IReadOnlyList<InstitutionSearchResult>> ListActiveAsync(CancellationToken ct) =>
+        await (from i in db.Institutions.AsNoTracking()
+               where i.IsActive
+               join p in db.Institutions.AsNoTracking() on i.ParentInstitutionId equals (uint?)p.Id into parents
+               from p in parents.DefaultIfEmpty()
+               orderby i.Name
+               select new InstitutionSearchResult(i.PublicId, i.Name, i.ShortName, i.InstitutionType, p != null ? p.Name : null))
+            .ToListAsync(ct);
 }
