@@ -67,7 +67,7 @@ export function NotificationBell() {
         onClose={close}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { role: 'dialog', 'aria-label': t.latest, sx: { width: { xs: 'calc(100vw - 24px)', sm: 400 }, maxWidth: 400 } } }}
+        slotProps={{ paper: { role: 'dialog', 'aria-label': t.latest, sx: { width: { xs: 'calc(100vw - 24px)', sm: 400 }, maxWidth: 400, overflowX: 'hidden' } } }}
       >
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, gap: 1 }}>
           <Typography variant="h3" component="h2">
@@ -91,7 +91,8 @@ export function NotificationBell() {
             {t.empty}
           </Typography>
         ) : (
-          <List dense disablePadding sx={{ maxHeight: 420, overflowY: 'auto' }}>
+          // no side scrolling: long titles, bodies and case codes wrap (anywhere, so "2026-625265/1 (Gjykata…)" breaks)
+          <List dense disablePadding sx={{ maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}>
             {items.map((n) => {
               const isUnread = !n.readAt
               return (
@@ -107,6 +108,7 @@ export function NotificationBell() {
                     <NotificationIcon type={n.type} />
                   </ListItemIcon>
                   <ListItemText
+                    sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
                     primary={
                       <>
                         {n.title}

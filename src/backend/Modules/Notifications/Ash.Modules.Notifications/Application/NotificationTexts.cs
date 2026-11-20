@@ -21,8 +21,9 @@ public static class NotificationTexts
         public const string Decision = "vendimi";
     }
 
-    public const string PrimaryRole = "avokat kryesor";
-    public const string SecondaryRole = "avokat dytësor";
+    // the role display names of today (task 053i: "Avokat primar" / "Avokat sekondar")
+    public const string PrimaryRole = "avokat primar";
+    public const string SecondaryRole = "avokat sekondar";
 
     public static string LinkTo(Guid casePublicId, string tab) => $"/cases/{casePublicId}/{tab}";
 
@@ -37,7 +38,7 @@ public static class NotificationTexts
             $"Çështja {Case(c)} u regjistrua dhe pret caktimin e avokatit.", Tabs.Data);
 
     public static NotificationMessage LawyerAssigned(CaseSummary c, string role) =>
-        Message(NotificationTypes.LawyerAssigned, c, "Ju u caktua një çështje",
+        Message(NotificationTypes.LawyerAssigned, c, "Ju u caktuat në një çështje",
             $"U caktuat {role} në çështjen {Case(c)}.", Tabs.Data);
 
     public static NotificationMessage LawyerRemoved(CaseSummary c, string role, string? newLawyer) =>
@@ -141,7 +142,7 @@ public static class NotificationTexts
             $"Çështja {Case(c)} ka seancë nesër, më {TiraneDateTime(scheduledAtUtc)}.", Tabs.Hearings);
 
     public static NotificationMessage NextLevelPending(CaseSummary c, string summonsNumber, DateTime hearingAtUtc) =>
-        Message(NotificationTypes.NextLevelPending3D, c, "Seanca e shkallës tjetër afron",
+        Message(NotificationTypes.NextLevelPending3D, c, "Seanca e shkallës tjetër po afron",
             $"Seanca e fletëthirrjes {summonsNumber} është më {TiraneDateTime(hearingAtUtc)}, por çështja {Case(c)} " +
             "nuk është mbyllur ende në sistem. Regjistroni vendimin.", Tabs.Decision);
 

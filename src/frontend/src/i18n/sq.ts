@@ -92,8 +92,8 @@ export const sq = {
       errors: 'Gabime',
     },
     /** chart series */
-    primary: 'Avokat kryesor',
-    secondary: 'Avokat dytësor',
+    primary: 'Avokat primar',
+    secondary: 'Avokat sekondar',
     open: 'Të hapura',
     closed: 'Të mbyllura',
     chartTable: 'Të dhënat e grafikut',
@@ -622,7 +622,7 @@ export const sq = {
     close: 'Mbyll',
     roles: {
       PRIMARY_LAWYER: 'Avokat primar',
-      SECONDARY_LAWYER: 'Avokat dytësor',
+      SECONDARY_LAWYER: 'Avokat sekondar',
       LEGAL_ASSISTANT: 'Ndihmës ligjor',
       INSTITUTION_JURIST: 'Juristi i institucionit',
       INSTITUTION_USER: 'Institucioni',

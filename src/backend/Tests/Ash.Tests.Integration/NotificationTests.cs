@@ -242,8 +242,8 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var rows = await Rows();
         rows.Where(r => r.Type == NotificationTypes.LawyerAssigned).Select(r => $"{r.Email}|{r.Body}").ShouldBe([
-            $"avokat1@ash.local|U caktuat avokat kryesor në çështjen {code} ({Court}).",
-            $"avokat2@ash.local|U caktuat avokat dytësor në çështjen {code} ({Court}).",
+            $"avokat1@ash.local|U caktuat avokat primar në çështjen {code} ({Court}).",
+            $"avokat2@ash.local|U caktuat avokat sekondar në çështjen {code} ({Court}).",
         ]);
         rows.Where(r => r.Type == NotificationTypes.InstitutionCaseAssigned).Select(r => r.Email)
             .ShouldBe(await ActiveEmails("INSTITUTION_USER", ministry));
@@ -316,7 +316,7 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
         var created = spy.Sent.Where(x => x.Method == NotificationsHub.NewMethod).ToList();
         created.Select(x => x.User).OrderBy(x => x).ShouldBe(new[] { avokat1.ToString(), avokat2.ToString() }.OrderBy(x => x));
         created.ShouldAllBe(x => x.Committed);
-        created.Select(x => ((NotificationPushed)x.Payload!).Title).ShouldAllBe(t => t == "Ju u caktua një çështje");
+        created.Select(x => ((NotificationPushed)x.Payload!).Title).ShouldAllBe(t => t == "Ju u caktuat në një çështje");
         var counts = spy.Sent.Where(x => x.Method == NotificationsHub.CountMethod).ToList();
         counts.Select(x => x.User).OrderBy(x => x).ShouldBe(new[] { avokat1.ToString(), avokat2.ToString() }.OrderBy(x => x));
         counts.ShouldAllBe(x => ((UnreadCountPushed)x.Payload!).Unread == 1);
@@ -362,8 +362,8 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
         await PublishAsync(factory, new LawyerTransferred(casePublicId, avokat1, avokat2, avokat2, null), s.User("kryetar").Id);
 
         (await Rows()).Select(r => $"{r.Email}|{r.Type}|{r.Body}").ShouldBe([
-            $"avokat1@ash.local|{NotificationTypes.LawyerRemoved}|Nuk jeni më avokat kryesor në çështjen {code} ({Court}); u caktua Avokat2 Dev.",
-            $"avokat2@ash.local|{NotificationTypes.LawyerAssigned}|U caktuat avokat kryesor në çështjen {code} ({Court}).",
+            $"avokat1@ash.local|{NotificationTypes.LawyerRemoved}|Nuk jeni më avokat primar në çështjen {code} ({Court}); u caktua Avokat2 Dev.",
+            $"avokat2@ash.local|{NotificationTypes.LawyerAssigned}|U caktuat avokat primar në çështjen {code} ({Court}).",
         ]);
         await Scalar("DELETE FROM notifications");
 
@@ -371,8 +371,8 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
         await PublishAsync(factory, new LawyerTransferred(casePublicId, avokat1, avokat1, avokat2, kryetar), s.User("admin").Id);
 
         (await Rows()).Select(r => $"{r.Email}|{r.Type}|{r.Body}").ShouldBe([
-            $"avokat2@ash.local|{NotificationTypes.LawyerRemoved}|Nuk jeni më avokat dytësor në çështjen {code} ({Court}); u caktua Kryetar Dev.",
-            $"kryetar@ash.local|{NotificationTypes.LawyerAssigned}|U caktuat avokat dytësor në çështjen {code} ({Court}).",
+            $"avokat2@ash.local|{NotificationTypes.LawyerRemoved}|Nuk jeni më avokat sekondar në çështjen {code} ({Court}); u caktua Kryetar Dev.",
+            $"kryetar@ash.local|{NotificationTypes.LawyerAssigned}|U caktuat avokat sekondar në çështjen {code} ({Court}).",
         ]);
     }
 

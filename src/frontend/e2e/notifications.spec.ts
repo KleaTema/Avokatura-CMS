@@ -52,12 +52,12 @@ test('the lawyer sees a new assignment on the bell within 2 seconds, without rel
     await expect(lawyer).toHaveTitle('(1) ASH')
     // the live toast (not shown for what was already there on load)
     await expect(lawyer.getByRole('button', { name: 'Hap' })).toBeVisible()
-    await expect(lawyer.getByText('Ju u caktua një çështje').first()).toBeVisible()
+    await expect(lawyer.getByText('Ju u caktuat në një çështje').first()).toBeVisible()
 
     // the popover: the newest first, unread in bold
     await lawyer.getByRole('button', { name: 'Njoftimet, 1 të palexuara' }).click()
     const popover = lawyer.getByRole('dialog', { name: 'Njoftimet e fundit' })
-    const item = popover.getByRole('button', { name: /Ju u caktua një çështje \(E palexuar\)/ }).first()
+    const item = popover.getByRole('button', { name: /Ju u caktuat në një çështje \(E palexuar\)/ }).first()
     await expect(item).toBeVisible()
     await expect(item.getByText(created.code, { exact: false })).toBeVisible()
     await expect(popover).toHaveCSS('opacity', '1') // the fade-in is over
@@ -73,7 +73,7 @@ test('the lawyer sees a new assignment on the bell within 2 seconds, without rel
     await lawyer.goto('/notifications')
     await expect(lawyer.getByRole('heading', { level: 1, name: 'Njoftimet' })).toBeVisible()
     const table = lawyer.getByRole('table', { name: 'Lista e njoftimeve' })
-    await expect(table.getByRole('button', { name: 'Ju u caktua një çështje' }).first()).toBeVisible()
+    await expect(table.getByRole('button', { name: 'Ju u caktuat në një çështje' }).first()).toBeVisible()
     await expect(lawyer.getByText(/^1–\d+ nga \d+$/)).toBeVisible()
     await shot(lawyer, 'notifications-page-1536')
     await lawyer.getByRole('combobox', { name: 'Shfaq' }).click()
@@ -84,7 +84,7 @@ test('the lawyer sees a new assignment on the bell within 2 seconds, without rel
     if (SHOTS) {
       await lawyer.setViewportSize({ width: 390, height: 844 })
       await lawyer.goto('/notifications')
-      await expect(table.getByRole('button', { name: 'Ju u caktua një çështje' }).first()).toBeVisible()
+      await expect(table.getByRole('button', { name: 'Ju u caktuat në një çështje' }).first()).toBeVisible()
       await shot(lawyer, 'notifications-page-390')
       expect(await lawyer.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
       await lawyer.getByRole('button', { name: /^Njoftimet/ }).click()
