@@ -71,7 +71,7 @@ public class EndpointAuthorizationTests(MySqlFixture db) : IntegrationTest(db)
 
     private sealed record Objects(
         Guid Case, Guid Dossier, Guid Document, Guid Party, Guid Hearing, Guid Conversation, Guid Message,
-        Guid Notification, Guid SavedReport, Guid AssistantLink);
+        Guid Notification, Guid SavedReport);
 
     private async Task<object?> Scalar(string sql)
     {
@@ -176,14 +176,7 @@ public class EndpointAuthorizationTests(MySqlFixture db) : IntegrationTest(db)
             VALUES ({s.User("drlawyer").Id}, 'CASE_CLOSED', {caseId}, 'DR', UTC_TIMESTAMP(3));
             """);
         _output.WriteLine("seed: case, party, document, notification");
-        var assistant = await s.AddOfficeUserAsync("DrAssistant", s.OfficeDrId, "LEGAL_ASSISTANT");
-        await Scalar($"""
-            INSERT INTO assistant_lawyers (assistant_user_id, lawyer_user_id, office_id, created_by)
-            SELECT u.id, {s.User("drlawyer").Id}, {s.OfficeDrId}, {protokoll} FROM users u WHERE u.email = '{assistant}'
-            """);
-
         // the DR lawyer's case chat and one message (through the API, as he would)
-        _output.WriteLine("seed: assistant link");
         var drEmail = (string)(await Scalar($"SELECT email FROM users WHERE id = {s.User("drlawyer").Id}"))!;
         var casePublic = await PublicId($"SELECT public_id FROM cases WHERE id = {caseId}");
         using var dr = factory.CreateClient().AsUser(drEmail);
@@ -206,8 +199,7 @@ public class EndpointAuthorizationTests(MySqlFixture db) : IntegrationTest(db)
             await PublicId($"SELECT public_id FROM case_hearings WHERE case_id = {caseId}"),
             conversation, message,
             await PublicId($"SELECT public_id FROM notifications WHERE case_id = {caseId}"),
-            savedId,
-            await PublicId($"SELECT public_id FROM assistant_lawyers WHERE office_id = {s.OfficeDrId}"));
+            savedId);
     }
 
     /// <summary>The DR object for a route parameter, by the parameter's name and the route it is in; null = not an object id.</summary>
@@ -223,7 +215,6 @@ public class EndpointAuthorizationTests(MySqlFixture db) : IntegrationTest(db)
         "partyId" => o.Party,
         "hearingId" => o.Hearing,
         "dossierPublicId" => o.Dossier,
-        "linkPublicId" => o.AssistantLink,
         _ => null,
     };
 

@@ -63,40 +63,45 @@ public static class AssignmentEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .WithName("TransferLawyer");
 
-        // Task 053e: legal assistants are attached to LAWYERS by the Kryetar ("Ndihmësit ligjorë"); the per-case
-        // endpoints of task 026 are gone. AssistantSync gives each assistant the cases of their lawyers.
-        var links = endpoints.MapGroup("/api/assistant-links");
-
-        links.MapGet("", async (AssistantLinkHandlers handler, CancellationToken ct) =>
+        // Task 053q (client correction 20.11.2026): legal assistants per case, managed by the primary lawyer among the
+        // assistants of the case's office (assistant.manage is a CASE permission: checked in the handlers through the
+        // effective permissions). The Kryetar's links of task 053e are gone.
+        endpoints.MapGet("/api/cases/{id:guid}/assignable-assistants",
+                async (Guid id, AssignableAssistantsHandler handler, CancellationToken ct) =>
                 {
-                    var result = await handler.ListAsync(ct);
+                    var result = await handler.Handle(id, ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
-            .RequirePermission(AssistantLinkHandlers.Permission)
-            .Produces<AssistantLinksResponse>()
-            .WithName("ListAssistantLinks");
+            .RequireAuthorization()
+            .Produces<IReadOnlyList<AssignableAssistant>>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("ListAssignableAssistants");
 
-        links.MapPost("", async (CreateAssistantLinkRequest req, AssistantLinkHandlers handler, CancellationToken ct) =>
+        endpoints.MapPost("/api/cases/{id:guid}/assistants",
+                async (Guid id, AddAssistantRequest req, AddAssistantHandler handler, CancellationToken ct) =>
                 {
-                    var result = await handler.CreateAsync(req, ct);
+                    var result = await handler.Handle(id, req, ct);
                     return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
                 })
-            .RequirePermission(AssistantLinkHandlers.Permission)
-            .Produces<AssistantLinkView>()
+            .RequireAuthorization()
+            .Produces<AssistantChangeResponse>()
             .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .WithName("CreateAssistantLink");
-
-        links.MapDelete("/{linkPublicId:guid}", async (Guid linkPublicId, AssistantLinkHandlers handler, CancellationToken ct) =>
-                {
-                    var result = await handler.EndAsync(linkPublicId, ct);
-                    return result.IsSuccess ? Results.NoContent() : result.Error!.ToProblem();
-                })
-            .RequirePermission(AssistantLinkHandlers.Permission)
-            .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .WithName("EndAssistantLink");
+            .WithName("AddAssistant");
+
+        endpoints.MapDelete("/api/cases/{id:guid}/assistants/{userPublicId:guid}",
+                async (Guid id, Guid userPublicId, uint? rowVersion, RemoveAssistantHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, userPublicId, rowVersion, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequireAuthorization()
+            .Produces<AssistantChangeResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithName("RemoveAssistant");
 
         return endpoints;
     }

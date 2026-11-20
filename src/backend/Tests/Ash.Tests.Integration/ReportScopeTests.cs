@@ -131,40 +131,18 @@ public class ReportScopeTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Assistant_statistics_for_a_linked_lawyer_equal_the_lawyers_own_and_unlinking_removes_him()
+    public async Task Assistant_like_a_secondary_only_lawyer_gets_403_on_statistics_and_reports_of_the_cases_added_to()
     {
+        // task 053q: no linked lawyers any more — the assistant's reports are the cases they were added to
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
-        var link = Convert.ToInt64(await Scalar($"""
-            INSERT INTO assistant_lawyers (assistant_user_id, lawyer_user_id, office_id, created_by)
-            VALUES ({s.User("ndihmes").Id}, {s.User("avokat1").Id}, {s.OfficeTrId}, {s.User("kryetar").Id});
-            SELECT LAST_INSERT_ID();
-            """));
-        try
-        {
-            await using var factory = new AshApiFactory(Db);
-            using var assistant = factory.CreateClient().AsUser("ndihmes@ash.local");
-            using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
-            var avokat1 = (await PublicIdOf("users", s.User("avokat1").Id)).ToString();
-            var avokat2 = (await PublicIdOf("users", s.User("avokat2").Id)).ToString();
+        await using var factory = new AshApiFactory(Db);
+        using var assistant = factory.CreateClient().AsUser("ndihmes@ash.local");
 
-            (await Options(assistant, 5, "lawyer")).ShouldBe([avokat1]);
-            var filters = new { year = $"{Year}", lawyer = avokat1 };
-            var mine = await Numbers(assistant, 5, filters);
-            mine.ShouldBe(await Numbers(lawyer, 5, filters));
-            // without a filter: the sum of his lawyers (one here) — the same numbers
-            (await Numbers(assistant, 5, new { year = $"{Year}" })).ShouldBe(mine);
-            // a lawyer he is not linked to → 403
-            (await assistant.GetAsync($"{Builder}/statistics/5?filters={F(new { year = $"{Year}", lawyer = avokat2 })}", Ct))
-                .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await assistant.GetAsync($"{Builder}/statistics/5?filters={F(new { year = $"{Year}" })}", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
-            await Scalar($"UPDATE assistant_lawyers SET ended_at = UTC_TIMESTAMP(3), ended_by = {s.User("kryetar").Id} WHERE id = {link}");
-            (await Options(assistant, 5, "lawyer")).ShouldBeEmpty();
-            (await assistant.GetAsync($"{Builder}/statistics/5?filters={F(filters)}", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        }
-        finally
-        {
-            await Scalar($"DELETE FROM assistant_lawyers WHERE id = {link}");
-        }
+        var page = await Json(await assistant.GetAsync($"{Builder}/active?limit=100", Ct));
+        var item = page.GetProperty("page").GetProperty("items").EnumerateArray().ShouldHaveSingleItem();
+        item.GetProperty("myRole").GetString().ShouldBe("Ndihmës ligjor");
     }
 
     [Fact]

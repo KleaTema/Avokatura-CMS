@@ -114,33 +114,8 @@ export const sq = {
     agenda: 'Agjenda',
     reports: 'Raporte & Statistika',
     supervision: 'Mbikëqyrja',
-    assistants: 'Ndihmësit ligjorë',
     admin: 'Administrimi',
   } as Record<string, string>,
-  /** Task 053e: the Kryetar attaches legal assistants to lawyers of the office. */
-  assistantLinks: {
-    title: 'Ndihmësit ligjorë',
-    search: 'Kërko (ndihmësi, avokati)',
-    intro:
-      'Lidhni çdo ndihmës ligjor me avokatët që ndihmon. Ndihmësi sheh automatikisht çdo çështje ku ai avokat është primar — edhe ato që do t\'i caktohen më vonë. Kur çështja transferohet te një avokat tjetër, ajo kalon te ndihmësi i atij avokati.',
-    empty: 'Zyra nuk ka ndihmës ligjorë.',
-    noLinks: 'Nuk është i lidhur me asnjë avokat.',
-    lawyers: 'Avokatët',
-    cases: (n: number) => (n === 1 ? '1 çështje' : `${n} çështje`),
-    add: 'Lidh me avokat',
-    addFor: (name: string) => `Lidh ${name} me një avokat`,
-    addTitle: (name: string) => `Lidh ${name} me një avokat`,
-    lawyer: 'Avokati',
-    noLawyers: 'Ky ndihmës është i lidhur me të gjithë avokatët e zyrës.',
-    confirm: 'Lidh',
-    linked: (lawyer: string, cases: number) => `U lidh me ${lawyer}: ${cases} çështje.`,
-    remove: 'Hiq lidhjen',
-    removeFor: (assistant: string, lawyer: string) => `Hiq lidhjen e ${assistant} me ${lawyer}`,
-    removeTitle: 'Hiq lidhjen?',
-    removeText: (assistant: string, lawyer: string) =>
-      `${assistant} nuk do t'i shohë më çështjet e avokatit ${lawyer}. Ndihmësi njoftohet.`,
-    removed: 'Lidhja u hoq.',
-  },
   /** Task 053d: the Monitor's screen — Kryetar supervise a lawyer's cases or single cases. */
   supervision: {
     title: 'Mbikëqyrja',
@@ -1069,8 +1044,20 @@ export const sq = {
       },
     },
     assistants: {
-      /** task 053e: assistants follow the primary lawyer; the Kryetar links them ("Ndihmësit ligjorë") */
-      readOnlyNote: 'Ndihmësit ligjorë i cakton Kryetari te avokati: shohin çështjet ku avokati i tyre është primar.',
+      /** task 053q: the primary lawyer adds the office's legal assistants to the case */
+      add: 'Shto ndihmës',
+      addTitle: 'Shto ndihmës ligjor',
+      picker: 'Ndihmësi ligjor',
+      workload: (n: number) => (n === 1 ? '1 çështje aktive' : `${n} çështje aktive`),
+      none: 'Nuk ka ndihmës ligjorë të tjerë në këtë zyrë.',
+      required: 'Zgjidhni ndihmësin ligjor.',
+      confirm: 'Shto',
+      remove: 'Hiq',
+      removeLabel: (name: string) => `Hiq ndihmësin ${name}`,
+      removeTitle: 'Hiq ndihmësin ligjor',
+      removeQuestion: (name: string) => `Të hiqet ${name} nga çështja? Nuk do ta shohë më çështjen.`,
+      added: (name: string) => `${name} u shtua si ndihmës ligjor.`,
+      removed: (name: string) => `${name} u hoq nga çështja.`,
     },
     institutions: {
       title: 'Institucionet',

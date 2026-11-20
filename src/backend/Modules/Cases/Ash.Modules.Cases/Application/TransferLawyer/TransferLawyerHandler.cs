@@ -20,8 +20,7 @@ namespace Ash.Modules.Cases.Application.TransferLawyer;
 /// ENDED first, then the new rows inserted (the unique slots allow one current primary/secondary and one role per user).
 /// Order of checks: fields → no view 404 → CLOSED 409 → REGISTERED 409 → case.transfer missing 403 → stale rowVersion
 /// 409 → people not offered for this case / no change / primary = secondary 400.
-/// Legal assistants follow the primary (client decision C, task 053e): LawyerTransferred → AssistantSync ends the old
-/// lawyer's assistants' rows on this case and gives it to the new lawyer's assistants.
+/// Legal assistants stay on the case (client correction 20.11.2026, task 053q); the new primary may remove them.
 /// Reminders need no move: the jobs of task 041 read the CURRENT team (the data-entry timer restarts from the new
 /// primary assignment, the hearing reminder goes to whoever is on the case the day before).
 /// TODO(chat): remove the old lawyer from the case chat.

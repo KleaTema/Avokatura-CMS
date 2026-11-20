@@ -812,8 +812,8 @@ defendant, category, a recorded decision, and the ministry DELEGATED.
 
 ## 053h — Report builder (F, P6/P9): scopes, filters, exports, "Raportet e mia"
 **Setup:** run the migrator (script 027), restart the API, `npm run dev`. The ACTIVE test case: avokat1 primary,
-sekondar secondary, ndihmes assistant; the ministry linked MONITORING. Kryetar → *Ndihmësit ligjorë*: link ndihmes
-to avokat1.
+sekondar secondary, ndihmes assistant; the ministry linked MONITORING. (053q: ndihmes sees the cases they were added
+to, statistics refused.)
 1. **Nothing runs before "Gjenero":**
    - *Raporte* opens on "Tabela 1 — Aktive" with Zyra, Avokati and Gjykata on top and the note "Zgjidhni filtrat…".
    - "Gjenero" shows the rows, 25 a page, and a "Gjithsej: N rreshta" row with the claim per currency.
@@ -872,7 +872,6 @@ OFFICE_HEAD.
    - *Paneli* shows "Si avokat sekondar", "Seancat e mia këtë javë" and "Seanca për t'u përditësuar"; no statistics.
    - *Raporte → Statistikat* → the "Nuk keni të drejtë…" message.
    - *Raportet* (Tabela 1/3) lists their case.
-5. **Kryetar → *Ndihmësit ligjorë*:** the lawyer list has avokat1 and avokat2, not sekondar.
 
 ## 053g — Profile, chat, Organika (E)
 **Setup:** run the migrator (script 025), restart the API, `npm run dev`.
@@ -943,23 +942,19 @@ OFFICE_HEAD.
    - X/1's documents list has no X/2 documents.
 6. **The X/1 lawyer who is also on X/2:** X/1 shows no banner and keeps "Plotëso / Ndrysho vendimin".
 
-## 053e — "Ndihmësit ligjorë" (C, D4)
-**Setup:** run the migrator (scripts 023–024; it prints what 024 converted: LINK_CREATED / ROW_KEPT / ROW_ENDED),
-restart the API, `npm run dev`.
-1. **avokat1:** a case's "Ekipi" has no "Shto ndihmës"; assistants show read-only with the note.
-2. **Kryetar → *Ndihmësit ligjorë*:**
-   - Every assistant of the office is listed with their lawyers.
-   - "Lidh me avokat" → Ndihmës Dev → Avokat1 Dev: the toast says how many cases the link brings.
-   - Ndihmës Dev's bell shows "U lidhët me një avokat…" once. Their "Çështjet e mia" now holds every avokat1 primary
-     case, and each case's history shows "Ndihmësi ligjor u shtua".
-3. **New case:** the Kryetar assigns avokat1 as primary of a new case → Ndihmës Dev sees it at once.
-4. **Transfer:** transfer one of avokat1's cases to Avokat2 Dev → it leaves Ndihmës Dev.
-   - If another assistant is linked to Avokat2 Dev, it appears there.
-   - The chat of the case follows.
-5. **Closing:** close one of the cases → Ndihmës Dev still has it (assignments are kept).
-6. **Unlink:** remove the chip (×) → confirm → Ndihmës Dev loses every avokat1 case and is told once.
-7. **Drift** (SQL): end one link row by hand → run the job (`POST /api/admin/jobs/assistant-reconcile/run` as admin,
-   Development) → the row is back; running it again changes nothing.
+## 053q — Legal assistants per case, chosen by the primary lawyer (replaces 053e)
+**Setup:** run the migrator (script 036; it prints ROW_KEPT / LINK_ENDED), restart the API, `npm run dev`.
+1. **Kryetar:** the menu has no *Ndihmësit ligjorë*; `/assistants` is not found. A case's "Ekipi" has no "Shto ndihmës".
+2. **avokat1 (primary), an ACTIVE case → Ekipi → "Shto ndihmës":**
+   - The picker lists the office's active legal assistants not yet on the case, with "N çështje aktive", least loaded
+     first. Pick Ndihmës Dev → "Shto" → toast; the row appears with a red remove icon.
+   - Ndihmës Dev's bell: "U shtuat si ndihmës ligjor"; the case is in their "Çështjet e mia" and in the chat.
+   - Another avokat1 case: Ndihmës Dev does NOT see it (no automatic rule).
+3. **Remove:** the remove icon → confirm → Ndihmës Dev loses the case and is told "U hoqët si ndihmës ligjor".
+4. **Transfer:** transfer a case with an assistant to Avokat2 Dev → the assistant stays; Avokat2 Dev now has "Shto
+   ndihmës" and the remove icon there, avokat1 no longer.
+5. **Others:** the secondary lawyer, the assistant and the Kryetar see no "Shto ndihmës"; a CLOSED case neither.
+6. **Data from 053e:** an assistant who had cases through a Kryetar link still has them after script 036.
 
 ## 053d — "Mbikëqyrja" (C, D3)
 **Setup:**
@@ -1132,6 +1127,6 @@ Supersedes the "Gjenero" steps of 045 / 053h. The client's files: `docs/client/T
 1. **Çështjet:** type "5" in *Kërko* → the table updates (no button, no Enter) with every case containing 5; go on to "56" → it narrows; the total and page 1 follow. A small spinner in the box while loading; the old rows stay (no empty table). The X empties the box and the full list is back at once. Refresh and Back keep the text (`?q=` in the URL).
 2. **Accents and symbols:** "pergjigje" finds "Përgjigje", "c" finds "Çela"; "2026-12" finds codes containing exactly "2026-12" (not "2026 … 12"); "%" or "_" find only rows that contain that character.
 3. **Fast typing:** DevTools → Network: typing "abcdef" quickly sends one request (300 ms after the last key); typing on while one runs cancels it (status "canceled"); the rows shown are always those of the text in the box.
-4. **The same everywhere:** the header search (from 1 character), Dokumentet (case tab), Njoftimet, Vazhdo çështjen (every text field), Përdoruesit, Institucionet, Gjyqtarët, the other admin lists (filtered in the browser), the report builder's text filters, the judge and institution pickers — all with the same box (search icon, X) and the same behaviour.
-5. **New searches:** *Chat* (box above the conversations: by case code, party, object), case → *Historia* (box above the history), *Agjenda* (box beside the filters: code, court, lawyer), *Ndihmësit ligjorë* (assistant or lawyer name). Each keeps its text in the URL.
+4. **The same everywhere:** the header search (from 2 characters; every server list ignores a 1-character text and stays whole, lists filtered in the browser filter from 1), Dokumentet (case tab), Njoftimet, Vazhdo çështjen (every text field), Përdoruesit, Institucionet, Gjyqtarët, the other admin lists (filtered in the browser), the report builder's text filters, the judge and institution pickers — all with the same box (search icon, X) and the same behaviour.
+5. **New searches:** *Chat* (box above the conversations: by case code, party, object), case → *Historia* (box above the history), *Agjenda* (box beside the filters: code, court, lawyer). Each keeps its text in the URL.
 6. **Scope:** as a lawyer, "c" in Çështjet / the header search shows only the lawyer's own cases.

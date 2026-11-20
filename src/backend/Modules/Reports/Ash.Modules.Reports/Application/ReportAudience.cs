@@ -33,12 +33,11 @@ public enum ReportAudienceKind
 /// <item>Kryetar → own + office + supervised (the case list's scope, <see cref="CaseScopeSpec"/>, task 053d).</item>
 /// <item>Institution user and jurist → every case where the institution is a party or linked, whatever the lawyer;
 /// a ministry includes its direct agencies (one level, as Tabela 6 by ministry). TODO(client-q-ministry-scope).</item>
-/// <item>STATE_LAWYER → himself; LEGAL_ASSISTANT → his CURRENT linked lawyers (assistant_lawyers, ended_at NULL),
-/// whenever the link was made; both roles → the union. Statistics count a case for these lawyers as PRIMARY at the
-/// measure's time — the same numbers the lawyer himself sees. Reports: the cases where the user is a current member
-/// or one of these lawyers is the current primary.</item>
-/// <item>SECONDARY_LAWYER without STATE_LAWYER (and not an assistant) → reports for the cases where a current member;
-/// statistics 403 (053i).</item>
+/// <item>STATE_LAWYER → himself. Statistics count a case for him as PRIMARY at the measure's time. Reports: the cases
+/// where the user is a current member or the current primary.</item>
+/// <item>SECONDARY_LAWYER or LEGAL_ASSISTANT without STATE_LAWYER → reports for the cases where a current member;
+/// statistics 403 (053i). Task 053q: an assistant has no lawyers any more (the primary lawyer adds them per case), so
+/// the assistant's reports are the cases they were added to.</item>
 /// </list>
 /// </summary>
 public sealed record ReportAudience(
@@ -169,25 +168,14 @@ public sealed class ReportAudienceResolver(ICurrentUser user, ICaseScope caseSco
             return null;
         }
 
-        var lawyers = new List<long>();
         if (roles.Contains(ReportAudience.StateLawyerRole))
         {
-            lawyers.Add(user.UserId);
+            return Make(ReportAudienceKind.Lawyers, [user.UserId]);
         }
 
-        if (roles.Contains(ReportAudience.AssistantRole))
-        {
-            await using var connection = await db.OpenAsync(ct);
-            lawyers.AddRange(await db.QueryAsync<long>(connection,
-                "SELECT lawyer_user_id FROM assistant_lawyers WHERE assistant_user_id = @id AND ended_at IS NULL",
-                new { id = user.UserId }, false, ct));
-        }
-
-        if (roles.Contains(ReportAudience.StateLawyerRole) || roles.Contains(ReportAudience.AssistantRole))
-        {
-            return Make(ReportAudienceKind.Lawyers, lawyers.Distinct().ToList());
-        }
-
-        return roles.Contains(ReportAudience.SecondaryLawyerRole) ? Make(ReportAudienceKind.SecondaryOnly) : null;
+        // task 053q: an assistant, like a secondary-only lawyer, sees the cases where a current member
+        return roles.Contains(ReportAudience.SecondaryLawyerRole) || roles.Contains(ReportAudience.AssistantRole)
+            ? Make(ReportAudienceKind.SecondaryOnly)
+            : null;
     }
 }

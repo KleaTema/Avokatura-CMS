@@ -420,6 +420,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/assignable-assistants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListAssignableAssistants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/assistants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AddAssistant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cases/{id}/assistants/{userPublicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["RemoveAssistant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{id}/claim": {
         parameters: {
             query?: never;
@@ -2052,38 +2100,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assistant-links": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ListAssistantLinks"];
-        put?: never;
-        post: operations["CreateAssistantLink"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assistant-links/{linkPublicId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["EndAssistantLink"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/cases/{id}/hearings": {
         parameters: {
             query?: never;
@@ -2596,6 +2612,12 @@ export interface components {
             myRole?: null | string;
             categoryAndType?: null | string;
         };
+        AddAssistantRequest: {
+            /** Format: uuid */
+            userPublicId: null | string;
+            /** Format: uint32 */
+            rowVersion: null | number | string;
+        };
         AddHearingRequest: {
             at: null | string;
             hearingTypeCode: null | string;
@@ -2638,6 +2660,13 @@ export interface components {
             archivedAt: string;
             /** Format: uint32 */
             caseRowVersion: number | string;
+        };
+        AssignableAssistant: {
+            /** Format: uuid */
+            publicId: string;
+            fullName: string;
+            /** Format: int32 */
+            activeAssignments: number | string;
         };
         AssignableJurist: {
             /** Format: uuid */
@@ -2685,20 +2714,15 @@ export interface components {
             /** Format: uint32 */
             rowVersion: number | string;
         };
-        AssistantLinksResponse: {
-            assistants: components["schemas"]["OfficeAssistantView"][];
-            lawyers: components["schemas"]["OfficeLawyerView"][];
+        AssistantChangeResponse: {
+            /** Format: uint32 */
+            rowVersion: number | string;
+            assistant: components["schemas"]["AssistantRef"];
         };
-        AssistantLinkView: {
+        AssistantRef: {
             /** Format: uuid */
-            linkPublicId: string;
-            /** Format: uuid */
-            lawyerPublicId: string;
-            lawyerName: string;
-            /** Format: int32 */
-            cases: number | string;
-            /** Format: date-time */
-            since: string;
+            publicId: string;
+            name: string;
         };
         AuditChainVerification: {
             ok: boolean;
@@ -3066,12 +3090,6 @@ export interface components {
             courtLevelCode: null | string;
             city: null | string;
             isForeign: boolean;
-        };
-        CreateAssistantLinkRequest: {
-            /** Format: uuid */
-            assistantUserPublicId: null | string;
-            /** Format: uuid */
-            lawyerUserPublicId: null | string;
         };
         CreateCourtRequest: {
             name: string;
@@ -3717,23 +3735,12 @@ export interface components {
             /** Format: int32 */
             activeUsers: number | string;
         };
-        OfficeAssistantView: {
-            /** Format: uuid */
-            publicId: string;
-            name: string;
-            lawyers: components["schemas"]["AssistantLinkView"][];
-        };
         OfficeCourtResponse: {
             /** Format: int32 */
             courtId: number | string;
             /** Format: uuid */
             officePublicId: string;
             officeName: string;
-        };
-        OfficeLawyerView: {
-            /** Format: uuid */
-            publicId: string;
-            name: string;
         };
         OpenDirectRequest: {
             /** Format: uuid */
@@ -5155,6 +5162,7 @@ export interface operations {
             query?: {
                 after?: string;
                 limit?: number | string;
+                q?: string;
             };
             header?: never;
             path: {
@@ -5319,6 +5327,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferLawyerResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListAssignableAssistants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignableAssistant"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AddAssistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddAssistantRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantChangeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    RemoveAssistant: {
+        parameters: {
+            query?: {
+                rowVersion?: number | string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                userPublicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantChangeResponse"];
                 };
             };
             /** @description Bad Request */
@@ -9464,106 +9608,6 @@ export interface operations {
             };
         };
     };
-    ListAssistantLinks: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantLinksResponse"];
-                };
-            };
-        };
-    };
-    CreateAssistantLink: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAssistantLinkRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantLinkView"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    EndAssistantLink: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                linkPublicId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
     ListHearings: {
         parameters: {
             query?: never;
@@ -10730,6 +10774,7 @@ export interface operations {
             query?: {
                 after?: string;
                 limit?: number | string;
+                q?: string;
             };
             header?: never;
             path?: never;

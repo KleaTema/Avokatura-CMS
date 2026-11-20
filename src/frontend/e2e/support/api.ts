@@ -141,34 +141,22 @@ export async function publicIdOf(user: string): Promise<string> {
   return (await ok<{ publicId: string }>('GET', '/api/identity/me', user)).publicId
 }
 
-interface AssistantLinks {
-  assistants: { publicId: string; lawyers: { linkPublicId: string; lawyerPublicId: string }[] }[]
+async function caseRowVersion(caseId: string, user: string): Promise<number> {
+  return (await ok<{ header: { rowVersion: number } }>('GET', `/api/cases/${caseId}`, user)).header.rowVersion
 }
 
-/** The Kryetar's current link of the assistant to the lawyer, if any (task 053e). */
-async function findLink(assistant: string, lawyer: string): Promise<string | undefined> {
-  const [assistantId, lawyerId] = [await publicIdOf(assistant), await publicIdOf(lawyer)]
-  const links = await ok<AssistantLinks>('GET', '/api/assistant-links', USERS.kryetar)
-  return links.assistants.find((a) => a.publicId === assistantId)?.lawyers.find((l) => l.lawyerPublicId === lawyerId)?.linkPublicId
-}
-
-/**
- * Task 053e: the Kryetar links the assistant to the lawyer — the assistant then has every case where the lawyer is
- * primary (so `unlinkAssistant` must follow, to leave the local data as it was). A link left by an interrupted run is
- * reused.
- */
-export async function linkAssistant(assistant: string, lawyer: string): Promise<void> {
-  if (await findLink(assistant, lawyer)) return
-  await ok('POST', '/api/assistant-links', USERS.kryetar, {
-    assistantUserPublicId: await publicIdOf(assistant),
-    lawyerUserPublicId: await publicIdOf(lawyer),
+/** Task 053q: the primary lawyer adds the assistant to the case. */
+export async function addAssistant(caseId: string, assistant: string, primary: string): Promise<void> {
+  await ok('POST', `/api/cases/${caseId}/assistants`, primary, {
+    userPublicId: await publicIdOf(assistant),
+    rowVersion: await caseRowVersion(caseId, primary),
   })
 }
 
-/** The Kryetar removes the link again: the assistant loses the lawyer's cases. */
-export async function unlinkAssistant(assistant: string, lawyer: string): Promise<void> {
-  const link = await findLink(assistant, lawyer)
-  if (link) await ok('DELETE', `/api/assistant-links/${link}`, USERS.kryetar)
+/** Task 053q: the primary lawyer removes the assistant from the case. */
+export async function removeAssistant(caseId: string, assistant: string, primary: string): Promise<void> {
+  const rowVersion = await caseRowVersion(caseId, primary)
+  await ok('DELETE', `/api/cases/${caseId}/assistants/${await publicIdOf(assistant)}?rowVersion=${rowVersion}`, primary)
 }
 
 /** Task 040: the user starts with no unread notifications (the bell then counts only what the test causes). */

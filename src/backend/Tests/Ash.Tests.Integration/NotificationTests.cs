@@ -377,21 +377,20 @@ public class NotificationTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Assistant_linked_and_unlinked_tells_the_assistant_once_per_link()
+    public async Task Assistant_added_and_removed_tells_the_assistant_per_case()
     {
         await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
         await using var factory = Factory();
         var casePublicId = await PublicIdOf("cases", s.ActiveCaseId);
         var assistant = await UserPublicId(s, "ndihmes");
 
-        // task 053e: per case (the sync) nobody is told; per link the assistant is, once
-        await PublishAsync(factory, new AssistantAssigned(casePublicId, assistant), s.User("kryetar").Id);
-        await PublishAsync(factory, new AssistantLinked(assistant, "Avokat1 Dev", 3), s.User("kryetar").Id);
-        await PublishAsync(factory, new AssistantUnlinked(assistant, "Avokat1 Dev"), s.User("kryetar").Id);
+        // task 053q: the primary lawyer adds / removes the assistant on the case
+        await PublishAsync(factory, new AssistantAssigned(casePublicId, assistant), s.User("avokat1").Id);
+        await PublishAsync(factory, new AssistantRemoved(casePublicId, assistant), s.User("avokat1").Id);
 
         (await Rows()).Select(r => $"{r.Email}|{r.Type}|{r.Title}").ShouldBe([
-            $"ndihmes@ash.local|{NotificationTypes.AssistantAssigned}|U lidhët me një avokat si ndihmës ligjor",
-            $"ndihmes@ash.local|{NotificationTypes.AssistantRemoved}|U hoq lidhja me avokatin",
+            $"ndihmes@ash.local|{NotificationTypes.AssistantAssigned}|U shtuat si ndihmës ligjor",
+            $"ndihmes@ash.local|{NotificationTypes.AssistantRemoved}|U hoqët si ndihmës ligjor",
         ]);
     }
 

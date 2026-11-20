@@ -353,10 +353,10 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         using var avokat1 = factory.CreateClient().AsUser("avokat1@ash.local");
         await Open(avokat1, casePublicId);
 
-        // task 053e: the Kryetar links the assistant to avokat1 (the case's primary)
-        using var kryetar = factory.CreateClient().AsUser("kryetar@ash.local");
-        var added = await kryetar.PostAsJsonAsync("/api/assistant-links",
-            new { assistantUserPublicId = await PublicIdOf("users", assistantId), lawyerUserPublicId = await PublicIdOf("users", s.User("avokat1").Id) }, Ct);
+        // task 053q: the primary lawyer adds the assistant to the case
+        var rowVersion = Convert.ToUInt32(await Scalar($"SELECT row_version FROM cases WHERE id = {s.ActiveCaseId}"));
+        var added = await avokat1.PostAsJsonAsync($"/api/cases/{casePublicId}/assistants",
+            new { userPublicId = await PublicIdOf("users", assistantId), rowVersion }, Ct);
         added.StatusCode.ShouldBe(HttpStatusCode.OK, await added.Content.ReadAsStringAsync(Ct));
         (await Participants(s.ActiveCaseId)).ShouldContain($"nd2-{seed.Suffix}@ash.test");
         (await SystemMessages(s.ActiveCaseId)).ShouldBe(["Ndihmës Dy u shtua në bisedë"]);
@@ -394,12 +394,11 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         await Open(avokat1, casePublicId);
         var before = await Participants(s.ActiveCaseId);
 
-        using var kryetar = factory.CreateClient().AsUser("kryetar@ash.local");
-        var failed = await kryetar.PostAsJsonAsync("/api/assistant-links",
-            new { assistantUserPublicId = await PublicIdOf("users", assistantId), lawyerUserPublicId = await PublicIdOf("users", s.User("avokat1").Id) }, Ct);
+        var rowVersion = Convert.ToUInt32(await Scalar($"SELECT row_version FROM cases WHERE id = {s.ActiveCaseId}"));
+        var failed = await avokat1.PostAsJsonAsync($"/api/cases/{casePublicId}/assistants",
+            new { userPublicId = await PublicIdOf("users", assistantId), rowVersion }, Ct);
 
         failed.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
-        (await Scalar($"SELECT COUNT(*) FROM assistant_lawyers WHERE assistant_user_id = {assistantId}")).ShouldBe(0L);
         (await Scalar($"SELECT COUNT(*) FROM case_assignments WHERE case_id = {s.ActiveCaseId} AND user_id = {assistantId}")).ShouldBe(0L);
         (await Participants(s.ActiveCaseId)).ShouldBe(before);
         (await SystemMessages(s.ActiveCaseId)).ShouldBeEmpty();
@@ -531,18 +530,11 @@ public class ChatTests(MySqlFixture db) : IntegrationTest(db)
         var conversation = await Open(avokat1, casePublicId);
         (await ParticipantList(ndihmes, conversation)).Count.ShouldBe(6); // + the registering Protokoll (053g)
 
-        // task 053e: the seed's assistant row belongs to a link ndihmes → avokat1; the Kryetar removes the link
+        // task 053q: the primary lawyer removes the assistant from the case
         var ndihmesId = await PublicIdOf("users", s.User("ndihmes").Id);
-        await Execute($"""
-            INSERT INTO assistant_lawyers (assistant_user_id, lawyer_user_id, office_id, created_by)
-            VALUES ({s.User("ndihmes").Id}, {s.User("avokat1").Id}, {s.OfficeTrId}, {s.User("kryetar").Id});
-            UPDATE case_assignments SET assistant_link_id = LAST_INSERT_ID()
-             WHERE case_id = {s.ActiveCaseId} AND user_id = {s.User("ndihmes").Id} AND ended_at IS NULL;
-            """, Db.AppConnectionString);
-        var link = PublicId.FromBytes((byte[])(await Scalar($"SELECT public_id FROM assistant_lawyers WHERE assistant_user_id = {s.User("ndihmes").Id} AND ended_at IS NULL"))!);
-        using var kryetar = factory.CreateClient().AsUser("kryetar@ash.local");
-        var removed = await kryetar.DeleteAsync($"/api/assistant-links/{link}", Ct);
-        removed.StatusCode.ShouldBe(HttpStatusCode.NoContent, await removed.Content.ReadAsStringAsync(Ct));
+        var rowVersion = Convert.ToUInt32(await Scalar($"SELECT row_version FROM cases WHERE id = {s.ActiveCaseId}"));
+        var removed = await avokat1.DeleteAsync($"/api/cases/{casePublicId}/assistants/{ndihmesId}?rowVersion={rowVersion}", Ct);
+        removed.StatusCode.ShouldBe(HttpStatusCode.OK, await removed.Content.ReadAsStringAsync(Ct));
 
         var list = await ParticipantList(avokat1, conversation);
         list.Count.ShouldBe(5);

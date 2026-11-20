@@ -21,7 +21,6 @@ import { ProfilePage } from '../pages/Profile'
 import { ChatPage } from '../pages/chat/ChatPage'
 import { ReportsPage } from '../pages/reports/ReportsPage'
 import { SupervisionPage } from '../pages/supervision/SupervisionPage'
-import { AssistantsPage } from '../pages/assistants/AssistantsPage'
 import { Layout } from './Layout'
 import { RequirePermission } from './RequirePermission'
 
@@ -72,15 +71,6 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission code="menu.supervision">
             <SupervisionPage />
-          </RequirePermission>
-        ),
-      },
-      {
-        // task 053e: the Kryetar's "Ndihmësit ligjorë"
-        path: 'assistants',
-        element: (
-          <RequirePermission code="menu.assistants">
-            <AssistantsPage />
           </RequirePermission>
         ),
       },

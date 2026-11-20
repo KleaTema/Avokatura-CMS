@@ -197,7 +197,7 @@ export const useCase = (id: string) =>
 
 /**
  * One page of the dossier's history (all levels the user can view), newest first, with the total. `q`: live search
- * over the rows' text (from 1 character); a newer text aborts this request.
+ * over the rows' text (from 2 characters); a newer text aborts this request.
  */
 export const useCaseHistory = (id: string, p: PageRequest, enabled: boolean, q = '') =>
   useQuery({
@@ -452,6 +452,42 @@ export const useArchiveDossier = (caseId: string, dossierPublicId: string) => {
         afterCaseChange(qc, caseId, result.caseRowVersion),
         qc.invalidateQueries({ queryKey: ['case'] }),
       ]),
+  })
+}
+
+// ---------------------------------------------------------------- legal assistants per case (task 053q)
+
+export type AssignableAssistant = components['schemas']['AssignableAssistant']
+
+/** Legal assistants of the case's office not yet on the case, least loaded first (the primary lawyer picks). */
+export const useAssignableAssistants = (caseId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: caseKeys.picker(caseId, 'assistants'),
+    enabled,
+    retry: false,
+    queryFn: ({ signal }) =>
+      api.GET('/api/cases/{id}/assignable-assistants', { params: { path: { id: caseId } }, signal }).then(unwrap),
+  })
+
+export const useAddAssistant = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { userPublicId: string; rowVersion: number }) =>
+      api.POST('/api/cases/{id}/assistants', { params: { path: { id: caseId } }, body }).then(unwrap),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
+  })
+}
+
+export const useRemoveAssistant = (caseId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userPublicId, rowVersion }: { userPublicId: string; rowVersion: number }) =>
+      api
+        .DELETE('/api/cases/{id}/assistants/{userPublicId}', {
+          params: { path: { id: caseId, userPublicId }, query: { rowVersion } },
+        })
+        .then(unwrap),
+    onSuccess: (r) => afterCaseChange(qc, caseId, r.rowVersion),
   })
 }
 

@@ -18,7 +18,6 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
     public DbSet<CaseSecurityMeasure> CaseSecurityMeasures => Set<CaseSecurityMeasure>();
     public DbSet<CaseReminderRow> CaseReminders => Set<CaseReminderRow>();
     public DbSet<Supervision> Supervisions => Set<Supervision>();
-    public DbSet<AssistantLink> AssistantLinks => Set<AssistantLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -160,23 +159,7 @@ public sealed class CasesDbContext(IUnitOfWork unitOfWork) : ModuleDbContextBase
             b.Property(x => x.EndedAt).HasColumnName("ended_at");
             b.Property(x => x.EndedBy).HasColumnName("ended_by");
             b.Property(x => x.EndReason).HasColumnName("end_reason");
-            b.Property(x => x.AssistantLinkId).HasColumnName("assistant_link_id");
-        });
-
-        // task 053e (script 023): a legal assistant attached to a lawyer of the office
-        modelBuilder.Entity<AssistantLink>(b =>
-        {
-            b.ToTable("assistant_lawyers");
-            b.HasKey(x => x.Id);
-            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
-            b.Property(x => x.PublicId).HasColumnName("public_id").HasConversion<PublicIdConverter>();
-            b.Property(x => x.AssistantUserId).HasColumnName("assistant_user_id");
-            b.Property(x => x.LawyerUserId).HasColumnName("lawyer_user_id");
-            b.Property(x => x.OfficeId).HasColumnName("office_id");
-            b.Property(x => x.CreatedBy).HasColumnName("created_by");
-            b.Property(x => x.CreatedAt).HasColumnName("created_at");
-            b.Property(x => x.EndedAt).HasColumnName("ended_at");
-            b.Property(x => x.EndedBy).HasColumnName("ended_by");
+            // assistant_link_id (task 053e) is unused since script 036: no longer mapped
         });
 
         modelBuilder.Entity<CaseDecision>(b =>
@@ -462,25 +445,6 @@ public sealed class CaseAssignmentRow
     public uint? EndedBy { get; set; }
     /// <summary>TRANSFERRED | REMOVED | CASE_CLOSED; set together with EndedAt (ck_ca_end).</summary>
     public string? EndReason { get; set; }
-    /// <summary>A LEGAL_ASSISTANT row kept by AssistantSync: the link that makes it (task 053e).</summary>
-    public ulong? AssistantLinkId { get; set; }
-}
-
-/// <summary>
-/// "Ndihmësit ligjorë" (task 053e): the Kryetar attaches an assistant to a lawyer of the office; the assistant then holds
-/// a LEGAL_ASSISTANT row on every case where the lawyer is the current primary (AssistantSync). Active = EndedAt null.
-/// </summary>
-public sealed class AssistantLink
-{
-    public ulong Id { get; set; }
-    public Guid PublicId { get; set; }
-    public uint AssistantUserId { get; set; }
-    public uint LawyerUserId { get; set; }
-    public ushort OfficeId { get; set; }
-    public uint CreatedBy { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? EndedAt { get; set; }
-    public uint? EndedBy { get; set; }
 }
 
 /// <summary>Vendimi of a level (1:1 with the case). Read here for the case page; written by the decision task.</summary>

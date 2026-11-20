@@ -8,7 +8,6 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
-  UsersRound,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -22,7 +21,6 @@ const icons: Record<string, LucideIcon> = {
   agenda: CalendarDays,
   reports: ChartColumn,
   supervision: ShieldCheck,
-  assistants: UsersRound,
   admin: Settings,
 }
 

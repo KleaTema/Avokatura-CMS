@@ -50,17 +50,14 @@ public static class NotificationTexts
         Message(NotificationTypes.InstitutionCaseAssigned, c, "Çështjes iu caktua avokati",
             $"Çështja {Case(c)} iu caktua avokatit {primaryLawyer}.", Tabs.Data);
 
-    /// <summary>Task 053e: the assistant's "Çështjet e mia" now holds the lawyer's cases.</summary>
-    public const string MyCasesLink = "/cases?tab=mine";
+    /// <summary>Task 053q: the primary lawyer added the assistant to the case.</summary>
+    public static NotificationMessage AssistantAssigned(CaseSummary c) =>
+        Message(NotificationTypes.AssistantAssigned, c, "U shtuat si ndihmës ligjor",
+            $"U shtuat ndihmës ligjor në çështjen {Case(c)}.", Tabs.Data);
 
-    public static NotificationMessage AssistantLinked(string lawyer, int cases) =>
-        new(NotificationTypes.AssistantAssigned, null, "U lidhët me një avokat si ndihmës ligjor",
-            $"Kryetari ju lidhi si ndihmës ligjor me avokatin {lawyer}: shihni çështjet ku ai është avokat primar " +
-            $"({cases} tani, edhe ato që do t'i caktohen më vonë).", MyCasesLink);
-
-    public static NotificationMessage AssistantUnlinked(string lawyer) =>
-        new(NotificationTypes.AssistantRemoved, null, "U hoq lidhja me avokatin",
-            $"Kryetari hoqi lidhjen tuaj si ndihmës ligjor me avokatin {lawyer}: çështjet e tij nuk i shihni më.", MyCasesLink);
+    public static NotificationMessage AssistantRemoved(CaseSummary c) =>
+        Message(NotificationTypes.AssistantRemoved, c, "U hoqët si ndihmës ligjor",
+            $"Nuk jeni më ndihmës ligjor në çështjen {Case(c)}.", Tabs.Data);
 
     public static NotificationMessage JuristAssigned(CaseSummary c, string institution) =>
         Message(NotificationTypes.JuristAssigned, c, "U caktuat jurist",
