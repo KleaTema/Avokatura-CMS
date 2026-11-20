@@ -290,12 +290,13 @@ internal static class CaseReportFilters
 
             case ReportFilterKinds.Text:
             {
-                if (values.Text(def.Key) is not { } value)
+                // a contained text from 2 characters (live search; 1 character is no filter); % _ \ are literal
+                if (values.Text(def.Key) is not { } value
+                    || value.Trim().Length < Ash.Infrastructure.Persistence.TextSearch.MinTermLength)
                 {
                     return string.Empty;
                 }
 
-                // a contained text from 1 character (live search); % _ \ typed by the user are literal
                 p.Add(name[1..], Ash.Infrastructure.Persistence.TextSearch.LikePattern(value.Trim()));
                 return def.SelectWhere is { } custom ? custom(name) : $"{def.Column} LIKE {name}";
             }

@@ -137,7 +137,7 @@ export function CaseListPage() {
   const text = (key: string) => textOf(url.values, key)
   const range = (key: string, side: 'from' | 'to') => rangeOf(url.values, key, side)
 
-  // live search: from 1 character, 300 ms after the last keystroke; '' at once when cleared
+  // live search: from 2 characters, 300 ms after the last keystroke; '' at once when cleared
   const search = text('q')
   const q = useLiveSearch(search)
   const code = useLiveSearch(text('code'))

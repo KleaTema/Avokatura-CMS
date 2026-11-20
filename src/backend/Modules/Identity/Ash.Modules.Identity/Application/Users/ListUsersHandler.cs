@@ -141,11 +141,10 @@ public sealed class ListUsersHandler(IdentityDbContext db, ParallelReads paralle
                 break;
         }
 
-        if (!string.IsNullOrWhiteSpace(q.Q))
+        // live search (TextSearch): every term a substring, from 2 characters (shorter is no filter)
+        if (TextSearch.Parse(q.Q) is { IsEmpty: false } search)
         {
-            // live search (TextSearch): every term a substring, from 1 character
             // fixed text (column and parameter names); the values are parameters
-            var search = TextSearch.Parse(q.Q);
             var sql = $"SELECT id AS Value FROM users WHERE {search.Predicate("users", "first_name", "last_name", "email")}";
             var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("users").ToArray<object>());
             users = users.Where(u => matches.Contains(u.Id));

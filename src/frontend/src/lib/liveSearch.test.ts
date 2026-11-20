@@ -2,6 +2,7 @@ import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { liveListQuery } from './liveQuery'
 import { matches, normalize } from './search'
+import { serverSearchText } from './useLiveSearch'
 
 /** A fake list endpoint: the rows containing q, answered after `delayMs` (aborted → rejects, as fetch does). */
 function fakeEndpoint(delays: Record<string, number>, aborted: string[]) {
@@ -91,6 +92,13 @@ describe('matches / normalize (lists filtered in the browser: the server rule)',
     expect(matches('2026-12', 'TR-2026-1234/1')).toBe(true)
     expect(matches('hoxha tir', 'Arben Hoxha', 'Gjykata Tiranë')).toBe(true)
     expect(matches('hoxha durr', 'Arben Hoxha', 'Gjykata Tiranë')).toBe(false)
+  })
+
+  it('sends the server only terms of 2 or more characters (1 character keeps the whole list)', () => {
+    expect(serverSearchText('5')).toBe('')
+    expect(serverSearchText(' a b ')).toBe('')
+    expect(serverSearchText('56')).toBe('56')
+    expect(serverSearchText(' e  Hoxha 5 ')).toBe('Hoxha')
   })
 
   it('treats % and _ as ordinary characters, and an empty text as no filter', () => {

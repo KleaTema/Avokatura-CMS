@@ -117,12 +117,21 @@ public class TableFilterTests(MySqlFixture db) : IntegrationTest(db)
         var none = await admin.GetFromJsonAsync<JsonElement>("/api/identity/admin/users?position=zzz-asnje-pozicion", Ct);
         none.GetProperty("items").GetArrayLength().ShouldBe(0);
 
-        // nobody has signed in tomorrow
-        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2)).ToString("yyyy-MM-dd");
-        var future = await admin.GetFromJsonAsync<JsonElement>($"/api/identity/admin/users?lastLoginFrom={tomorrow}", Ct);
-        future.GetProperty("items").GetArrayLength().ShouldBe(0);
-
         var all = await admin.GetFromJsonAsync<JsonElement>("/api/identity/admin/users?limit=200", Ct);
         all.GetProperty("items").GetArrayLength().ShouldBeGreaterThan(0);
+
+        // relative to the latest stored login, not to today: tests that run the app on a fixed clock (ChatTests' partition
+        // test, months ahead) sign the dev users in "in the future", and the database is shared by the whole run
+        var latest = all.GetProperty("items").EnumerateArray()
+            .Select(u => u.GetProperty("lastLoginAt"))
+            .Where(v => v.ValueKind == JsonValueKind.String)
+            .Select(v => v.GetDateTime().ToUniversalTime())
+            .Max();
+        string Day(DateTime utc) => DateOnly.FromDateTime(utc).ToString("yyyy-MM-dd");
+
+        var after = await admin.GetFromJsonAsync<JsonElement>($"/api/identity/admin/users?lastLoginFrom={Day(latest.AddDays(2))}", Ct);
+        after.GetProperty("items").GetArrayLength().ShouldBe(0);
+        var around = await admin.GetFromJsonAsync<JsonElement>($"/api/identity/admin/users?lastLoginFrom={Day(latest.AddDays(-1))}", Ct);
+        around.GetProperty("items").GetArrayLength().ShouldBeGreaterThan(0);
     }
 }

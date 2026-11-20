@@ -112,7 +112,7 @@ export const useAdminOffices = (enabled = true) =>
     queryFn: () => api.GET('/api/identity/admin/offices').then(unwrap),
   })
 
-/** Type-ahead over active institutions (public names only); live search from 1 character, the older request aborted. */
+/** Type-ahead over active institutions (public names only); live search from 2 characters, the older request aborted. */
 export const useInstitutionSearch = (q: string, enabled = true) =>
   useQuery({
     queryKey: adminKeys.institutionSearch(q),

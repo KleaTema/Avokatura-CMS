@@ -38,7 +38,7 @@ export function InstitutionPicker({
   size?: 'small' | 'medium'
 }) {
   const [input, setInput] = useState(value?.name ?? '')
-  // live search: from 1 character, 300 ms after the last keystroke
+  // live search: from 2 characters, 300 ms after the last keystroke
   const q = useLiveSearch(input)
   // the name of the chosen institution is not a search
   const search = useInstitutionSearch(value && input === value.name ? '' : q)

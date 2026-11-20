@@ -349,7 +349,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
     [InlineData("tab=all&categoryCode=NOPE", "categoryCode")]
     [InlineData("tab=all&lawyerId=00000000-0000-0000-0000-000000000001", "lawyerId")]
     [InlineData("tab=all&hearingFrom=2026-11-05&hearingTo=2026-11-01", "hearingTo")]
-    // live search: 1 character is a search (200), only more than 100 is refused
+    // live search: a 1-character text is no filter (200), only more than 100 is refused
     [InlineData("tab=all&q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1", "q")]
     [InlineData("tab=all&courtId=-1", "courtId")]
     public async Task Invalid_query_is_400_with_the_field(string query, string field)
@@ -566,7 +566,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         page.GetProperty("total").GetInt32().ShouldBe(wanted.Count);
     }
 
-    // ---------------------------------------------------------------- live search (TextSearch: 1 character, LIKE fallback)
+    // ---------------------------------------------------------------- live search (TextSearch: from 2 characters, LIKE decides)
 
     /// <summary>
     /// SeedSearchAsync's A, B, C plus D 2026-120001/1 (contains "2026-12"; object "Përgjigje e paditurit", party "Dritë
@@ -603,19 +603,20 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Theory]
-    [InlineData("c", "A,D")] // 1 character (LIKE fallback): "Financave" and "Çela" — "c" finds "ç"
-    [InlineData("ç", "A,D")] // and the other way round
+    [InlineData("pa", "A,D,E")] // 2 characters: "Padi", "paditurit"
+    [InlineData("ce", "D")] // "ce" finds "Çela"
+    [InlineData("ÇE", "D")] // and the other way round
     [InlineData("pergjigje", "D")] // accent-insensitive: "Përgjigje"
     [InlineData("PËRGJIGJE", "D")] // case-insensitive
     [InlineData("cela", "D")]
     [InlineData("2026-12", "D")] // the hyphen kept: E has "2026" and "12", but not "2026-12"
-    [InlineData("%", "E")] // % is a character, not a wildcard (else every case)
-    [InlineData("_", "E")] // _ too ("A_B", "FL_77"; else every case)
+    [InlineData("0%", "E")] // % is a character, not a wildcard
+    [InlineData("_7", "E")] // _ too ("FL_77"; else "AKT-77", "FL-9917" …)
     [InlineData("50%", "E")]
     [InlineData("A_B", "E")]
     [InlineData("+hoxha -arben", "")] // FULLTEXT operators are text, never operators (no "+hoxha" anywhere)
     [InlineData("hoxha arben", "A")] // every term, in any order
-    public async Task Live_search_from_1_character_accent_insensitive_with_literal_symbols(string q, string expected)
+    public async Task Live_search_from_2_characters_accent_insensitive_with_literal_symbols(string q, string expected)
     {
         var ids = await SeedLiveSearchAsync();
         await using var factory = new AshApiFactory(Db);
@@ -634,17 +635,39 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         var ids = await SeedLiveSearchAsync();
         await using var factory = new AshApiFactory(Db);
 
-        // the lawyer sees D only (assigned): "c" matches A and D, the scope keeps D
+        // the lawyer sees D only (assigned): "pa" matches A, D and E, the scope keeps D
         using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
-        (await PageAll(lawyer, "tab=mine&q=c")).Select(PublicIdOf).ShouldBe([ids["D"]]);
-        var header = await GetPage(lawyer, "/api/search?q=c");
+        (await PageAll(lawyer, "tab=mine&q=pa")).Select(PublicIdOf).ShouldBe([ids["D"]]);
+        var header = await GetPage(lawyer, "/api/search?q=pa");
         header.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("casePublicId").GetGuid()).ShouldBe([ids["D"]]);
 
-        // the monitor (every case) gets both from the header search too, from 1 character
+        // the monitor (every case) gets all three from the header search too
         using var monitor = factory.CreateClient().AsUser("monitor@ash.local");
-        var all = await GetPage(monitor, "/api/search?q=c");
+        var all = await GetPage(monitor, "/api/search?q=pa");
         all.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("casePublicId").GetGuid())
-            .ShouldBe([ids["A"], ids["D"]], ignoreOrder: true);
+            .ShouldBe([ids["A"], ids["D"], ids["E"]], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task One_character_is_no_server_search_the_list_stays_whole_and_the_header_search_refuses_it()
+    {
+        await SeedLiveSearchAsync();
+        await using var factory = new AshApiFactory(Db);
+        using var monitor = factory.CreateClient().AsUser("monitor@ash.local");
+
+        // TextSearch.MinTermLength: a 1-character term is dropped, so "c" (or "%") is the plain list
+        var plain = (await GetPage(monitor, "/api/cases?tab=all")).GetProperty("total").GetInt32();
+        foreach (var q in new[] { "c", "%", "a b" })
+        {
+            (await GetPage(monitor, $"/api/cases?tab=all&q={Uri.EscapeDataString(q)}")).GetProperty("total").GetInt32()
+                .ShouldBe(plain, q);
+        }
+
+        // "c pa": the 1-character term is dropped, "pa" decides
+        (await GetPage(monitor, "/api/cases?tab=all&q=c%20pa")).GetProperty("total").GetInt32()
+            .ShouldBe((await GetPage(monitor, "/api/cases?tab=all&q=pa")).GetProperty("total").GetInt32());
+
+        (await monitor.GetAsync("/api/search?q=c", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]

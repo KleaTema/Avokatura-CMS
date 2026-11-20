@@ -601,7 +601,9 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         // task 053j: a table of every case — no filter is fine (unknown parameters such as the old q are ignored)
         (await client.GetAsync(SearchPath, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await client.GetAsync($"{SearchPath}?q=agim", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
-        var many = await Errors("?plaintiff=a&courtId=abc&category=NOPE&result=NOPE&status=NOPE");
+        // live search: 1 character is no filter (200); only more than 100 is refused
+        (await client.GetAsync($"{SearchPath}?plaintiff=a", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        var many = await Errors($"?plaintiff={new string('a', 101)}&courtId=abc&category=NOPE&result=NOPE&status=NOPE");
         foreach (var field in new[] { "plaintiff", "courtId", "category", "result", "status" })
         {
             many.TryGetProperty(field, out _).ShouldBeTrue(field);

@@ -40,7 +40,7 @@ export function SearchField({
       autoFocus={autoFocus}
       sx={sx}
       slotProps={{
-        htmlInput: { maxLength: SEARCH_MAX_LENGTH, role: 'searchbox', autoComplete: 'off', spellCheck: false },
+        htmlInput: { maxLength: SEARCH_MAX_LENGTH, autoComplete: 'off', spellCheck: false },
         input: {
           startAdornment: (
             <InputAdornment position="start">

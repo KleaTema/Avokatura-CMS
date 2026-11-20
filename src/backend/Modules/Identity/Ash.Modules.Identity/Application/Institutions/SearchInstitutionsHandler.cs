@@ -18,20 +18,20 @@ public sealed record InstitutionSearchResult(
 public sealed class SearchInstitutionsHandler(IdentityDbContext db)
 {
     public const int MaxLimit = 20;
-    public const int MinQueryLength = 1;
+    public const int MinQueryLength = TextSearch.MinTermLength;
     public const int MaxQueryLength = TextSearch.MaxLength;
 
     public async Task<Result<IReadOnlyList<InstitutionSearchResult>>> Handle(string? q, int? limit, CancellationToken ct)
     {
         var search = TextSearch.Parse(q);
-        if (search.Text.Length is < MinQueryLength or > MaxQueryLength)
+        if (search.Text.Length > MaxQueryLength || search.IsEmpty)
         {
             return Error.Validation("institution.search_query_invalid",
-                "Shkruani nga 1 deri në 100 karaktere për të kërkuar institucionin.");
+                "Shkruani nga 2 deri në 100 karaktere për të kërkuar institucionin.");
         }
 
         var take = Math.Clamp(limit ?? MaxLimit, 1, MaxLimit);
-        // live search (TextSearch): every term a substring, from 1 character
+        // live search (TextSearch): every term a substring, from 2 characters
         // fixed text (column and parameter names); the values are parameters
         var sql = $"SELECT id AS Value FROM institutions WHERE {search.Predicate("institution", "name", "short_name", "nipt")}";
         var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("institution").ToArray<object>());

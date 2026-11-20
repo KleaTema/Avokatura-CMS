@@ -167,12 +167,15 @@ public class SearchTests(MySqlFixture db) : IntegrationTest(db)
     }
 
     [Fact]
-    public async Task Too_short_or_too_long_text_is_400()
+    public async Task Empty_one_character_or_too_long_text_is_400_and_two_characters_are_a_search()
     {
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser("monitor@ash.local");
 
+        // live search: from 2 characters (TextSearch.MinTermLength)
+        (await client.GetAsync("/api/search?q=%20ab%20", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await client.GetAsync("/api/search?q=%20a%20", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await client.GetAsync("/api/search?q=%20%20", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await client.GetAsync($"/api/search?q={new string('x', 101)}", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await client.GetAsync("/api/search", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }

@@ -57,7 +57,7 @@ internal abstract class RegistrationSearchFilter
 }
 
 /// <summary>
-/// Free text (live search, <see cref="TextSearch"/>): every term a substring, from 1 character, accent-insensitive;
+/// Free text (live search, <see cref="TextSearch"/>): every term a substring, from 2 characters, accent-insensitive;
 /// the ngram FULLTEXT index (script 014) narrows from 2 characters, the escaped LIKE decides. The parameters are named
 /// after <see cref="RegistrationSearchFilter.Name"/>.
 /// </summary>
@@ -80,7 +80,8 @@ internal abstract class TextFilter : RegistrationSearchFilter
 
         if (search.IsEmpty)
         {
-            return Task.FromResult(FilterBinding.NoMatch);
+            // only 1-character terms (TextSearch.MinTermLength): no filter, as an empty field
+            return Task.FromResult(FilterBinding.Of("TRUE"));
         }
 
         return Task.FromResult(FilterBinding.Of(

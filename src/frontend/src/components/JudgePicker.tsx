@@ -43,7 +43,7 @@ export function JudgePicker({
   size?: 'small' | 'medium'
 }) {
   const [input, setInput] = useState(value?.name ?? '')
-  // live search: from 1 character, 300 ms after the last keystroke
+  // live search: from 2 characters, 300 ms after the last keystroke
   const q = useLiveSearch(input)
   const disabled = !showAll && courtId === null
   // the label of the chosen judge is not a search

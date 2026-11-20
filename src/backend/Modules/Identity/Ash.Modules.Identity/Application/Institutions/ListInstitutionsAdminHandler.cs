@@ -63,11 +63,10 @@ public sealed class ListInstitutionsAdminHandler(IdentityDbContext db, ParallelR
             institutions = institutions.Where(i => i.PublicId == publicId);
         }
 
-        if (!string.IsNullOrWhiteSpace(q.Q))
+        // live search (TextSearch): every term a substring, from 2 characters (shorter is no filter)
+        if (TextSearch.Parse(q.Q) is { IsEmpty: false } search)
         {
-            // live search (TextSearch): every term a substring, from 1 character
             // fixed text (column and parameter names); the values are parameters
-            var search = TextSearch.Parse(q.Q);
             var sql = $"SELECT id AS Value FROM institutions WHERE {search.Predicate("institutions", "name", "short_name", "nipt")}";
             var matches = db.Database.SqlQueryRaw<uint>(sql, search.Parameters("institutions").ToArray<object>());
             institutions = institutions.Where(i => matches.Contains(i.Id));

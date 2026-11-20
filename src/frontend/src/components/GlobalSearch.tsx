@@ -50,7 +50,7 @@ export function GlobalSearch({ variant, onDone }: { variant: 'header' | 'sheet';
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null)
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
-  // live search: from 1 character, 300 ms after the last keystroke (the older request is aborted)
+  // live search: from 2 characters, 300 ms after the last keystroke (the older request is aborted)
   const q = useLiveSearch(text)
   // the highlighted row belongs to the text it was chosen for: a new text starts with none
   const [selection, setSelection] = useState({ q: '', index: -1 })

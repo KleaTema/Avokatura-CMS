@@ -9,7 +9,7 @@ namespace Ash.Infrastructure.Persistence;
 /// <list type="bullet">
 /// <item>The text is split on whitespace into terms (at most <see cref="MaxTerms"/>); every term must appear, as a
 /// contiguous substring ("contains"), in one of the searched columns — "2026-12" matches "…2026-12…", never "2026 … 12".</item>
-/// <item>From 1 character. A term's letter/digit runs of ≥ <see cref="NgramSearch.MinWordLength"/> characters go to the
+/// <item>From 2 characters (<see cref="MinTermLength"/>; shorter terms are dropped). A term's letter/digit runs of ≥ <see cref="NgramSearch.MinWordLength"/> characters go to the
 /// ngram FULLTEXT index (script 014) — it narrows the rows; the escaped <c>LIKE '%term%'</c> decides. A text with no
 /// such run (a 1-character term) is matched by the LIKE alone, on the same columns, inside the caller's scope.</item>
 /// <item>Accent- and case-insensitive through the columns' utf8mb4_0900_ai_ci collation ("pergjigje" finds
@@ -22,6 +22,14 @@ public sealed partial class TextSearch
 {
     public const int MaxTerms = 8;
     public const int MaxLength = 100;
+
+    /// <summary>
+    /// The shortest term searched on the server: 1-character terms are dropped (a 1-letter LIKE scans the table —
+    /// 0.4–0.6 s on 100k cases). A text of 1-character terms only is no search: lists show every row, and the
+    /// endpoints that need a text (header search, institution autocomplete) refuse it. Lists filtered in the browser
+    /// (lib/search matches()) keep 1 character.
+    /// </summary>
+    public const int MinTermLength = 2;
 
     private TextSearch(string text, IReadOnlyList<string> terms, string words)
     {
@@ -44,7 +52,7 @@ public sealed partial class TextSearch
     public static TextSearch Parse(string? q)
     {
         var text = (q ?? string.Empty).Trim();
-        var terms = WhitespaceRegex().Split(text).Where(t => t.Length > 0)
+        var terms = WhitespaceRegex().Split(text).Where(t => t.Length >= MinTermLength)
             .Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxTerms).ToList();
         return new TextSearch(text, terms, NgramSearch.BooleanQuery(string.Join(' ', terms)));
     }

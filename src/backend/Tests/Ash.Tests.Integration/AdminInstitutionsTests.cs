@@ -123,7 +123,8 @@ public class AdminInstitutionsTests(MySqlFixture db) : IntegrationTest(db)
             Contains(percent, plain).ShouldBeFalse();
             (await SearchFor(client, "__")).ShouldBeEmpty();
 
-            foreach (var q in new[] { "%", " a ", new string('a', 101) })
+            // live search: from 2 characters; empty, 1 character or more than 100 is refused
+            foreach (var q in new[] { "  ", "%", " a ", new string('a', 101) })
             {
                 var response = await Send(client, HttpMethod.Get, $"{Search}?q={Uri.EscapeDataString(q)}", "avokat1@ash.local");
                 response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, q);

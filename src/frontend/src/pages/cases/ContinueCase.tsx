@@ -57,7 +57,7 @@ import { formatTiraneDate } from '../../lib/dates'
 import { useKeysetPaging } from '../../lib/paging'
 import { problemMessage } from '../../lib/problem'
 import { useDebounced } from '../../lib/useDebounced'
-import { LIVE_SEARCH_DEBOUNCE_MS } from '../../lib/useLiveSearch'
+import { LIVE_SEARCH_DEBOUNCE_MS, serverSearchText } from '../../lib/useLiveSearch'
 
 const t = sq.cases.continue
 
@@ -189,14 +189,14 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   const clearAll = () =>
     set(Object.fromEntries([...fields.map((f) => [f.name, '']), [JUDGE_NAME, ''], [MORE, ''], [ADDED_PARAM, ''], ['status', '']]))
 
-  // live search: texts from 1 character, 300 ms after the last keystroke, '' at once when cleared; chosen values at
-  // once (debounced as a string: `raw` is new each render)
+  // live search: texts from 2 characters (serverSearchText), 300 ms after the last keystroke, '' at once when cleared;
+  // chosen values at once (debounced as a string: `raw` is new each render)
   const typed = JSON.parse(useDebounced(JSON.stringify(raw), LIVE_SEARCH_DEBOUNCE_MS)) as RegistrationFilterValues
   const values: RegistrationFilterValues = Object.fromEntries(
     fields.map((f) => {
       const key = f.name as RegistrationFilterName
-      const now = (raw[key] ?? '').trim()
-      return [f.name, f.input === 'Text' ? (now === '' ? '' : (typed[key] ?? '').trim()) : (raw[key] ?? '')]
+      const now = serverSearchText(raw[key] ?? '')
+      return [f.name, f.input === 'Text' ? (now === '' ? '' : serverSearchText(typed[key] ?? '')) : (raw[key] ?? '')]
     }),
   )
   const filtered = Object.values(values).some((v) => v) || moreParam !== '' || status !== 'CONTINUABLE'

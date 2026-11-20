@@ -271,23 +271,23 @@ internal sealed class ListCasesHandler(
         string? search = null;
         if (q.Q is not null)
         {
-            // live search: from 1 character (TextSearch); an empty text is no filter
+            // live search: from 2 characters (TextSearch.MinTermLength); a shorter text is no filter
             search = q.Q.Trim();
-            if (search.Length == 0)
-            {
-                search = null;
-            }
-            else if (search.Length > TextSearch.MaxLength)
+            if (search.Length > TextSearch.MaxLength)
             {
                 errors.Add("q", "Kërkimi ka më shumë se 100 shkronja.");
             }
+            else if (TextSearch.Parse(search).IsEmpty)
+            {
+                search = null;
+            }
         }
 
-        // task 053m: the code / act number columns (a part of them, from 1 character)
+        // task 053m: the code / act number columns (a part of them, from 2 characters; 1 character is no filter)
         string? Contains(string? value, string field)
         {
             var text = value?.Trim();
-            if (string.IsNullOrEmpty(text))
+            if (string.IsNullOrEmpty(text) || text.Length < TextSearch.MinTermLength)
             {
                 return null;
             }

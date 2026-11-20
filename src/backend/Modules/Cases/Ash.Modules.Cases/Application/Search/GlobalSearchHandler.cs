@@ -65,11 +65,11 @@ internal sealed partial class GlobalSearchHandler(
     public async Task<Result<SearchResponse>> Handle(string? q, int? limit, CancellationToken ct)
     {
         var text = q?.Trim() ?? string.Empty;
-        // live search: from 1 character (TextSearch)
-        if (text.Length is 0 or > TextSearch.MaxLength)
+        // live search: a term of at least 2 characters (TextSearch.MinTermLength), at most 100 characters in all
+        if (text.Length > TextSearch.MaxLength || TextSearch.Parse(text).IsEmpty)
         {
             return Error.ValidationFields("Kërkimi nuk është i vlefshëm.",
-                new Dictionary<string, string[]> { ["q"] = ["Shkruani nga 1 deri në 100 karaktere për të kërkuar."] });
+                new Dictionary<string, string[]> { ["q"] = ["Shkruani nga 2 deri në 100 karaktere për të kërkuar."] });
         }
 
         var take = Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit);

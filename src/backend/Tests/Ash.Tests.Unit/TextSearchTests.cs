@@ -27,9 +27,19 @@ public class TextSearchTests
     }
 
     [Fact]
-    public void One_character_has_no_ngram_words_so_the_LIKE_alone_decides()
+    public void One_character_terms_are_dropped_so_a_text_of_them_only_is_no_search()
     {
-        var s = TextSearch.Parse("5");
+        TextSearch.Parse("5").IsEmpty.ShouldBeTrue();
+        TextSearch.Parse("a b %").IsEmpty.ShouldBeTrue();
+        var s = TextSearch.Parse("e Hoxha 5");
+        s.Terms.ShouldBe(["Hoxha"]);
+        s.Words.ShouldBe("+Hoxha");
+    }
+
+    [Fact]
+    public void Two_symbols_have_no_ngram_words_so_the_LIKE_alone_decides()
+    {
+        var s = TextSearch.Parse("0%");
         s.Words.ShouldBe(string.Empty);
         s.Predicate("q", "a.case_code").ShouldBe("(a.case_code LIKE @q_l0)");
     }

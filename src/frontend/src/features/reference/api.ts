@@ -55,7 +55,7 @@ export const useDecisionResults = () =>
   })
 
 /**
- * Active judges (server search, at most 50): of one court (q optional), or of all courts (q from 1 character — live
+ * Active judges (server search, at most 50): of one court (q optional), or of all courts (q from 2 characters — live
  * search). Disabled when neither a court nor a q is given, or when `enabled` is false. The older request is aborted.
  */
 export const useJudgeSearch = (courtId: number | null, q: string, enabled = true) => {

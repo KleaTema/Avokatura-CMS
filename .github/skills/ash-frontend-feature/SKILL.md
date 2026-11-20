@@ -51,7 +51,9 @@ Every list, table and picker gets search unless it will never have more than ~10
   - Every search input is the ONE `SearchField` (`components/ui/SearchField.tsx`) — never a page's own TextField, never
     a "Kërko" button, never "press Enter". FilterBar draws its text filters with it automatically.
   - Server lists: the text goes through `useLiveSearch(text)` (`lib/useLiveSearch.ts`): 300 ms after the last keystroke,
-    from 1 character (no minimum), '' at once when cleared (the X restores the full list immediately).
+    from 2 characters (1-character terms are dropped, as on the server: `TextSearch.MinTermLength` — a 1-letter LIKE
+    scans the table), '' at once when cleared (the X restores the full list immediately). Lists filtered in the browser
+    keep 1 character.
   - The text lives in the URL (`?q=`, or the table's prefixed key) so Back and refresh keep it; a new text goes back to
     page 1 (useUrlFilters drops the page) and the total follows it.
   - The list hook keys the query by the text and passes react-query's `signal` (`queryFn: ({ signal }) => api.GET(…, { signal })`)
@@ -61,7 +63,7 @@ Every list, table and picker gets search unless it will never have more than ~10
   - Lists loaded whole: `matches(q, …fields)` (`lib/search.ts`) — every whitespace-separated term contained in a field.
   - Matching is "contains", case- and accent-insensitive, the SAME on both sides: "pergjigje" finds "Përgjigje", "c"
     finds "ç" (client: `normalize()` in lib/search; server: `TextSearch` in Ash.Infrastructure — the ngram index
-    narrows from 2 characters, an escaped `LIKE '%term%'` decides, so 1 character and "2026-12" work and % _ are literal).
+    narrows from 2 characters, an escaped `LIKE '%term%'` decides, so "2026-12" works and % _ are literal).
 - Pickers with more than ~10 options: MUI Autocomplete with typing, not a plain Select.
 - Empty result: "Nuk u gjet asnjë rezultat për „{q}“." with a button to clear the search.
 - Search box label lists what can be searched, e.g. "Kërko (emër, kod)".
