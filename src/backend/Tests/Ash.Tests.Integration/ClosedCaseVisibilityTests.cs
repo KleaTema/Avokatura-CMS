@@ -61,6 +61,10 @@ public class ClosedCaseVisibilityTests(MySqlFixture db) : IntegrationTest(db)
         await using var factory = new AshApiFactory(Db);
         using var client = factory.CreateClient().AsUser(user);
 
+        // task 054e: in "Të mbyllura", not in the open tab any more
+        (await Codes(client, "tab=closed")).ShouldContain(code, user);
+        (await Codes(client, $"tab={tab}")).ShouldNotContain(code, user);
+        // the old explicit status still answers (links)
         (await Codes(client, $"tab={tab}&status=CLOSED")).ShouldContain(code, user);
         // the header search too
         var search = await Json(await client.GetAsync($"/api/search?q={Uri.EscapeDataString(code)}", Ct));
@@ -82,6 +86,12 @@ public class ClosedCaseVisibilityTests(MySqlFixture db) : IntegrationTest(db)
             await using var factory = new AshApiFactory(Db);
             using var lawyer = factory.CreateClient().AsUser("avokat1@ash.local");
             (await Codes(lawyer, "tab=mine&status=CLOSED")).ShouldContain(code);
+            // "Të mbyllura": the badge, and its two choices split by the archive
+            var closed = await Json(await lawyer.GetAsync("/api/cases?tab=closed&limit=100", Ct));
+            closed.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("caseCode").GetString() == code)
+                .GetProperty("isArchived").GetBoolean().ShouldBeTrue();
+            (await Codes(lawyer, "tab=closed&status=ARCHIVED")).ShouldContain(code);
+            (await Codes(lawyer, "tab=closed&status=CLOSED")).ShouldNotContain(code);
             var search = await Json(await lawyer.GetAsync($"/api/search?q={Uri.EscapeDataString(code)}", Ct));
             var hit = search.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("caseCode").GetString() == code);
             hit.GetProperty("isArchived").GetBoolean().ShouldBeTrue();
@@ -90,6 +100,32 @@ public class ClosedCaseVisibilityTests(MySqlFixture db) : IntegrationTest(db)
         {
             await Scalar($"UPDATE dossiers SET archived_at = NULL, archived_by = NULL WHERE id = {s.ActiveDossierId}");
         }
+    }
+
+    [Theory]
+    [InlineData("avokat1@ash.local", "mine,closed")]
+    [InlineData("avokat2@ash.local", "mine,closed")]
+    [InlineData("ndihmes@ash.local", "mine,closed")]
+    [InlineData("jurist@ash.local", "mine,closed")]
+    [InlineData("institucion@ash.local", "institution,closed")]
+    [InlineData("kryetar@ash.local", "unassigned,office,supervised,closed")]
+    [InlineData("monitor@ash.local", "all,closed")]
+    [InlineData("protokoll@ash.local", "registered,closed")]
+    public async Task Every_role_gets_Te_mbyllura_after_its_lists_with_a_count_newest_closed_first(string user, string expected)
+    {
+        await using var s = await CaseSeed.CreateAsync(Db.AppConnectionString);
+        await CloseAsync(s);
+        await using var factory = new AshApiFactory(Db);
+        using var client = factory.CreateClient().AsUser(user);
+        var tabs = (await Json(await client.GetAsync("/api/cases/tabs", Ct))).GetProperty("tabs").EnumerateArray().ToList();
+        string.Join(',', tabs.Select(t => t.GetProperty("tab").GetString())).ShouldBe(expected, user);
+
+        // the count = what the tab lists; sorted by closing date, newest first
+        var count = tabs.Single(t => t.GetProperty("tab").GetString() == "closed").GetProperty("count").GetInt32();
+        var page = await Json(await client.GetAsync("/api/cases?tab=closed&limit=100", Ct));
+        page.GetProperty("total").GetInt32().ShouldBe(count);
+        var closedAt = page.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("closedAt").GetDateTime()).ToList();
+        closedAt.ShouldBe(closedAt.OrderByDescending(x => x).ToList());
     }
 
     [Fact]

@@ -32,6 +32,7 @@ internal sealed class CaseListFilterSource(
         [Case.Registered] = "Regjistruar",
         [Case.Active] = "Aktive",
         [Case.Closed] = "Mbyllur",
+        [CaseListFilter.ArchivedStatus] = "Arkivuar",
     };
 
     /// <summary>
@@ -50,8 +51,8 @@ internal sealed class CaseListFilterSource(
         var tab = context.TryGetValue("tab", out var code) && CaseListTabs.TryParse(code, out var parsed) && tabs.Contains(parsed)
             ? parsed
             : tabs.FirstOrDefault();
-        // the cases of the tab, every status: what the selects may offer
-        var scope = builder.Filtered(new CaseListFilter(tab, CaseListFilter.AllStatuses, null, null, null, null, null, null, null, null));
+        // the rows of the tab (its statuses, task 054c): what the selects may offer — never a value no row has
+        var scope = builder.Filtered(CaseListFilter.Whole(tab));
 
         var courtIds = await scope.Select(c => c.CourtId).Distinct().ToListAsync(ct);
         var judgeIds = await scope.Where(c => c.JudgeId != null).Select(c => c.JudgeId!.Value).Distinct().ToListAsync(ct);

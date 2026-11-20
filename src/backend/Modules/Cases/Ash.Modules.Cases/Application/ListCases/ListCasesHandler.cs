@@ -56,7 +56,9 @@ public sealed record CaseListItem(
     DateTime RegisteredAt,
     DateTime? ClosedAt,
     /// <summary>The next hearing's time has passed and it was not completed yet (task 030): the UI marks it.</summary>
-    bool NextHearingIsOverdue);
+    bool NextHearingIsOverdue,
+    /// <summary>Task 054e: the dossier is archived (a closed case; the "Të mbyllura" tab shows a badge).</summary>
+    bool IsArchived);
 
 /// <summary>
 /// The case list (task 019): one endpoint, a tab per kind of user, keyset paging. A tab the user may not use → 403;
@@ -79,7 +81,7 @@ internal sealed class ListCasesHandler(
     public const int MaxLimit = 100;
 
     private static readonly string[] Statuses =
-        [CaseListFilter.OpenStatus, CaseListFilter.AllStatuses, Case.Registered, Case.Active, Case.Closed];
+        [CaseListFilter.OpenStatus, CaseListFilter.AllStatuses, Case.Registered, Case.Active, Case.Closed, CaseListFilter.ArchivedStatus];
 
     public async Task<Result<KeysetPage<CaseListItem>>> Handle(ListCasesQuery query, CancellationToken ct)
     {
@@ -128,13 +130,17 @@ internal sealed class ListCasesHandler(
         rows = rows.Take(limit).ToList();
 
         var lawyers = await PrimaryLawyerNamesAsync(rows, ct);
+        // task 054e: the archive badge (one query for the page's dossiers)
+        var dossierIds = rows.Select(c => c.DossierId).Distinct().ToList();
+        var archived = (await db.Dossiers.AsNoTracking().Where(d => dossierIds.Contains(d.Id) && d.ArchivedAt != null)
+            .Select(d => d.Id).ToListAsync(ct)).ToHashSet();
         var items = new List<CaseListItem>(rows.Count);
         foreach (var c in rows)
         {
             var court = await reference.GetCourt(c.CourtId, ct); // cached lookup
             items.Add(new CaseListItem(c.PublicId, c.CaseCode, c.ActNumber, court?.Name ?? string.Empty,
                 lawyers.GetValueOrDefault(c.Id), c.Priority, c.LifecycleStatus, c.NextHearingAt, c.IsSuspended,
-                c.RegisteredAt, c.ClosedAt, c.NextHearingAt < clock.UtcNow));
+                c.RegisteredAt, c.ClosedAt, c.NextHearingAt < clock.UtcNow, archived.Contains(c.DossierId)));
         }
 
         var next = hasMore ? CaseListQueryBuilder.CursorAfter(rows[^1], filter.Sort).Encode(filter) : null;
@@ -149,7 +155,7 @@ internal sealed class ListCasesHandler(
             status = q.Status.Trim().ToUpperInvariant();
             if (!Statuses.Contains(status))
             {
-                errors.Add("status", "Statusi duhet të jetë OPEN, ALL, REGISTERED, ACTIVE ose CLOSED.");
+                errors.Add("status", "Statusi duhet të jetë OPEN, ALL, REGISTERED, ACTIVE, CLOSED ose ARCHIVED.");
             }
         }
 

@@ -172,7 +172,9 @@ export function CaseListPage() {
   // task 054d: the Protokoll's own tab keeps the cases after the Kryetar assigns them; those open as their
   // registration summary (the Protokoll has no case view of them)
   const [summaryFor, setSummaryFor] = useState<string | null>(null)
-  const registrationOnly = (item: CaseListItem) => tab === 'registered' && item.status !== 'REGISTERED'
+  // task 054e: the Protokoll's closed ones too (its "Të mbyllura" = the closed cases it registered)
+  const registrationOnly = (item: CaseListItem) =>
+    (tab === 'registered' && item.status !== 'REGISTERED') || (tab === 'closed' && permissions.includes('case.create'))
   const columns = COLUMNS.filter((c) => classification || !c.classification).map((c) =>
     canAssign && c.key === 'lawyer' ? ASSIGN_COLUMN : c,
   )
@@ -442,7 +444,12 @@ function CaseRow({
       hearing
     ),
     priority: <StatusChip kind="priority" value={item.priority} />,
-    status: <StatusChip kind="status" value={item.status} />,
+    // task 054e: an archived dossier's closed case carries the archive badge
+    status: item.isArchived ? (
+      <Chip size="small" variant="outlined" label={t.archivedBadge} />
+    ) : (
+      <StatusChip kind="status" value={item.status} />
+    ),
     suspended: item.isSuspended ? (
       <Tooltip title={t.suspendedTooltip}>
         <Box component="span" role="img" aria-label={t.suspendedTooltip} sx={{ display: 'inline-flex', color: 'warning.dark' }}>

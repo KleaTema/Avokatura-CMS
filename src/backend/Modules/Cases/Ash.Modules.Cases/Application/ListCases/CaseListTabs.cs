@@ -23,7 +23,14 @@ public enum CaseListTab
     Supervised,
 
     /// <summary>"Të gjitha": every case (Monitor, Admin).</summary>
-    All
+    All,
+
+    /// <summary>
+    /// "Të mbyllura" (task 054e): the CLOSED cases (archived included) of everything the user can view (the access scope
+    /// of CaseAccessService — own, office, supervised, institution, all) plus, for the Protokoll, the ones it
+    /// registered. Only a filter: no access rule of its own.
+    /// </summary>
+    Closed
 }
 
 /// <summary>Which tabs a user gets, decided by permissions and the kind of user — never by a role name alone.</summary>
@@ -46,6 +53,7 @@ public static class CaseListTabs
         CaseListTab.Institution => "institution",
         CaseListTab.Supervised => "supervised",
         CaseListTab.All => "all",
+        CaseListTab.Closed => "closed",
         _ => throw new ArgumentOutOfRangeException(nameof(tab))
     };
 
@@ -96,9 +104,19 @@ public static class CaseListTabs
             tabs.Add(CaseListTab.Institution);
         }
 
+        // task 054e: "Të mbyllura" after the user's own lists (the Kryetar's: after "Në mbikëqyrje"), before "Të gjitha"
+        if (tabs.Count > 0)
+        {
+            tabs.Add(CaseListTab.Closed);
+        }
+
         if (user.HasPermission(ViewAllPermission))
         {
             tabs.Add(CaseListTab.All);
+            if (!tabs.Contains(CaseListTab.Closed))
+            {
+                tabs.Add(CaseListTab.Closed);
+            }
         }
 
         return tabs;

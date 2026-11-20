@@ -80,7 +80,11 @@ public sealed record CaseListFilter(
     /// <summary>The tab's rows without filters, every status of the tab (the tab counts = the list with no filter).</summary>
     public static CaseListFilter Whole(CaseListTab tab) => new(tab, null, null, null, null, null, null, null, null, null);
 
-    public CaseListSort Sort => Status == Case.Closed
+    /// <summary>Task 054e: closed and the dossier archived (the "Të mbyllura" tab's "Arkivuar").</summary>
+    public const string ArchivedStatus = "ARCHIVED";
+
+    // task 054e: "Të mbyllura" by closing date, newest first
+    public CaseListSort Sort => Status is Case.Closed or ArchivedStatus || Tab == CaseListTab.Closed
         ? CaseListSort.ClosedDesc
         : Tab == CaseListTab.Registered ? CaseListSort.RegisteredDesc : CaseListSort.NextHearing;
 
@@ -149,6 +153,8 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
     public static IReadOnlyList<string> StatusesOf(CaseListTab tab) => tab switch
     {
         CaseListTab.Unassigned => [Case.Registered],
+        // task 054e: "Të mbyllura" — closed, and closed with the dossier archived ("Arkivuar")
+        CaseListTab.Closed => [Case.Closed, CaseListFilter.ArchivedStatus],
         _ => [Case.Registered, Case.Active],
     };
 
@@ -158,11 +164,16 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
         var cases = TabPredicate(db.Cases.AsNoTracking(), f.Tab);
 
         var ofTab = StatusesOf(f.Tab).ToArray();
+        var archived = db.Dossiers.AsNoTracking().Where(d => d.ArchivedAt != null).Select(d => d.Id);
         cases = f.Status switch
         {
             CaseListFilter.OpenStatus => cases.Where(c => OpenStatuses.Contains(c.LifecycleStatus)),
+            // the closed tab is CLOSED only (TabPredicate); its two choices split it by the dossier's archive
+            null when f.Tab == CaseListTab.Closed => cases,
             null => cases.Where(c => ofTab.Contains(c.LifecycleStatus)),
             CaseListFilter.AllStatuses => cases,
+            CaseListFilter.ArchivedStatus => cases.Where(c => c.LifecycleStatus == Case.Closed && archived.Contains(c.DossierId)),
+            Case.Closed when f.Tab == CaseListTab.Closed => cases.Where(c => !archived.Contains(c.DossierId)),
             var status => cases.Where(c => c.LifecycleStatus == status)
         };
 
@@ -269,6 +280,15 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
         if (f.Tab == CaseListTab.Registered)
         {
             return cases;
+        }
+
+        // task 054e: "Të mbyllura" = the user's access scope (CaseAccessService, unchanged) plus, for the Protokoll, the
+        // closed cases it registered (its own tab's rule, at registration level)
+        if (f.Tab == CaseListTab.Closed && user.HasPermission(CaseListTabs.CreatePermission))
+        {
+            var userId = (uint)user.UserId;
+            var scoped = access.ApplyScope(cases).Select(c => c.Id);
+            return cases.Where(c => c.RegisteredBy == userId || scoped.Contains(c.Id));
         }
 
         return f.IncludeEarlierLevels ? access.ApplyScopeWithEarlierLevels(cases) : access.ApplyScope(cases);
@@ -402,6 +422,8 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             CaseListTab.Institution => cases.Where(c => db.CaseInstitutions.Any(i => i.InstitutionId == institutionId && i.EndedAt == null && i.CaseId == c.Id)),
             // task 053d: the same branch as the scope (CaseScopeQuery.Supervised)
             CaseListTab.Supervised => cases.Where(CaseScopeQuery.Supervised(db, user.UserId)),
+            // task 054e: who sees it is the scope's business (Filtered); the tab is the CLOSED status — ix_cases_status_closed
+            CaseListTab.Closed => cases.Where(c => c.LifecycleStatus == Case.Closed),
             _ => cases
         };
     }
