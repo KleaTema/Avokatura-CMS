@@ -7,7 +7,7 @@ public enum CaseListTab
     /// <summary>"Çështjet e mia": a current assignment of the user (lawyers, assistants, institution jurists).</summary>
     Mine,
 
-    /// <summary>REGISTERED cases registered by the user (Protokoll).</summary>
+    /// <summary>"Të regjistruarat nga unë": the open cases registered by the user (Protokoll; task 054d: ACTIVE too).</summary>
     Registered,
 
     /// <summary>"Pa avokat": REGISTERED cases of the Kryetar's office.</summary>

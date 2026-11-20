@@ -21,6 +21,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CirclePause, UserPlus } from 'lucide-react'
 import { AssignLawyerDialog } from '../../components/AssignLawyerDialog'
+import { RegistrationSummaryDialog } from '../../components/RegistrationSummaryDialog'
 import { FilterBar } from '../../components/filters/FilterBar'
 import { hasValue, rangeOf, textOf, yesNoOf } from '../../components/filters/filterTypes'
 import { UnusedFilterGuard } from '../../components/filters/UnusedFilterGuard'
@@ -168,6 +169,10 @@ export function CaseListPage() {
   const items = list.data?.items ?? []
   // the button only for who may assign; the API checks each case again
   const canAssign = tab === 'unassigned' && permissions.includes('case.assign_lawyer')
+  // task 054d: the Protokoll's own tab keeps the cases after the Kryetar assigns them; those open as their
+  // registration summary (the Protokoll has no case view of them)
+  const [summaryFor, setSummaryFor] = useState<string | null>(null)
+  const registrationOnly = (item: CaseListItem) => tab === 'registered' && item.status !== 'REGISTERED'
   const columns = COLUMNS.filter((c) => classification || !c.classification).map((c) =>
     canAssign && c.key === 'lawyer' ? ASSIGN_COLUMN : c,
   )
@@ -304,6 +309,7 @@ export function CaseListPage() {
                     item={item}
                     columns={columns}
                     onAssign={canAssign ? () => setAssigning(item.publicId) : undefined}
+                    onSummary={registrationOnly(item) ? () => setSummaryFor(item.publicId) : undefined}
                   />
                 ))}
               </TableBody>
@@ -321,6 +327,7 @@ export function CaseListPage() {
         </Box>
       )}
 
+      {summaryFor && <RegistrationSummaryDialog casePublicId={summaryFor} onClose={() => setSummaryFor(null)} />}
       {assigning && (
         <AssignLawyerDialog
           casePublicId={assigning}
@@ -343,7 +350,17 @@ const FROM_LIST: FromCaseList = { listDepth: 1 }
  * holds a button, which cannot sit inside an <a>: then the case code is the link, stretched over the whole row
  * (::after), and the button lies above it.
  */
-function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Column[]; onAssign?: () => void }) {
+function CaseRow({
+  item,
+  columns,
+  onAssign,
+  onSummary,
+}: {
+  item: CaseListItem
+  columns: Column[]
+  onAssign?: () => void
+  onSummary?: () => void
+}) {
   const today = todayInTirane()
   const hearingDay = tiraneDateOf(item.nextHearingAt)
   const when = hearingDay === today ? t.today : hearingDay === addDays(today, 1) ? t.tomorrow : null
@@ -444,6 +461,29 @@ function CaseRow({ item, columns, onAssign }: { item: CaseListItem; columns: Col
   if (onAssign) {
     return (
       <TableRow hover component="div" sx={{ position: 'relative', cursor: 'pointer' }}>
+        {cells}
+      </TableRow>
+    )
+  }
+
+  // task 054d: a case the Protokoll registered but can no longer open → its registration summary, not the case page
+  if (onSummary) {
+    return (
+      <TableRow
+        hover
+        component="div"
+        role="button"
+        tabIndex={0}
+        aria-label={sq.cases.registrationSummary.open(item.caseCode)}
+        onClick={onSummary}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onSummary()
+          }
+        }}
+        sx={{ cursor: 'pointer', '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineOffset: -2 } }}
+      >
         {cells}
       </TableRow>
     )

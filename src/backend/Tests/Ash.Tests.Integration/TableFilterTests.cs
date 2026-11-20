@@ -42,7 +42,7 @@ public class TableFilterTests(MySqlFixture db) : IntegrationTest(db)
     [InlineData("monitor@ash.local", "all", "REGISTERED:Regjistruar,ACTIVE:Aktive")]
     [InlineData("avokat1@ash.local", "mine", "REGISTERED:Regjistruar,ACTIVE:Aktive")]
     [InlineData("kryetar@ash.local", "unassigned", "")] // REGISTERED only: no status filter
-    [InlineData("protokoll@ash.local", "registered", "")]
+    [InlineData("protokoll@ash.local", "registered", "REGISTERED:Regjistruar,ACTIVE:Aktive")] // task 054d
     public async Task The_case_status_filter_offers_the_statuses_of_the_tab_with_the_chip_names_and_no_duplicates(
         string user, string tab, string expected)
     {

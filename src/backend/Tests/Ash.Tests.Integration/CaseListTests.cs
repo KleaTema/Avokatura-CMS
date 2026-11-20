@@ -132,7 +132,8 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         var (where, order) = tab switch
         {
             "mine" => ($"{Open} AND EXISTS (SELECT 1 FROM case_assignments a WHERE a.case_id = c.id AND a.user_id = {{av1}} AND a.ended_at IS NULL)", OpenOrder),
-            "registered" => ("c.office_id = {tr} AND c.lifecycle_status = 'REGISTERED' AND c.registered_by = {prot}", "c.registered_at DESC, c.id DESC"),
+            // task 054d: every open case the Protokoll registered (REGISTERED and ACTIVE), whatever the office
+            "registered" => ($"{Open} AND c.registered_by = {{prot}}", "c.registered_at DESC, c.id DESC"),
             "unassigned" => ("c.office_id = {tr} AND c.lifecycle_status = 'REGISTERED'", OpenOrder),
             "office" when user == "drkryetar" => ($"c.office_id = {{dr}} AND {Open}", OpenOrder),
             "office" => ($"c.office_id = {{tr}} AND {Open}", OpenOrder),

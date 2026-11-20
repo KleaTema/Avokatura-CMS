@@ -1478,6 +1478,17 @@ export const sq = {
         linkEnded: 'Lidhja e institucionit me çështjen u mbyll.',
       },
     },
+    /** task 054d: what the Protokoll registered, for a case it can no longer open */
+    registrationSummary: {
+      title: (code: string) => `Të dhënat e regjistrimit — ${code}`,
+      titleLoading: 'Të dhënat e regjistrimit',
+      open: (code: string) => `Shiko të dhënat e regjistrimit të çështjes ${code}`,
+      note: 'Çështja i është caktuar avokatit: këtu shihni vetëm të dhënat e regjistrimit.',
+      act: 'Nr. i aktit',
+      object: 'Objekti',
+      parties: 'Palët',
+      noParties: 'Nuk ka palë.',
+    },
     list: {
       tabs: {
         mine: 'Çështjet e mia',

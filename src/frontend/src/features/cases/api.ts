@@ -673,6 +673,15 @@ export const useMoreFilters = (more: string) =>
   })
 
 /** The fields of the search form, in order, with their control (GET …/registration-search/filters). */
+/** Task 054d: the registration data of a case the Protokoll registered (its own tabs, registration level only). */
+export const useRegistrationSummary = (caseId: string) =>
+  useQuery({
+    queryKey: ['registration-summary', caseId] as const,
+    retry: false,
+    queryFn: ({ signal }) =>
+      api.GET('/api/cases/{id}/registration-summary', { params: { path: { id: caseId } }, signal }).then(unwrap),
+  })
+
 /** Task 054c: the status choice of the search with its names (GET …/registration-search/statuses), the one source. */
 export const useRegistrationStatuses = () =>
   useQuery({

@@ -16,7 +16,8 @@ namespace Ash.Modules.Cases.Application.RegistrationSearch;
 /// <summary>
 /// Filters: the values of <see cref="RegistrationSearchFilters"/> by name (code, actNumber, courtLevel, courtId, …).
 /// More: the "+ Shto filtër" values (the report builder's JSON object, ICaseFilterCatalog). Status: see
-/// <see cref="RegistrationSearchStatus"/>; none = <see cref="RegistrationSearchStatus.Continuable"/>.
+/// <see cref="RegistrationSearchStatus"/>; none = <see cref="RegistrationSearchStatus.Continuable"/>, or
+/// <see cref="RegistrationSearchStatus.All"/> when a filter has a value (a search, task 054d).
 /// </summary>
 public sealed record RegistrationSearchQuery(
     IReadOnlyList<KeyValuePair<string, string>> Filters, string? After, int? Limit, string? Status = null, string? More = null);
@@ -166,7 +167,12 @@ internal sealed class RegistrationSearchHandler(
             }
         }
 
-        var status = string.IsNullOrWhiteSpace(query.Status) ? RegistrationSearchStatus.Continuable : query.Status.Trim().ToUpperInvariant();
+        // no status chosen: the continuable dossiers; but a SEARCH (any filter value) finds the dossier in every status
+        // (task 054d: "2026-625265/1" finds the dossier, shown at its latest level X/2, even while X/2 is open)
+        var searching = query.Filters.Any(f => !string.IsNullOrWhiteSpace(f.Value)) || !string.IsNullOrWhiteSpace(query.More);
+        var status = string.IsNullOrWhiteSpace(query.Status)
+            ? (searching ? RegistrationSearchStatus.All : RegistrationSearchStatus.Continuable)
+            : query.Status.Trim().ToUpperInvariant();
         if (!RegistrationSearchStatus.Values.Contains(status))
         {
             errors.Add("status", "Statusi duhet të jetë CONTINUABLE, ALL, OPEN ose CLOSED.");

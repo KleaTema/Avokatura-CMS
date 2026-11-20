@@ -160,7 +160,6 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
   }
 
   const statusParam = params.get('status') ?? ''
-  const status: RegistrationStatus = isStatus(statusParam) ? statusParam : 'CONTINUABLE'
   // task 054c: the options and their names come from the API (one source)
   const statuses = useRegistrationStatuses()
 
@@ -202,7 +201,11 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
       return [f.name, f.input === 'Text' ? (now === '' ? '' : serverSearchText(typed[key] ?? '')) : (raw[key] ?? '')]
     }),
   )
-  const filtered = Object.values(values).some((v) => v) || moreParam !== '' || status !== 'CONTINUABLE'
+  // task 054d: no status chosen → "Mund të vazhdohen"; but a search (any value) looks in every status, as the API does,
+  // so a code of an older level finds its dossier (shown at the latest level)
+  const searching = Object.values(values).some((v) => v) || moreParam !== ''
+  const status: RegistrationStatus = isStatus(statusParam) ? statusParam : searching ? 'ALL' : 'CONTINUABLE'
+  const filtered = searching || status !== 'CONTINUABLE'
   const results = useRegistrationSearch(fields, values, status, moreParam, { cursor: paging.cursor, size: paging.size })
   const [notifyFor, setNotifyFor] = useState<RegistrationSearchItem | null>(null)
   const items = results.data?.items ?? []
@@ -234,7 +237,8 @@ function Search({ onContinue }: { onContinue: (publicId: string) => void }) {
         <AppSelect
           label={t.status}
           value={status}
-          onChange={(value) => set({ status: value === 'CONTINUABLE' ? '' : value })}
+          // explicit, so "Mund të vazhdohen" stays chosen while searching
+          onChange={(value) => set({ status: value })}
           options={(statuses.data ?? []).map((o) => ({ value: o.value, label: o.label }))}
         />
       </Box>

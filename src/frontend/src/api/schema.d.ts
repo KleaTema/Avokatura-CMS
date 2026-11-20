@@ -228,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/{id}/registration-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetRegistrationSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/registration-search/statuses": {
         parameters: {
             query?: never;
@@ -3967,6 +3983,15 @@ export interface components {
             canContinue: boolean;
             reason: null | string;
         };
+        RegistrationSummaryResponse: {
+            caseCode: string;
+            status: string;
+            courtLevelName: string;
+            courtName: string;
+            actNumber: null | string;
+            objectText: string;
+            parties: components["schemas"]["NextLevelPreviewParty"][];
+        };
         RegistrationWarning: {
             code: string;
             message: string;
@@ -4893,6 +4918,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistrationFilterResponse"][];
+                };
+            };
+        };
+    };
+    GetRegistrationSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationSummaryResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

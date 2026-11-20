@@ -64,6 +64,18 @@ public static class RegistrationEndpoints
             .Produces<IReadOnlyList<RegistrationFilterResponse>>()
             .WithName("ListRegistrationSearchFilters");
 
+        // task 054d: the registration data of a case the Protokoll registered and can no longer open (its own tabs)
+        endpoints.MapGet("/api/cases/{id:guid}/registration-summary",
+                async (Guid id, Application.RegistrationSearch.RegistrationSummaryHandler handler, CancellationToken ct) =>
+                {
+                    var result = await handler.Handle(id, ct);
+                    return result.IsSuccess ? Results.Ok(result.Value) : result.Error!.ToProblem();
+                })
+            .RequirePermission("case.create")
+            .Produces<Application.RegistrationSearch.RegistrationSummaryResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithName("GetRegistrationSummary");
+
         // task 054c: the status choice of the search, with its names (the page has no list of its own)
         endpoints.MapGet("/api/cases/registration-search/statuses", () => Results.Ok(RegistrationSearchStatus.Options))
             .RequirePermission("case.link_previous")

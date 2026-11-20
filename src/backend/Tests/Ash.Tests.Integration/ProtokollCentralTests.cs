@@ -60,6 +60,12 @@ public class ProtokollCentralTests(MySqlFixture db) : IntegrationTest(db)
 
     private static async Task<List<JsonElement>> Rows(HttpClient client, string query)
     {
+        // task 054d: a search without a status looks in every status; these tests narrow the continuable table
+        if (!query.Contains("status="))
+        {
+            query += (query.Length == 0 ? "?" : "&") + "status=CONTINUABLE";
+        }
+
         var response = await client.GetAsync($"{Search}{query}", Ct);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync(Ct));
         return (await Json(response)).GetProperty("items").EnumerateArray().ToList();

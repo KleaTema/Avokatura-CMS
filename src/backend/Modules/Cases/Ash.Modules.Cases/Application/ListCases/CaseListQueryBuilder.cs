@@ -141,14 +141,14 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
     /// <summary>
     /// Task 054c: the lifecycle statuses a row of the tab can have — the ONE source of the tab's status filter options
     /// (CaseListFilterSource) and of "every status" (ALL, the empty filter). The list tabs hold OPEN cases (closed ones
-    /// have their own tab, task 054e); "Pa avokat" and the Protokoll's tab hold REGISTERED cases only (an institution
+    /// have their own tab, task 054e); "Pa avokat" holds REGISTERED cases only (an institution
     /// jurist may be on a REGISTERED case, so "mine" keeps both). An explicit status (e.g. CLOSED from an old link) is
     /// still honoured, and a search without a status covers every status (<see cref="CaseListFilter.AllStatuses"/>, task
     /// 047: closed cases stay findable).
     /// </summary>
     public static IReadOnlyList<string> StatusesOf(CaseListTab tab) => tab switch
     {
-        CaseListTab.Unassigned or CaseListTab.Registered => [Case.Registered],
+        CaseListTab.Unassigned => [Case.Registered],
         _ => [Case.Registered, Case.Active],
     };
 
@@ -261,6 +261,14 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
         {
             var ids = ColumnMatch(act, "act_number", "act");
             cases = cases.Where(c => ids.Contains(c.Id));
+        }
+
+        // task 054d: the Protokoll's own tab is its own rule (registered_by = the user, case.create — TabPredicate): it
+        // keeps the cases it registered after the Kryetar assigns them, at registration level (the list row; opening a
+        // non-REGISTERED one shows the registration summary, never the case page — CaseAccessService is unchanged)
+        if (f.Tab == CaseListTab.Registered)
+        {
+            return cases;
         }
 
         return f.IncludeEarlierLevels ? access.ApplyScopeWithEarlierLevels(cases) : access.ApplyScope(cases);
@@ -387,7 +395,7 @@ public sealed class CaseListQueryBuilder(CasesDbContext db, CaseAccessService ac
             CaseListTab.Mine => cases.Where(c => db.CaseAssignments.Any(a => a.UserId == userId && a.EndedAt == null && a.CaseId == c.Id)),
             // "Të regjistruarat nga unë" by registered_by (task 053j: a registration goes to the office of its court, not
             // to the registrar's) — the index of fk_cases_reg_by
-            CaseListTab.Registered => cases.Where(c => c.RegisteredBy == userId && c.LifecycleStatus == Case.Registered),
+            CaseListTab.Registered => cases.Where(c => c.RegisteredBy == userId),
             CaseListTab.Unassigned => cases.Where(c => c.OfficeId == officeId && c.LifecycleStatus == Case.Registered),
             CaseListTab.Office => cases.Where(c => c.OfficeId == officeId),
             // ix_ci_institution (institution_id, ended_at, case_id)

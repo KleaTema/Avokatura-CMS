@@ -57,6 +57,7 @@ public static class CasesModule
 		services.AddScoped<NextLevelGate>();
 		services.AddScoped<RegisterNextLevelHandler>();
 		services.AddScoped<NextLevelPreviewHandler>();
+		services.AddScoped<Application.RegistrationSearch.RegistrationSummaryHandler>(); // task 054d
 		services.AddScoped<NotifyNotClosedHandler>();
 		services.AddScoped<CaseListQueryBuilder>();
 		services.AddScoped<CaseListSpecialFactory>();

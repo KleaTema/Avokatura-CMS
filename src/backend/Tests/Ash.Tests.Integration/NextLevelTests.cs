@@ -660,8 +660,11 @@ public class NextLevelTests(MySqlFixture db) : IntegrationTest(db)
         Find(page, open.CaseCode).ShouldNotBeNull();
         page.GetProperty("total").GetInt32().ShouldBe(page.GetProperty("items").GetArrayLength());
 
-        // task 053j: the default is "Mund të vazhdohen" — the open one is not listed
-        var continuable = await Search(client, ("plaintiff", "oxha"));
+        // task 054d: a search without a status looks in every status; "Mund të vazhdohen" chosen lists no open one
+        var searched = await Search(client, ("plaintiff", "oxha"));
+        Find(searched, closed.CaseCode).ShouldNotBeNull();
+        Find(searched, open.CaseCode).ShouldNotBeNull();
+        var continuable = await Search(client, ("plaintiff", "oxha"), ("status", "CONTINUABLE"));
         Find(continuable, closed.CaseCode).ShouldNotBeNull();
         Find(continuable, open.CaseCode).ShouldBeNull();
 
