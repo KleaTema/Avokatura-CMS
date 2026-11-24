@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Dev-only demo seed for the client presentation. NOT referenced by Ash.Api, not published, not in any Docker image:
+    run it by hand (dotnet run, project src/backend/Tools/Ash.DemoSeed; see docs/demo-seed.md)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <RootNamespace>Ash.DemoSeed</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- the real API in-process (the same host the integration tests use): every change goes through its handlers -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="PDFsharp-MigraDoc" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Host\Ash.Api\Ash.Api.csproj" />
+  </ItemGroup>
+</Project>

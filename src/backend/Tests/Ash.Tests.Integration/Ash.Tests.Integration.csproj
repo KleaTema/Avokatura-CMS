@@ -18,6 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Host\Ash.Api\Ash.Api.csproj" />
+    <!-- the dev-only demo seed, tested here (DemoSeedTests); nothing else references it -->
+    <ProjectReference Include="..\..\Tools\Ash.DemoSeed\Ash.DemoSeed.csproj" />
     <ProjectReference Include="..\..\Database\Ash.Database\Ash.Database.csproj" />
   </ItemGroup>
   <ItemGroup>
