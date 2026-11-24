@@ -41,6 +41,7 @@ Columns, the case each one is checked on:
 | `case.set_status` Suspend / resume | ● | – | – | – | – | – | – | – | – | – | – | – | – |
 | `case.delegate` Delegate to an institution | ● | – | – | – | – | – | – | – | – | – | – | – | – |
 | `case.transfer` Transfer the lawyers | – | – | – | ● | – | – | – | – | – | – | – | – | – |
+| `assistant.manage` Add / remove legal assistants (053q) | ● | – | – | – | – | – | – | – | – | – | – | – | – |
 | `institution.assign_jurist` Assign the institution's jurist | – | – | – | – | – | – | – | ● | – | – | – | – | – |
 | `decision.record` Record / complete the decision | ● | ● | ● | ● | – | – | – | – | – | – | – | ● | – |
 | `chat.case` Case chat (by the case profile) | ● | ● | ● | – | – | – | – | ● | – | ● | – | ● | – |

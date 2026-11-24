@@ -178,18 +178,14 @@ public class HardeningTests(MySqlFixture db) : IntegrationTest(db)
             await Scalar($"UPDATE users SET is_active = 1 WHERE id = {s.User("avokat2").Id}");
         }
 
-        // an assistant link: ended → the assistant's case access goes with the next request (the seed's own per-case
-        // assistant row goes first, so only the link gives access)
-        await Scalar($"DELETE FROM case_assignments WHERE case_id = {s.ActiveCaseId} AND case_role = 'LEGAL_ASSISTANT'");
-        using var kryetar = factory.CreateClient().AsUser("kryetar@ash.local");
+        // task 053q: the primary lawyer removes the assistant from the case → the access goes with the next request
         using var assistant = factory.CreateClient().AsUser("ndihmes@ash.local");
-        (await assistant.GetAsync(casePath, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        var created = await kryetar.PostAsJsonAsync("/api/assistant-links",
-            new { assistantUserPublicId = await PublicIdOf("users", s.User("ndihmes").Id), lawyerUserPublicId = await PublicIdOf("users", s.User("avokat1").Id) }, Ct);
-        created.IsSuccessStatusCode.ShouldBeTrue(await created.Content.ReadAsStringAsync(Ct));
+        using var primary = factory.CreateClient().AsUser("avokat1@ash.local");
         (await assistant.GetAsync(casePath, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
-        var link = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("linkPublicId").GetGuid();
-        (await kryetar.DeleteAsync($"/api/assistant-links/{link}", Ct)).IsSuccessStatusCode.ShouldBeTrue();
+        var rowVersion = Convert.ToUInt32(await Scalar($"SELECT row_version FROM cases WHERE id = {s.ActiveCaseId}"));
+        var removed = await primary.DeleteAsync(
+            $"{casePath}/assistants/{await PublicIdOf("users", s.User("ndihmes").Id)}?rowVersion={rowVersion}", Ct);
+        removed.IsSuccessStatusCode.ShouldBeTrue(await removed.Content.ReadAsStringAsync(Ct));
         (await assistant.GetAsync(casePath, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
