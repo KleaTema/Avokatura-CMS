@@ -242,6 +242,8 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
             ["unassigned"] = (await Oracle(s.Sql("c.office_id = {tr} AND c.lifecycle_status = 'REGISTERED'"), "c.id")).Count,
             ["office"] = (await Oracle(s.Sql($"c.office_id = {{tr}} AND {Open}"), "c.id")).Count,
             ["supervised"] = 0, // task 053d: nothing under supervision here
+            // task 054e: the closed cases of the Kryetar's scope (own office here)
+            ["closed"] = (await Oracle(s.Sql("c.office_id = {tr} AND c.lifecycle_status = 'CLOSED'"), "c.id")).Count,
         }, ignoreOrder: true);
         kryetar.GetProperty("defaultTab").GetString().ShouldBe("unassigned");
 
@@ -249,7 +251,7 @@ public class CaseListTests(MySqlFixture db) : IntegrationTest(db)
         (await Tabs("protokoll@ash.local")).GetProperty("defaultTab").GetString().ShouldBe("registered");
         (await Tabs("institucion@ash.local")).GetProperty("defaultTab").GetString().ShouldBe("institution");
         var monitor = await Tabs("monitor@ash.local");
-        Counts(monitor).Keys.ShouldBe(["all"]);
+        Counts(monitor).Keys.ShouldBe(["all", "closed"]);
         Counts(monitor)["all"].ShouldBe((await Oracle(Open, "c.id")).Count);
         monitor.GetProperty("defaultTab").GetString().ShouldBe("all");
         (await Tabs("admin@ash.local")).GetProperty("defaultTab").GetString().ShouldBe("all");

@@ -2958,6 +2958,7 @@ export interface components {
             /** Format: date-time */
             closedAt: null | string;
             nextHearingIsOverdue: boolean;
+            isArchived: boolean;
         };
         CaseSubcategoryResponse: {
             code: string;
