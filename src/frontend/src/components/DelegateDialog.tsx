@@ -7,11 +7,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  Radio,
-  RadioGroup,
   Stack,
   TextField,
   Typography,
@@ -24,11 +19,12 @@ import { AppSelect } from './ui/AppSelect'
 import { preventEnterSubmit, useFullScreenDialog } from './ui/dialog'
 
 const t = sq.cases.institutions
-const MODES = ['DELEGIM', 'RELATIM']
+/** Task 054f: the popup always delegates; RELATIM stays accepted by the API and kept in the data, not offered here. */
+const DELEGATION_MODE = 'DELEGIM'
 
 /**
- * "Delego / Relato" (case.delegate, the primary lawyer): the institution is one of the case's MONITORING institutions
- * (a party), the mode DELEGIM or RELATIM, with what changes. The API decides the rest — a court level without
+ * "Delego çështjen" (case.delegate, the primary lawyer): the institution is one of the case's MONITORING institutions
+ * (a party), with what changes. The API decides the rest — a court level without
  * delegation (Gjykata e Lartë) comes back as its message; a 409 offers "Rifresko".
  */
 export function DelegateDialog({
@@ -46,7 +42,6 @@ export function DelegateDialog({
   const fullScreen = useFullScreenDialog()
   const monitoring = detail.institutions.filter((i) => i.mode === 'MONITORING')
   const [institution, setInstitution] = useState(monitoring.length === 1 ? monitoring[0].institutionPublicId : '')
-  const [mode, setMode] = useState('DELEGIM')
   const [missing, setMissing] = useState(false)
 
   const submit = async () => {
@@ -57,7 +52,7 @@ export function DelegateDialog({
       return
     }
     try {
-      const result = await delegate.mutateAsync({ institutionPublicId: institution, mode, rowVersion: Number(detail.header.rowVersion) })
+      const result = await delegate.mutateAsync({ institutionPublicId: institution, mode: DELEGATION_MODE, rowVersion: Number(detail.header.rowVersion) })
       onDone(result.institutionName)
     } catch (error) {
       outcome.fail(error)
@@ -96,14 +91,6 @@ export function DelegateDialog({
                   helperText={missing ? t.institutionRequired : undefined}
                   options={monitoring.map((i) => ({ value: i.institutionPublicId, label: i.name }))}
                 />
-                <FormControl component="fieldset">
-                  <FormLabel component="legend">{t.mode}</FormLabel>
-                  <RadioGroup row value={mode} onChange={(e) => setMode(e.target.value)}>
-                    {MODES.map((m) => (
-                      <FormControlLabel key={m} value={m} control={<Radio />} label={t.modes[m]} />
-                    ))}
-                  </RadioGroup>
-                </FormControl>
               </>
             )}
             <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
