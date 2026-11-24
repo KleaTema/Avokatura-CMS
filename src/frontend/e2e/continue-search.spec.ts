@@ -19,18 +19,19 @@ test('the table filters by its fields, the status and an added filter, and keeps
   const table = page.getByRole('table', { name: 'Dosjet e të gjitha zyrave' })
   await expect(table).toBeVisible()
 
-  // the plaintiff finds it — but only with "Të gjitha": by default only the cases that can continue are listed
+  // task 054d: a search looks in every status ("Të gjitha" shown), so the plaintiff finds the open case at once
   await search.getByLabel('Paditësi', { exact: true }).fill(`E2E Paditës ${tag}`)
-  await expect(page.getByText('Asnjë dosje nuk përputhet me filtrat.')).toBeVisible()
-  await search.getByLabel('Statusi', { exact: true }).click()
-  await page.getByRole('option', { name: 'Të gjitha' }).click()
   const row = table.getByRole('row').filter({ hasText: created.code })
   await expect(row).toBeVisible()
   await expect(row.getByText(`E2E test ${tag}`)).toBeVisible()
   await expect(row.getByText('E pambyllur në sistem')).toBeVisible()
   await expect(row.getByRole('button', { name: /^Vazhdo/ })).toHaveCount(0)
   await expect(page).toHaveURL(/plaintiff=/)
-  await expect(page).toHaveURL(/status=ALL/)
+  // "Mund të vazhdohen" chosen explicitly: the open case is not listed
+  await search.getByLabel('Statusi', { exact: true }).click()
+  await page.getByRole('option', { name: 'Mund të vazhdohen' }).click()
+  await expect(page.getByText('Asnjë dosje nuk përputhet me filtrat.')).toBeVisible()
+  await expect(page).toHaveURL(/status=CONTINUABLE/)
 
   // "+ Shto filtër" → Zyra: the report builder's filter, with the offices that have cases
   await page.getByRole('button', { name: 'Shto filtër' }).click()
